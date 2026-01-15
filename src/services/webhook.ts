@@ -53,7 +53,8 @@ export class WebhookService {
 
 		} catch (e) {
 			console.error(e);
-			new Notice(`❌ Webhook Failed: ${e.message}`);
+			// Fix: Cast 'e' to Error to access .message safely
+			new Notice(`❌ Webhook Failed: ${(e as Error).message}`);
 		}
 	}
 }

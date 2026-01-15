@@ -1,6 +1,5 @@
-import { App, TFile, normalizePath, Notice, TFolder } from 'obsidian';
+import { App, TFile, normalizePath, Notice } from 'obsidian';
 import { ZoteroAnnotation, ZoteroItemMetadata, MyPluginSettings } from '../types';
-// Ensure you have this library installed: npm install obsidian-lib-mknote
 import { ObsidianNoteFactory, ZettelNoteModel } from 'markdown-note-orm';
 
 export class ObsidianService {
@@ -12,11 +11,7 @@ export class ObsidianService {
 		this.settings = settings;
 	}
 
-	/**
-	 * Create/Update the Dashboard Note (Literature Note)
-	 */
 	async createLiteratureNote(metadata: ZoteroItemMetadata): Promise<TFile> {
-		// Sanitize filename
 		const fileName = metadata.title.replace(/[\\/:*?"<>|]/g, "").trim().slice(0, 60);
 		const path = normalizePath(`${this.settings.fleetingNoteFolder}/@${metadata.key} - ${fileName}.md`);
 
@@ -26,14 +21,12 @@ export class ObsidianService {
 		if (existing instanceof TFile) {
 			note = await ObsidianNoteFactory.loadAndPatch(this.app, path);
 		} else {
-			// Ensure folder exists
 			if (!this.app.vault.getAbstractFileByPath(this.settings.fleetingNoteFolder)) {
 				await this.app.vault.createFolder(this.settings.fleetingNoteFolder);
 			}
 			note = await ObsidianNoteFactory.createByType(this.app, path, 'literature', metadata.title);
 		}
 
-		// Set Properties
 		note.properties.set('zotero-key', metadata.key);
 		note.properties.set('authors', metadata.creators);
 		note.properties.set('year', metadata.date);
@@ -48,9 +41,6 @@ export class ObsidianService {
 		return this.app.vault.getAbstractFileByPath(path) as TFile;
 	}
 
-	/**
-	 * Create Atomic Fleeting Note
-	 */
 	async saveNote(
 		annotation: ZoteroAnnotation,
 		mode: 'create' | 'overwrite',
@@ -62,10 +52,10 @@ export class ObsidianService {
 		if (mode === 'create') {
 			const path = await this.getUniquePath(annotation);
 			note = await ObsidianNoteFactory.createByType(this.app, path, 'fleeting', this.generateTitle(annotation));
-			this.setNoteContent(note, annotation, imageFile);
+			this.setNoteContent(note, annotation, imageFile || null);
 		} else if (mode === 'overwrite' && targetFile) {
 			note = await ObsidianNoteFactory.loadAndPatch(this.app, targetFile.path);
-			this.setNoteContent(note, annotation, imageFile);
+			this.setNoteContent(note, annotation, imageFile || null);
 		} else { return; }
 
 		await note.save();
@@ -84,52 +74,27 @@ export class ObsidianService {
 		new Notice("Appended.");
 	}
 
-	/**
-	 * FALLBACK: Search vault for image if not found in map
-	 * IMPROVED: Uses Coordinate Matching logic compatible with Zotero Integration
-	 */
 	findLocalImage(annotation: ZoteroAnnotation): TFile | null {
 		const files = this.app.vault.getFiles();
-
-		// Filter down to images first
 		const imageFiles = files.filter(f => ['png','jpg','jpeg'].includes(f.extension.toLowerCase()));
 
-		// Strategy 1: Check for Annotation Key (some custom templates might use this)
 		const keyMatch = imageFiles.find(f => f.name.includes(annotation.key));
 		if (keyMatch) return keyMatch;
 
-		// Strategy 2: Coordinate Match (Standard Zotero Integration Format)
-		// Format: {{citekey}}-p{{page}}-x{{x}}-y{{y}}.png
 		if (annotation.position && annotation.position.rects && annotation.position.rects.length > 0) {
 			const rect = annotation.position.rects[0];
-			// Zotero Integration uses Math.round() for coordinates
 			const targetX = Math.round(rect[0]);
 			const targetY = Math.round(rect[1]);
 			const targetPage = (annotation.position.pageIndex || 0) + 1;
 
 			return imageFiles.find(f => {
 				const name = f.name;
-				// Check if file belongs to this paper (contains citekey)
 				if (!name.includes(annotation.citationKey)) return false;
-
-				// Check page (robust against 'p1' or '-1-')
 				if (!name.includes(`p${targetPage}`) && !name.includes(`-${targetPage}-`)) return false;
-
-				// Check coords: look for x123 and y456
-				// We assume the separator is likely '-x' or 'x'
 				return name.includes(`x${targetX}`) && name.includes(`y${targetY}`);
 			}) || null;
 		}
 
-		return null;
-	}
-
-	async isAnnotationExported(key: string): Promise<TFile | null> {
-		const files = this.app.vault.getMarkdownFiles();
-		for (const f of files) {
-			const cache = this.app.metadataCache.getFileCache(f);
-			if (cache?.frontmatter?.['zotero-annotation-key'] === key) return f;
-		}
 		return null;
 	}
 
