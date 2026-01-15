@@ -124,7 +124,7 @@ export class HighlightModal extends Modal {
 		if (activeFile) {
 			try {
 				// FIX: Use ObsidianNoteFactory for cleaner instantiation
-				activeNoteModel = await ObsidianNoteFactory.load(this.app, activeFile.path);
+				activeNoteModel = await ObsidianNoteFactory.loadAndPatch(this.app, activeFile.path);
 				noteLoaded = true;
 				section.createDiv({
 					text: `Target: ${activeFile.basename}`,
