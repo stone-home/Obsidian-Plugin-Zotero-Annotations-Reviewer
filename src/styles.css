@@ -1,4 +1,4 @@
-/* --- Settings Tabs --- */
+/* --- Settings Tabs (Existing) --- */
 .zotero-settings-tabs {
 	display: flex;
 	border-bottom: 2px solid var(--background-modifier-border);
@@ -54,7 +54,7 @@
 	letter-spacing: 0.05em;
 }
 
-/* --- Lists (Headers, Conditions, Metadata) --- */
+/* --- Lists --- */
 .zotero-settings-list {
 	display: flex;
 	flex-direction: column;
@@ -99,7 +99,6 @@
 	color: var(--text-error);
 }
 
-/* --- Misc --- */
 .zotero-setting-spacer-bottom {
 	margin-bottom: 15px;
 }
@@ -114,4 +113,108 @@
 	text-align: center;
 	color: var(--text-muted);
 	font-size: 0.8em;
+}
+
+/* ==========================================================================
+   NEW IMPROVEMENTS (UI Refresh)
+   ========================================================================== */
+
+/* 1. Fancy Buttons */
+.zotero-btn-fancy {
+	background-color: var(--interactive-accent);
+	color: var(--text-on-accent);
+	border: none;
+	border-radius: 8px; /* Softer, modern corners */
+	padding: 8px 20px;
+	font-weight: 600;
+	font-size: 0.95em;
+	cursor: pointer;
+	box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15); /* Subtle lift */
+	transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 8px; /* Space between icon and text */
+	margin-right: 10px;
+}
+
+.zotero-btn-fancy:hover {
+	background-color: var(--interactive-accent-hover);
+	transform: translateY(-2px); /* Lift effect */
+	box-shadow: 0 5px 12px rgba(0, 0, 0, 0.25);
+	text-decoration: none;
+}
+
+.zotero-btn-fancy:active {
+	transform: translateY(0);
+	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.zotero-btn-fancy.disabled {
+	opacity: 0.6;
+	cursor: not-allowed;
+	transform: none;
+	box-shadow: none;
+	background-color: var(--background-modifier-cover);
+	color: var(--text-muted);
+}
+
+/* 2. Wide Highlight Modal */
+.modal.zotero-highlight-modal {
+	width: 90vw;           /* Take up 90% of viewport width */
+	max-width: 1400px;     /* Cap it for ultrawide monitors */
+	height: 85vh;          /* Taller as well */
+	display: flex;
+	flex-direction: column;
+}
+
+.modal.zotero-highlight-modal .modal-content {
+	flex: 1;
+	padding: 30px; /* More breathing room inside */
+	overflow-y: auto;
+}
+
+/* 3. Assistant View Styles */
+.zotero-assistant-container {
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 12px;
+	padding: 20px;
+	background-color: var(--background-primary-alt);
+	box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+}
+
+.zotero-assistant-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 20px;
+	border-bottom: 1px solid var(--background-modifier-border);
+	padding-bottom: 10px;
+}
+
+.zotero-title {
+	margin: 0;
+	font-size: 1.2em;
+	color: var(--text-accent);
+}
+
+.zotero-assistant-actions {
+	display: flex;
+	gap: 10px;
+	margin-bottom: 20px;
+	flex-wrap: wrap;
+}
+
+.zotero-local-highlights {
+	margin-top: 15px;
+	padding: 10px;
+	background: var(--background-primary);
+	border-radius: 8px;
+}
+
+.zotero-highlight-item {
+	margin-bottom: 8px;
+	padding-bottom: 8px;
+	border-bottom: 1px dashed var(--background-modifier-border);
+	color: var(--text-normal);
 }

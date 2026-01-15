@@ -23,32 +23,37 @@ export class AssistantView extends MarkdownRenderChild {
 		let imageMap = parseImageMap(source);
 		const container = el.createDiv({ cls: 'zotero-assistant-container' });
 
+		// Header
 		const header = container.createDiv({ cls: 'zotero-assistant-header' });
 		header.createEl("h4", { text: "🤖 Zotero Assistant", cls: "zotero-title" });
 
-		// --- Actions Row ---
+		// --- Actions Row (FANCY BUTTONS) ---
 		const btnRow = container.createDiv({ cls: 'zotero-assistant-actions' });
 
-		// 1. Highlight Review Button
 		const cache = this.plugin.app.metadataCache.getFileCache(file);
 		const key = cache?.frontmatter?.['zotero-key'] || cache?.frontmatter?.['citation-key'];
 
-		new ButtonComponent(btnRow)
+		// 1. Review Button
+		const reviewBtn = new ButtonComponent(btnRow)
 			.setButtonText(`Fetch / Review Highlights`)
-			.setCta()
+			.setIcon("highlighter")
 			.setDisabled(!key)
 			.onClick(() => {
 				if (key) new HighlightModal(this.plugin.app, this.plugin.settings, key, imageMap).open();
 			});
 
-		// 2. Webhook Button (Conditional)
+		// Apply Fancy Class
+		reviewBtn.buttonEl.addClass("zotero-btn-fancy");
+
+		// 2. Webhook Button
 		const webhookBtn = new ButtonComponent(btnRow)
 			.setButtonText("Send Webhook")
 			.setIcon("plane");
 
-		// Check Conditions asynchronously
-		const isWebhookActive = await this.plugin.webhookService.checkConditions(file);
+		webhookBtn.buttonEl.addClass("zotero-btn-fancy");
 
+		// Check Conditions
+		const isWebhookActive = await this.plugin.webhookService.checkConditions(file);
 		if (isWebhookActive) {
 			webhookBtn.onClick(async () => {
 				await this.plugin.webhookService.sendNoteData(file);
@@ -56,6 +61,7 @@ export class AssistantView extends MarkdownRenderChild {
 		} else {
 			webhookBtn.setDisabled(true);
 			webhookBtn.setTooltip("Conditions not met (check settings)");
+			// Optional: make it look disabled visually via CSS if needed, though .setDisabled does logic
 		}
 
 		// --- Local Highlights ---
@@ -83,7 +89,6 @@ export class AssistantView extends MarkdownRenderChild {
 			return;
 		}
 
-		// Default Logic
 		const content = await this.plugin.app.vault.read(file);
 		const lines = content.split('\n');
 		let found = 0;
