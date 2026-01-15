@@ -9,7 +9,11 @@ export class HighlightModal extends Modal {
 	private obsidian: ObsidianService;
 	private annotations: ZoteroAnnotation[] = [];
 	private itemMetadata: ZoteroItemMetadata | null = null;
+
+	// Key: Annotation ID, Value: Image Path
 	private imageMap: Record<string, string>;
+
+	private exportedCache: Set<string> = new Set();
 
 	constructor(
 		app: App,
@@ -33,9 +37,11 @@ export class HighlightModal extends Modal {
 		statusEl.setText("Fetching data from Zotero...");
 
 		try {
+			// Fetch Data
 			try {
 				this.annotations = await this.zotero.getAnnotations(this.citationKey);
 			} catch (e) {
+				console.error("Annotation fetch failed", e);
 				statusEl.setText(`❌ Error fetching annotations: ${(e as Error).message}`);
 				return;
 			}
@@ -43,6 +49,7 @@ export class HighlightModal extends Modal {
 			try {
 				this.itemMetadata = await this.zotero.getItemMetadata(this.citationKey);
 			} catch (e) {
+				console.warn("Metadata fetch failed", e);
 				new Notice("Metadata fetch failed, but continuing with annotations.");
 			}
 
@@ -59,19 +66,27 @@ export class HighlightModal extends Modal {
 		const { contentEl } = this;
 		contentEl.empty();
 
-		const header = contentEl.createDiv({ cls: "zotero-modal-header" });
+		// --- 1. Header & Actions ---
+		const header = contentEl.createDiv({ cls: "zotero-modal-header-actions" });
 		header.createEl("h2", { text: `Review: ${this.citationKey}`, cls: "zotero-no-margin" });
 
 		const btnFetch = header.createEl("button", { text: "📥 Fetch Images" });
 		btnFetch.onclick = () => this.triggerZoteroIntegrationImport();
 
+		// --- 2. Metadata Section ---
+		const metaContainer = contentEl.createDiv({ cls: 'zotero-metadata-container' });
 		if (this.itemMetadata) {
-			const metaDiv = contentEl.createDiv({ cls: 'zotero-meta-box' });
-			metaDiv.createDiv({ text: `Title: ${this.itemMetadata.title}`, cls: "zotero-font-bold" });
+			await this.renderMetadataSection(metaContainer, this.itemMetadata);
+		} else {
+			metaContainer.createDiv({
+				text: "⚠️ Metadata unavailable",
+				cls: "zotero-text-muted-italic"
+			});
 		}
 
 		contentEl.createEl("hr");
 
+		// --- 3. Annotations List ---
 		const container = contentEl.createDiv({ cls: 'zotero-list' });
 		if (this.annotations.length === 0) {
 			container.createDiv({ text: "No annotations found." });
@@ -82,65 +97,103 @@ export class HighlightModal extends Modal {
 		}
 	}
 
+	async renderMetadataSection(container: HTMLElement, meta: ZoteroItemMetadata) {
+		const section = container.createDiv({ cls: 'zotero-metadata-box' });
+		const grid = section.createDiv({ cls: 'zotero-metadata-grid' });
+
+		const addRow = (label: string, value: string) => {
+			grid.createEl("div", { text: label, cls: "zotero-metadata-label" });
+			grid.createEl("div", { text: value || "-" });
+		};
+
+		addRow("Title", meta.title);
+		addRow("Authors", meta.creators.join(", "));
+		addRow("Date", meta.date);
+		addRow("Publication", meta.publication);
+		if (meta.doi) addRow("DOI", meta.doi);
+	}
+
 	async renderAnnotationCard(container: HTMLElement, ann: ZoteroAnnotation) {
 		const card = container.createDiv({ cls: 'zotero-card' });
-		// Dynamic style is fine here, but we could also use css vars
 		card.style.borderLeft = `5px solid ${ann.color}`;
 
 		// --- IMAGE LOGIC ---
 		let localImageFile: TFile | null = null;
 		let sourceInfo = "";
 
+		// 1. Map Lookup
 		const mappedPath = this.imageMap[ann.key];
 		if (mappedPath) {
 			const file = this.app.vault.getAbstractFileByPath(mappedPath);
 			if (file instanceof TFile) {
 				localImageFile = file;
-				sourceInfo = "Matched via JSON Map";
+				sourceInfo = "via JSON Map";
 			}
 		}
 
+		// 2. Fallback Search
 		if (!localImageFile && (ann.type === 'image' || ann.type === 'ink')) {
 			localImageFile = this.obsidian.findLocalImage(ann);
-			if (localImageFile) sourceInfo = "Matched via Fallback Search";
+			if (localImageFile) sourceInfo = "via Search";
 		}
 
-		// --- Render ---
+		// --- Render Image ---
 		if (localImageFile) {
-			const imgEl = card.createEl("img", { cls: "zotero-card-img" });
+			const imgContainer = card.createDiv({ cls: "zotero-img-container" });
+			const imgEl = imgContainer.createEl("img");
 			imgEl.src = this.app.vault.getResourcePath(localImageFile);
+			imgEl.addClass("zotero-card-img");
 
-			card.createDiv({
-				text: `📷 ${sourceInfo}: ${localImageFile.name}`,
-				cls: "zotero-img-source"
+			imgContainer.createDiv({
+				text: `📷 ${localImageFile.name}`,
+				cls: "zotero-img-caption"
 			});
 		} else if (ann.type === 'image' || ann.type === 'ink') {
 			const placeholder = card.createDiv({ cls: "zotero-img-placeholder" });
 			placeholder.createDiv({ text: "📷 Image Not Found" });
-			const btn = placeholder.createEl("button", { text: "Fetch via Zotero Integration" });
+			const btn = placeholder.createEl("button", { text: "📥 Fetch via Zotero Integration" });
+			btn.style.marginTop = "10px";
 			btn.onclick = () => this.triggerZoteroIntegrationImport();
 		}
 
-		if (ann.text) card.createEl("blockquote", { text: ann.text });
-		if (ann.comment) card.createDiv({ text: `📝 ${ann.comment}` });
+		// --- Content ---
+		if (ann.text) card.createEl("blockquote", { text: ann.text, cls: "zotero-blockquote-no-margin" });
+		if (ann.comment) card.createDiv({ text: `📝 ${ann.comment}`, cls: "zotero-comment-italic" });
 
-		// Actions
-		const btnRow = card.createDiv({ cls: "zotero-card-actions" });
-		const btnCreate = btnRow.createEl("button", { text: "Create Note", cls: "mod-cta" });
+		// --- Footer ---
+		const footer = card.createDiv({ cls: "zotero-card-footer" });
+
+		const leftFooter = footer.createDiv({ cls: "zotero-footer-left" });
+		leftFooter.createSpan({ text: `Page ${ann.pageLabel}` });
+
+		// --- FIX: target moved inside attr ---
+		leftFooter.createEl("a", {
+			text: "Open PDF",
+			href: ann.link,
+			attr: { target: "_blank" }
+		});
+
+		// --- Actions ---
+		const rightFooter = footer.createDiv();
+		const btnCreate = rightFooter.createEl("button", { text: "Create Note", cls: "mod-cta" });
 		btnCreate.onclick = async () => {
-			// Passed localImageFile which is TFile | null. Matches function signature.
 			await this.obsidian.saveNote(ann, 'create', undefined, localImageFile);
-			new Notice("Note Created");
+			new Notice("Fleeting Note Created!");
 		};
 	}
 
 	async triggerZoteroIntegrationImport() {
-		const plugin = (this.app as any).plugins.getPlugin('obsidian-zotero-desktop-connector');
+		// @ts-ignore: Accessing external plugin
+		const plugin = this.app.plugins.getPlugin('obsidian-zotero-desktop-connector');
 		if (plugin) {
 			const fmt = plugin.settings.exportFormats?.find((f:any) => f.name.includes('Obsidian')) || plugin.settings.exportFormats[0];
 			if(fmt) await plugin.runImport(fmt.name, this.citationKey);
 		} else {
 			new Notice("Zotero Integration plugin not enabled.");
 		}
+	}
+
+	onClose() {
+		this.contentEl.empty();
 	}
 }
