@@ -1,113 +1,180 @@
 /* src/styles.css */
 
-.zotero-assistant-container {
-	padding: 10px;
-}
-
-.zotero-assistant-header {
+/* --- 1. MODAL WIDTH & CONTAINER OVERRIDES --- */
+/* Target specifically the modal window */
+.modal.zotero-reviewer-modal {
+	width: 90vw !important;         /* 90% of Viewport Width */
+	max-width: 1200px !important;   /* Max cap for ultra-wide screens */
+	height: 85vh !important;        /* Taller height */
+	padding: 0;                     /* Reset padding for better internal layout */
 	display: flex;
-	align-items: center;
+	flex-direction: column;
 }
 
-.zotero-title {
-	margin: 0;
+/* Ensure the content inside scrolls properly */
+.modal.zotero-reviewer-modal .modal-content {
+	padding: 20px 30px;
+	overflow-y: auto;
+	flex-grow: 1;
 }
 
-.zotero-key {
-	margin-left: 10px;
-}
-
-.zotero-text-error {
-	color: var(--text-error);
-}
-
-.zotero-error-msg {
-	color: var(--text-error);
-	font-size: 0.8em;
-	margin-bottom: 5px;
-}
-
-.zotero-assistant-actions {
-	margin: 15px 0;
-	display: flex;
-	gap: 10px;
-}
-
-.is-disabled-opacity {
-	opacity: 0.6;
-}
-
-.zotero-local-highlights {
-	/* container style */
-}
-
-.zotero-highlight-list {
-	padding-left: 20px;
-}
-
-.zotero-highlight-item {
-	font-size: 0.9em;
-	color: var(--text-muted);
-	margin-bottom: 5px;
-}
-
-.zotero-text-muted-italic {
-	font-style: italic;
-	color: var(--text-faint);
-}
-
-/* Modal / Highlights Styles */
-.zotero-status {
-	/* status style */
-}
-
-.zotero-modal-header {
+/* Header Tweaks */
+.zotero-modal-header-actions {
 	display: flex;
 	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 20px;
+	padding-bottom: 10px;
+	border-bottom: 2px solid var(--background-modifier-border);
 }
 
-.zotero-no-margin {
-	margin: 0;
+/* --- 2. METADATA SECTION (Modern Grid) --- */
+.zotero-metadata-section {
+	background-color: var(--background-primary-alt);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 8px;
+	padding: 15px;
+	margin-bottom: 25px;
 }
 
-.zotero-meta-box {
-	background: var(--background-secondary);
-	padding: 10px;
-	margin: 10px 0;
-	border-radius: 4px;
+.zotero-metadata-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 15px;
 }
 
-.zotero-font-bold {
-	font-weight: bold;
+.zotero-metadata-table {
+	width: 100%;
+	border-collapse: collapse;
 }
 
+.zotero-metadata-table th {
+	text-align: left;
+	color: var(--text-muted);
+	font-size: 0.8em;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	padding-bottom: 10px;
+	border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.zotero-metadata-table td {
+	padding: 10px 5px;
+	border-bottom: 1px solid var(--background-modifier-border);
+	vertical-align: middle;
+}
+
+.zotero-metadata-value {
+	font-family: var(--font-monospace);
+	color: var(--text-accent);
+}
+
+/* --- 3. ANNOTATION CARDS (Clean Card UI) --- */
 .zotero-list {
-	/* list container */
+	display: flex;
+	flex-direction: column;
+	gap: 20px;
 }
 
 .zotero-card {
+	background: var(--background-primary);
 	border: 1px solid var(--background-modifier-border);
+	border-radius: 8px;
+	padding: 20px;
+	box-shadow: 0 2px 4px rgba(0,0,0,0.05); /* Subtle shadow */
+	transition: transform 0.1s ease-in-out;
+}
+
+.zotero-card:hover {
+	border-color: var(--interactive-accent);
+}
+
+/* Quote Text */
+.zotero-blockquote-no-margin {
+	margin: 0 0 15px 0;
+	padding-left: 15px;
+	border-left: 3px solid var(--text-muted);
+	font-size: 1.1em;
+	line-height: 1.6;
+	color: var(--text-normal);
+}
+
+/* Images in Cards */
+.zotero-img-container {
+	background: var(--background-secondary);
 	padding: 10px;
-	margin-bottom: 10px;
-	/* Border left color is set dynamically in TS */
+	border-radius: 6px;
+	margin-bottom: 15px;
+	text-align: center;
 }
 
 .zotero-card-img {
 	max-width: 100%;
-	max-height: 300px;
+	max-height: 500px; /* Allow taller images since modal is wider */
+	object-fit: contain;
+	border-radius: 4px;
+	box-shadow: 0 2px 8px rgba(0,0,0,0.2);
 }
 
-.zotero-img-source {
-	font-size: 0.7em;
-	color: green;
+.zotero-img-caption {
+	margin-top: 8px;
+	font-size: 0.8em;
+	color: var(--text-muted);
 }
 
-.zotero-img-placeholder {
+/* Footer & Actions */
+.zotero-card-footer {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-top: 15px;
+	padding-top: 15px;
+	border-top: 1px dashed var(--background-modifier-border);
+}
+
+.zotero-footer-left {
+	display: flex;
+	gap: 15px;
+	font-size: 0.85em;
+	color: var(--text-muted);
+}
+
+/* --- 4. SETTINGS PAGE STYLES (Preserved from previous step) --- */
+.zotero-settings-list {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}
+
+.zotero-setting-block {
 	background: var(--background-secondary);
-	padding: 20px;
-	text-align: center;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 6px;
+	padding: 10px;
 }
 
-.zotero-card-actions {
-	margin-top: 10px;
+.zotero-block-row {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 5px 0;
 }
+
+.zotero-settings-code-block {
+	width: 100%;
+	height: 300px;
+	font-family: var(--font-monospace);
+	background: var(--background-primary);
+	border: 1px solid var(--background-modifier-border);
+	padding: 10px;
+	resize: vertical;
+}
+
+/* Helpers */
+.zotero-text-success { color: var(--text-success); font-weight: bold; }
+.zotero-text-error { color: var(--text-error); font-weight: bold; }
+.zotero-text-muted-italic { color: var(--text-muted); font-style: italic; }
+.zotero-no-margin { margin: 0; }
+.zotero-col-status { width: 120px; text-align: center; }
+.zotero-cell-center { text-align: center; }

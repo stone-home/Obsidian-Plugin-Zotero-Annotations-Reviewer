@@ -11,6 +11,9 @@ export class ObsidianService {
 		this.settings = settings;
 	}
 
+	/**
+	 * Create/Update the Dashboard Note (Literature Note)
+	 */
 	async createLiteratureNote(metadata: ZoteroItemMetadata): Promise<TFile> {
 		const fileName = metadata.title.replace(/[\\/:*?"<>|]/g, "").trim().slice(0, 60);
 		const path = normalizePath(`${this.settings.fleetingNoteFolder}/@${metadata.key} - ${fileName}.md`);
@@ -41,6 +44,9 @@ export class ObsidianService {
 		return this.app.vault.getAbstractFileByPath(path) as TFile;
 	}
 
+	/**
+	 * Create Atomic Fleeting Note
+	 */
 	async saveNote(
 		annotation: ZoteroAnnotation,
 		mode: 'create' | 'overwrite',
@@ -59,7 +65,6 @@ export class ObsidianService {
 		} else { return; }
 
 		await note.save();
-		new Notice("Note saved.");
 	}
 
 	async appendToNote(annotation: ZoteroAnnotation, targetFile: TFile, imageFile?: TFile | null): Promise<void> {
@@ -74,13 +79,30 @@ export class ObsidianService {
 		new Notice("Appended.");
 	}
 
+	/**
+	 * Checks if a note for this annotation already exists in the vault.
+	 * Scans all markdown files for the 'zotero-annotation-key' frontmatter property.
+	 */
+	async isAnnotationExported(key: string): Promise<TFile | null> {
+		const files = this.app.vault.getMarkdownFiles();
+		for (const f of files) {
+			const cache = this.app.metadataCache.getFileCache(f);
+			if (cache?.frontmatter?.['zotero-annotation-key'] === key) {
+				return f;
+			}
+		}
+		return null;
+	}
+
 	findLocalImage(annotation: ZoteroAnnotation): TFile | null {
 		const files = this.app.vault.getFiles();
 		const imageFiles = files.filter(f => ['png','jpg','jpeg'].includes(f.extension.toLowerCase()));
 
+		// Strategy 1: Check for Annotation Key
 		const keyMatch = imageFiles.find(f => f.name.includes(annotation.key));
 		if (keyMatch) return keyMatch;
 
+		// Strategy 2: Coordinate Match (Standard Zotero Integration Format)
 		if (annotation.position && annotation.position.rects && annotation.position.rects.length > 0) {
 			const rect = annotation.position.rects[0];
 			const targetX = Math.round(rect[0]);
