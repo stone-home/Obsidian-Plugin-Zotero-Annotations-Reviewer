@@ -31,7 +31,7 @@
 		"husky": "^9.1.7",
 		"jest": "^30.2.0",
 		"lint-staged": "^16.2.7",
-		"obsidian": "latest",
+		"obsidian": "^1.11.4",
 		"prettier": "3.7.4",
 		"semantic-release": "^25.0.2",
 		"ts-jest": "^29.4.6",

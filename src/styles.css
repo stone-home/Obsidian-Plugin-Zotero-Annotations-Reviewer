@@ -1,146 +1,60 @@
-/* src/styles.css */
-
-/* --- 1. MODAL WIDTH & CONTAINER OVERRIDES --- */
-/* Target specifically the modal window */
-.modal.zotero-reviewer-modal {
-	width: 90vw !important;         /* 90% of Viewport Width */
-	max-width: 1200px !important;   /* Max cap for ultra-wide screens */
-	height: 85vh !important;        /* Taller height */
-	padding: 0;                     /* Reset padding for better internal layout */
+/* --- Settings Tabs --- */
+.zotero-settings-tabs {
 	display: flex;
-	flex-direction: column;
-}
-
-/* Ensure the content inside scrolls properly */
-.modal.zotero-reviewer-modal .modal-content {
-	padding: 20px 30px;
-	overflow-y: auto;
-	flex-grow: 1;
-}
-
-/* Header Tweaks */
-.zotero-modal-header-actions {
-	display: flex;
-	justify-content: space-between;
-	align-items: center;
-	margin-bottom: 20px;
-	padding-bottom: 10px;
 	border-bottom: 2px solid var(--background-modifier-border);
+	margin-bottom: 20px;
+	gap: 20px;
 }
 
-/* --- 2. METADATA SECTION (Modern Grid) --- */
-.zotero-metadata-section {
+.zotero-tab-item {
+	padding: 10px 5px;
+	cursor: pointer;
+	font-weight: 600;
+	color: var(--text-muted);
+	border-bottom: 2px solid transparent;
+	margin-bottom: -2px;
+	transition: all 0.2s ease;
+}
+
+.zotero-tab-item:hover {
+	color: var(--text-normal);
+}
+
+.zotero-tab-item.active {
+	color: var(--interactive-accent);
+	border-bottom-color: var(--interactive-accent);
+}
+
+/* --- Containers --- */
+.zotero-setting-container {
+	padding-top: 10px;
+	animation: fadein 0.3s;
+}
+
+@keyframes fadein {
+	from { opacity: 0; transform: translateY(5px); }
+	to { opacity: 1; transform: translateY(0); }
+}
+
+/* --- Cards / Groups --- */
+.zotero-setting-card {
 	background-color: var(--background-primary-alt);
 	border: 1px solid var(--background-modifier-border);
 	border-radius: 8px;
 	padding: 15px;
-	margin-bottom: 25px;
-}
-
-.zotero-metadata-header {
-	display: flex;
-	justify-content: space-between;
-	align-items: center;
 	margin-bottom: 15px;
 }
 
-.zotero-metadata-table {
-	width: 100%;
-	border-collapse: collapse;
-}
-
-.zotero-metadata-table th {
-	text-align: left;
-	color: var(--text-muted);
-	font-size: 0.8em;
+.zotero-card-title {
+	font-weight: 600;
+	margin-bottom: 10px;
+	color: var(--text-normal);
+	font-size: 0.9em;
 	text-transform: uppercase;
 	letter-spacing: 0.05em;
-	padding-bottom: 10px;
-	border-bottom: 1px solid var(--background-modifier-border);
 }
 
-.zotero-metadata-table td {
-	padding: 10px 5px;
-	border-bottom: 1px solid var(--background-modifier-border);
-	vertical-align: middle;
-}
-
-.zotero-metadata-value {
-	font-family: var(--font-monospace);
-	color: var(--text-accent);
-}
-
-/* --- 3. ANNOTATION CARDS (Clean Card UI) --- */
-.zotero-list {
-	display: flex;
-	flex-direction: column;
-	gap: 20px;
-}
-
-.zotero-card {
-	background: var(--background-primary);
-	border: 1px solid var(--background-modifier-border);
-	border-radius: 8px;
-	padding: 20px;
-	box-shadow: 0 2px 4px rgba(0,0,0,0.05); /* Subtle shadow */
-	transition: transform 0.1s ease-in-out;
-}
-
-.zotero-card:hover {
-	border-color: var(--interactive-accent);
-}
-
-/* Quote Text */
-.zotero-blockquote-no-margin {
-	margin: 0 0 15px 0;
-	padding-left: 15px;
-	border-left: 3px solid var(--text-muted);
-	font-size: 1.1em;
-	line-height: 1.6;
-	color: var(--text-normal);
-}
-
-/* Images in Cards */
-.zotero-img-container {
-	background: var(--background-secondary);
-	padding: 10px;
-	border-radius: 6px;
-	margin-bottom: 15px;
-	text-align: center;
-}
-
-.zotero-card-img {
-	max-width: 100%;
-	max-height: 500px; /* Allow taller images since modal is wider */
-	object-fit: contain;
-	border-radius: 4px;
-	box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-}
-
-.zotero-img-caption {
-	margin-top: 8px;
-	font-size: 0.8em;
-	color: var(--text-muted);
-}
-
-/* Footer & Actions */
-.zotero-card-footer {
-	display: flex;
-	justify-content: space-between;
-	align-items: center;
-	margin-top: 15px;
-	padding-top: 15px;
-	border-top: 1px dashed var(--background-modifier-border);
-}
-
-.zotero-footer-left {
-	display: flex;
-	gap: 15px;
-	font-size: 0.85em;
-	color: var(--text-muted);
-}
-
-/* --- 4. SETTINGS PAGE STYLES (Preserved from previous step) --- */
+/* --- Lists (Headers, Conditions, Metadata) --- */
 .zotero-settings-list {
 	display: flex;
 	flex-direction: column;
@@ -148,33 +62,56 @@
 }
 
 .zotero-setting-block {
-	background: var(--background-secondary);
-	border: 1px solid var(--background-modifier-border);
-	border-radius: 6px;
-	padding: 10px;
-}
-
-.zotero-block-row {
 	display: flex;
 	align-items: center;
 	gap: 10px;
-	padding: 5px 0;
-}
-
-.zotero-settings-code-block {
-	width: 100%;
-	height: 300px;
-	font-family: var(--font-monospace);
-	background: var(--background-primary);
+	padding: 8px;
+	background-color: var(--background-primary);
 	border: 1px solid var(--background-modifier-border);
-	padding: 10px;
-	resize: vertical;
+	border-radius: 6px;
 }
 
-/* Helpers */
-.zotero-text-success { color: var(--text-success); font-weight: bold; }
-.zotero-text-error { color: var(--text-error); font-weight: bold; }
-.zotero-text-muted-italic { color: var(--text-muted); font-style: italic; }
-.zotero-no-margin { margin: 0; }
-.zotero-col-status { width: 120px; text-align: center; }
-.zotero-cell-center { text-align: center; }
+/* --- Inputs --- */
+.zotero-input-group {
+	display: flex;
+	gap: 5px;
+	flex: 1;
+}
+
+.zotero-input-wide {
+	width: 100%;
+}
+
+.zotero-setting-code-block textarea {
+	font-family: var(--font-monospace);
+	font-size: 0.85em;
+	min-height: 150px;
+}
+
+/* --- Buttons --- */
+.zotero-setting-center-btn {
+	display: flex;
+	justify-content: center;
+	margin-top: 10px;
+}
+
+.zotero-delete-btn:hover {
+	color: var(--text-error);
+}
+
+/* --- Misc --- */
+.zotero-setting-spacer-bottom {
+	margin-bottom: 15px;
+}
+
+.zotero-no-margin-bottom {
+	margin-bottom: 0 !important;
+}
+
+.zotero-condition-label {
+	min-width: 50px;
+	font-weight: bold;
+	text-align: center;
+	color: var(--text-muted);
+	font-size: 0.8em;
+}

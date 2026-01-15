@@ -1,4 +1,4 @@
-import { MarkdownPostProcessorContext, MarkdownRenderChild, TFile, ButtonComponent } from 'obsidian';
+import { MarkdownPostProcessorContext, MarkdownRenderChild, TFile, ButtonComponent, Notice } from 'obsidian';
 import ZoteroGKPlugin from '../main';
 import { HighlightModal } from './highlights';
 import { parseImageMap } from '../utils/parser';
@@ -26,7 +26,10 @@ export class AssistantView extends MarkdownRenderChild {
 		const header = container.createDiv({ cls: 'zotero-assistant-header' });
 		header.createEl("h4", { text: "🤖 Zotero Assistant", cls: "zotero-title" });
 
+		// --- Actions Row ---
 		const btnRow = container.createDiv({ cls: 'zotero-assistant-actions' });
+
+		// 1. Highlight Review Button
 		const cache = this.plugin.app.metadataCache.getFileCache(file);
 		const key = cache?.frontmatter?.['zotero-key'] || cache?.frontmatter?.['citation-key'];
 
@@ -38,8 +41,24 @@ export class AssistantView extends MarkdownRenderChild {
 				if (key) new HighlightModal(this.plugin.app, this.plugin.settings, key, imageMap).open();
 			});
 
-		// ... (Webhook logic omitted for brevity, assumed unchanged) ...
+		// 2. Webhook Button (Conditional)
+		const webhookBtn = new ButtonComponent(btnRow)
+			.setButtonText("Send Webhook")
+			.setIcon("plane");
 
+		// Check Conditions asynchronously
+		const isWebhookActive = await this.plugin.webhookService.checkConditions(file);
+
+		if (isWebhookActive) {
+			webhookBtn.onClick(async () => {
+				await this.plugin.webhookService.sendNoteData(file);
+			});
+		} else {
+			webhookBtn.setDisabled(true);
+			webhookBtn.setTooltip("Conditions not met (check settings)");
+		}
+
+		// --- Local Highlights ---
 		container.createEl("hr");
 		container.createEl("h5", { text: "📝 Related Notes / Highlights" });
 		const highlightsDiv = container.createDiv({ cls: 'zotero-local-highlights' });

@@ -1,8 +1,6 @@
 {
   "zoteroPort": 23119,
   "fleetingNoteFolder": "Fleeting Notes",
-  "webhookUrl": "",
-  "webhookCondition": "",
   "metadataMapping": [
     {
       "label": "Title",
@@ -48,5 +46,16 @@
     }
   ],
   "assistantScript": "",
-  "sortProperty": "color"
+  "sortProperty": "color",
+  "webhookUrl": "http://www.google.com",
+  "webhookHeaders": [
+    {
+      "id": "1768514105664",
+      "name": "test",
+      "type": "secret",
+      "value": "new"
+    }
+  ],
+  "webhookConditions": [],
+  "webhookCondition": ""
 }

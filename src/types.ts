@@ -1,3 +1,7 @@
+import { App } from 'obsidian';
+// If you get an error saying 'secretStorage does not exist on App',
+// run `npm i obsidian@latest` or restore the 'declare module' block.
+
 export interface ZoteroAnnotation {
 	key: string;
 	citationKey: string;
@@ -36,22 +40,42 @@ export interface MetadataMapInfo {
 	enabled: boolean;
 }
 
+// --- Webhook Types ---
+
+export interface WebhookHeader {
+	id: string;
+	name: string; // Header Key (e.g. "Authorization")
+	type: 'text' | 'secret'; // The type of input
+	value: string; // The text value OR the Secret Key (if type is secret)
+}
+
+export interface WebhookCondition {
+	id: string;
+	logic: 'AND' | 'OR';
+	field: string;
+	operator: 'eq' | 'neq' | 'contains' | 'not_contains' | 'regex';
+	value: string;
+}
+
 export interface MyPluginSettings {
+	// General
 	zoteroPort: number;
 	fleetingNoteFolder: string;
-	webhookUrl: string;
-	webhookCondition: string;
+
+	// Zotero / Highlights
 	metadataMapping: MetadataMapInfo[];
 	assistantScript: string;
-	// NEW: Sorting Property
 	sortProperty: string;
+
+	// Webhook
+	webhookUrl: string;
+	webhookHeaders: WebhookHeader[];
+	webhookConditions: WebhookCondition[];
 }
 
 export const DEFAULT_SETTINGS: MyPluginSettings = {
 	zoteroPort: 23119,
 	fleetingNoteFolder: "Fleeting Notes",
-	webhookUrl: "",
-	webhookCondition: "",
 	metadataMapping: [
 		{ label: "Title", zoteroProp: "title", noteProp: "title", enabled: true },
 		{ label: "Date", zoteroProp: "date", noteProp: "date", enabled: true },
@@ -62,6 +86,9 @@ export const DEFAULT_SETTINGS: MyPluginSettings = {
 		{ label: "Pages", zoteroProp: "pages", noteProp: "pages", enabled: false }
 	],
 	assistantScript: "",
-	// Default sort by color
-	sortProperty: "color"
+	sortProperty: "color",
+
+	webhookUrl: "",
+	webhookHeaders: [],
+	webhookConditions: []
 };
