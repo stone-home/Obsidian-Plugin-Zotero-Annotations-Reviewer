@@ -1,8 +1,7 @@
-import { App, TFile, normalizePath, Notice } from 'obsidian';
-import { ZoteroAnnotation, MyPluginSettings } from '../types';
-
-// CHANGED: Import directly from the NPM package
-import { ObsidianNoteFactory, ZettelNoteModel, NoteType } from 'markdown-note-orm';
+import { App, TFile, normalizePath, Notice, TFolder } from 'obsidian';
+import { ZoteroAnnotation, ZoteroItemMetadata, MyPluginSettings } from '../types';
+// Ensure you have this library installed: npm install obsidian-lib-mknote
+import { ObsidianNoteFactory, ZettelNoteModel } from 'markdown-note-orm';
 
 export class ObsidianService {
 	private app: App;
@@ -14,139 +13,150 @@ export class ObsidianService {
 	}
 
 	/**
-	 * Check if an annotation has already been exported.
+	 * Create/Update the Dashboard Note (Literature Note)
 	 */
-	async isAnnotationExported(annotationKey: string): Promise<TFile | null> {
-		const files = this.app.vault.getMarkdownFiles();
-		const folder = this.settings.fleetingNoteFolder;
+	async createLiteratureNote(metadata: ZoteroItemMetadata): Promise<TFile> {
+		// Sanitize filename
+		const fileName = metadata.title.replace(/[\\/:*?"<>|]/g, "").trim().slice(0, 60);
+		const path = normalizePath(`${this.settings.fleetingNoteFolder}/@${metadata.key} - ${fileName}.md`);
 
-		for (const file of files) {
-			if (!file.path.startsWith(folder)) continue;
+		let note: ZettelNoteModel<any>;
+		const existing = this.app.vault.getAbstractFileByPath(path);
 
-			const cache = this.app.metadataCache.getFileCache(file);
-			if (cache?.frontmatter && cache.frontmatter['zotero-annotation-key'] === annotationKey) {
-				return file;
+		if (existing instanceof TFile) {
+			note = await ObsidianNoteFactory.loadAndPatch(this.app, path);
+		} else {
+			// Ensure folder exists
+			if (!this.app.vault.getAbstractFileByPath(this.settings.fleetingNoteFolder)) {
+				await this.app.vault.createFolder(this.settings.fleetingNoteFolder);
 			}
+			note = await ObsidianNoteFactory.createByType(this.app, path, 'literature', metadata.title);
 		}
-		return null;
+
+		// Set Properties
+		note.properties.set('zotero-key', metadata.key);
+		note.properties.set('authors', metadata.creators);
+		note.properties.set('year', metadata.date);
+		note.properties.set('publication', metadata.publication);
+		note.properties.set('url', metadata.url);
+
+		if (metadata.abstract) {
+			note.content.addSection('Abstract', 2, [metadata.abstract]);
+		}
+
+		await note.save();
+		return this.app.vault.getAbstractFileByPath(path) as TFile;
 	}
 
 	/**
-	 * Create or Overwrite a Note using the NoteFactory
+	 * Create Atomic Fleeting Note
 	 */
-	async saveNote(annotation: ZoteroAnnotation, mode: 'create' | 'overwrite', targetFile?: TFile): Promise<void> {
+	async saveNote(
+		annotation: ZoteroAnnotation,
+		mode: 'create' | 'overwrite',
+		targetFile?: TFile,
+		imageFile?: TFile | null
+	): Promise<void> {
 		let note: ZettelNoteModel<any>;
 
 		if (mode === 'create') {
 			const path = await this.getUniquePath(annotation);
-
-			// Factory Pattern: Create a new 'fleeting' note
-			note = await ObsidianNoteFactory.createByType(
-				this.app,
-				path,
-				'fleeting',
-				this.generateTitle(annotation)
-			);
-
-			this.setNoteProperties(note, annotation);
-			this.setNoteContent(note, annotation);
-
-			new Notice("Fleeting note created via MKNote Lib.");
-
+			note = await ObsidianNoteFactory.createByType(this.app, path, 'fleeting', this.generateTitle(annotation));
+			this.setNoteContent(note, annotation, imageFile);
 		} else if (mode === 'overwrite' && targetFile) {
-			// Load existing note into the Model
-			note = await ObsidianNoteFactory.loadAndPatch(
-				this.app,
-				targetFile.path
-			);
+			note = await ObsidianNoteFactory.loadAndPatch(this.app, targetFile.path);
+			this.setNoteContent(note, annotation, imageFile);
+		} else { return; }
 
-			this.setNoteProperties(note, annotation);
-			this.setNoteContent(note, annotation);
-
-			new Notice("Note updated.");
-		} else {
-			return;
-		}
-
-		// Persist to disk
 		await note.save();
+		new Notice("Note saved.");
+	}
+
+	async appendToNote(annotation: ZoteroAnnotation, targetFile: TFile, imageFile?: TFile | null): Promise<void> {
+		const note = await ObsidianNoteFactory.loadAndPatch(this.app, targetFile.path);
+		const dateStr = new Date().toLocaleDateString();
+
+		const lines = [`> ${annotation.text}`, "", `**Comment**: ${annotation.comment}`];
+		if (imageFile) lines.push("", `![[${imageFile.path}]]`);
+
+		note.content.addSection(`Update (${dateStr})`, 2, lines);
+		await note.save();
+		new Notice("Appended.");
 	}
 
 	/**
-	 * Append to an existing note
+	 * FALLBACK: Search vault for image if not found in map
+	 * IMPROVED: Uses Coordinate Matching logic compatible with Zotero Integration
 	 */
-	async appendToNote(annotation: ZoteroAnnotation, targetFile: TFile): Promise<void> {
-		// Load the model
-		const note = await ObsidianNoteFactory.loadAndPatch(
-			this.app,
-			targetFile.path
-		);
+	findLocalImage(annotation: ZoteroAnnotation): TFile | null {
+		const files = this.app.vault.getFiles();
 
-		// Add a new Update section
-		const dateStr = new Date().toLocaleDateString();
-		const updateLines = [
-			`> ${annotation.text}`,
-			"",
-			`**Comment**: ${annotation.comment}`
-		];
+		// Filter down to images first
+		const imageFiles = files.filter(f => ['png','jpg','jpeg'].includes(f.extension.toLowerCase()));
 
-		note.content.addSection(`Update (${dateStr})`, 2, updateLines);
+		// Strategy 1: Check for Annotation Key (some custom templates might use this)
+		const keyMatch = imageFiles.find(f => f.name.includes(annotation.key));
+		if (keyMatch) return keyMatch;
 
-		await note.save();
-		new Notice("Content appended.");
-	}
+		// Strategy 2: Coordinate Match (Standard Zotero Integration Format)
+		// Format: {{citekey}}-p{{page}}-x{{x}}-y{{y}}.png
+		if (annotation.position && annotation.position.rects && annotation.position.rects.length > 0) {
+			const rect = annotation.position.rects[0];
+			// Zotero Integration uses Math.round() for coordinates
+			const targetX = Math.round(rect[0]);
+			const targetY = Math.round(rect[1]);
+			const targetPage = (annotation.position.pageIndex || 0) + 1;
 
-	// --- Helpers ---
+			return imageFiles.find(f => {
+				const name = f.name;
+				// Check if file belongs to this paper (contains citekey)
+				if (!name.includes(annotation.citationKey)) return false;
 
-	private generateTitle(annotation: ZoteroAnnotation): string {
-		return annotation.comment
-			? annotation.comment.slice(0, 30).replace(/[\\/:*?"<>|]/g, "").trim()
-			: `Annotation-${annotation.key}`;
-	}
+				// Check page (robust against 'p1' or '-1-')
+				if (!name.includes(`p${targetPage}`) && !name.includes(`-${targetPage}-`)) return false;
 
-	private async getUniquePath(annotation: ZoteroAnnotation): Promise<string> {
-		const folder = this.settings.fleetingNoteFolder;
-
-		if (!this.app.vault.getAbstractFileByPath(folder)) {
-			await this.app.vault.createFolder(folder);
+				// Check coords: look for x123 and y456
+				// We assume the separator is likely '-x' or 'x'
+				return name.includes(`x${targetX}`) && name.includes(`y${targetY}`);
+			}) || null;
 		}
 
-		const baseName = this.generateTitle(annotation);
-		let path = normalizePath(`${folder}/${baseName}.md`);
+		return null;
+	}
 
+	async isAnnotationExported(key: string): Promise<TFile | null> {
+		const files = this.app.vault.getMarkdownFiles();
+		for (const f of files) {
+			const cache = this.app.metadataCache.getFileCache(f);
+			if (cache?.frontmatter?.['zotero-annotation-key'] === key) return f;
+		}
+		return null;
+	}
+
+	private setNoteContent(note: ZettelNoteModel<any>, ann: ZoteroAnnotation, img: TFile | null) {
+		note.properties.set('zotero-annotation-key', ann.key);
+		note.properties.set('zotero-citation-key', ann.citationKey);
+
+		const lines = ["> [!quote]", `> ${ann.text}`];
+		if (img) lines.push("", `![[${img.path}]]`);
+
+		note.content.addSection('Highlight', 2, lines);
+		if (ann.comment) note.content.addSection('Thoughts', 2, [ann.comment]);
+		note.content.addSection('Source', 2, [`[PDF](${ann.link})`]);
+	}
+
+	private generateTitle(ann: ZoteroAnnotation): string {
+		return ann.comment ? ann.comment.slice(0, 30).replace(/[\\/:*?"<>|]/g, "").trim() : `Annotation-${ann.key}`;
+	}
+
+	private async getUniquePath(ann: ZoteroAnnotation): Promise<string> {
+		const base = this.generateTitle(ann);
+		let path = normalizePath(`${this.settings.fleetingNoteFolder}/${base}.md`);
 		let i = 1;
 		while (this.app.vault.getAbstractFileByPath(path)) {
-			path = normalizePath(`${folder}/${baseName}-${i}.md`);
+			path = normalizePath(`${this.settings.fleetingNoteFolder}/${base}-${i}.md`);
 			i++;
 		}
 		return path;
-	}
-
-	private setNoteProperties(note: ZettelNoteModel<any>, annotation: ZoteroAnnotation) {
-		note.properties.set('zotero-annotation-key', annotation.key);
-		note.properties.set('zotero-citation-key', annotation.citationKey);
-
-		const currentTags = note.properties.get('tags') || [];
-		if (!currentTags.includes('zotero-import')) {
-			note.properties.set('tags', [...currentTags, 'zotero-import']);
-		}
-	}
-
-	private setNoteContent(note: ZettelNoteModel<any>, annotation: ZoteroAnnotation) {
-		note.content.addSection('Highlight', 2, [
-			"> [!quote]",
-			`> ${annotation.text}`
-		]);
-
-		if (annotation.comment) {
-			note.content.addSection('Thoughts', 2, [
-				annotation.comment
-			]);
-		}
-
-		note.content.addSection('Source', 2, [
-			`- **PDF**: [${annotation.attachmentTitle}](${annotation.link})`,
-			`- **Page**: ${annotation.pageLabel}`
-		]);
 	}
 }
