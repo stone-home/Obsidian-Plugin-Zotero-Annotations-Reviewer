@@ -31,6 +31,8 @@ export class HighlightModal extends Modal {
 		this.modalEl.addClass("zotero-reviewer-modal");
 		const { contentEl } = this;
 		contentEl.empty();
+
+		// Initial Header
 		contentEl.createEl("h2", { text: `Review: ${this.citationKey}` });
 
 		const statusEl = contentEl.createDiv({ cls: 'zotero-status' });
@@ -64,6 +66,7 @@ export class HighlightModal extends Modal {
 		header.createEl("h2", { text: `Review: ${this.citationKey}`, cls: "zotero-no-margin" });
 
 		const btnFetch = header.createEl("button", { text: "📥 Fetch Images" });
+		btnFetch.addClass("zotero-btn-fancy");
 		btnFetch.onclick = () => this.triggerZoteroIntegrationImport();
 
 		const metaContainer = contentEl.createDiv({ cls: 'zotero-metadata-container' });
@@ -77,8 +80,7 @@ export class HighlightModal extends Modal {
 		if (this.annotations.length === 0) {
 			container.createDiv({ text: "No annotations found." });
 		} else {
-			// --- NEW: SORTING LOGIC ---
-			// Sort the annotations based on settings before rendering
+			// --- SORTING LOGIC ---
 			const sortProp = this.settings.sortProperty || 'color';
 
 			this.annotations.sort((a, b) => {
@@ -107,9 +109,6 @@ export class HighlightModal extends Modal {
 		}
 	}
 
-	// ... (Rest of the class methods: renderMetadataSection, renderAnnotationCard, triggerZoteroIntegrationImport remain unchanged) ...
-	// Note: Copied from previous correct steps.
-
 	async renderMetadataSection(container: HTMLElement, meta: ZoteroItemMetadata) {
 		const section = container.createDiv({ cls: 'zotero-metadata-section' });
 
@@ -117,6 +116,7 @@ export class HighlightModal extends Modal {
 		headerDiv.createEl("h4", { text: "Metadata Verification", cls: "zotero-no-margin" });
 
 		const debugBtn = headerDiv.createEl("button", { text: "🔍 Log Raw Data" });
+		debugBtn.addClass("zotero-btn-subtle");
 		debugBtn.setAttribute('title', "Print raw JSON to Developer Console");
 		debugBtn.onclick = async () => {
 			const raw = await this.zotero.getRawMetadata(this.citationKey);
@@ -130,6 +130,7 @@ export class HighlightModal extends Modal {
 
 		if (activeFile) {
 			try {
+				// Using ObsidianNoteFactory from markdown-note-orm
 				activeNoteModel = await ObsidianNoteFactory.loadAndPatch(this.app, activeFile.path);
 				noteLoaded = true;
 				section.createDiv({ text: `Target: ${activeFile.basename}`, cls: "zotero-verify-target" });
@@ -156,7 +157,7 @@ export class HighlightModal extends Modal {
 			zValue = String(zValue);
 
 			const row = table.createEl("tr");
-			row.createEl("td", { text: mapItem.label });
+			row.createEl("td", { text: mapItem.label, cls: "zotero-cell-label" });
 
 			const displayVal = zValue.length > 50 ? zValue.substring(0, 48) + "..." : zValue;
 			row.createEl("td", { text: displayVal, cls: 'zotero-metadata-value' });
@@ -173,6 +174,7 @@ export class HighlightModal extends Modal {
 
 	private renderVerifyButton(container: HTMLElement, model: NoteModel<any>, propKey: string, zVal: string, label: string) {
 		const btn = container.createEl("button", { text: "Verify" });
+		btn.addClass("zotero-btn-small");
 		btn.onclick = () => {
 			const nVal = String(model.properties.get(propKey) || "").trim().toLowerCase();
 			const zNorm = zVal.trim().toLowerCase();
@@ -192,13 +194,15 @@ export class HighlightModal extends Modal {
 
 	async renderAnnotationCard(container: HTMLElement, ann: ZoteroAnnotation) {
 		const card = container.createDiv({ cls: 'zotero-card' });
-		card.style.borderLeft = `5px solid ${ann.color}`;
+		card.style.borderLeft = `6px solid ${ann.color}`;
 
 		let localImageFile: TFile | null = null;
+		// Check Map
 		if (this.imageMap[ann.key]) {
 			const f = this.app.vault.getAbstractFileByPath(this.imageMap[ann.key]);
 			if (f instanceof TFile) localImageFile = f;
 		}
+		// Check Heuristic
 		if (!localImageFile && (ann.type === 'image' || ann.type === 'ink')) {
 			localImageFile = this.obsidian.findLocalImage(ann);
 		}
@@ -213,6 +217,7 @@ export class HighlightModal extends Modal {
 			const p = card.createDiv({ cls: "zotero-img-placeholder" });
 			p.createDiv({ text: "📷 Image Not Found" });
 			const btn = p.createEl("button", { text: "📥 Fetch" });
+			btn.addClass("zotero-btn-fancy", "zotero-btn-small");
 			btn.onclick = () => this.triggerZoteroIntegrationImport();
 		}
 
@@ -224,18 +229,20 @@ export class HighlightModal extends Modal {
 		left.createSpan({ text: `Page ${ann.pageLabel}` });
 		left.createEl("a", { text: "Open PDF", href: ann.link, attr: { target: "_blank" } });
 
-		const right = footer.createDiv();
+		const right = footer.createDiv({ cls: "zotero-footer-right" });
 
 		const existingNote = await this.obsidian.isAnnotationExported(ann.key);
 
 		if (existingNote) {
 			const btnOpen = right.createEl("button", { text: "Open Note" });
+			btnOpen.addClass("zotero-btn-fancy", "zotero-btn-secondary");
 			btnOpen.onclick = async () => {
 				await this.app.workspace.getLeaf(true).openFile(existingNote);
 				this.close();
 			};
 		} else {
 			const btnCreate = right.createEl("button", { text: "Create Note", cls: "mod-cta" });
+			btnCreate.addClass("zotero-btn-fancy");
 			btnCreate.onclick = async () => {
 				await this.obsidian.saveNote(ann, 'create', undefined, localImageFile);
 				new Notice("Note Created");
@@ -250,6 +257,9 @@ export class HighlightModal extends Modal {
 		if(plugin && plugin.settings.exportFormats) {
 			const fmt = plugin.settings.exportFormats[0];
 			if(fmt) await plugin.runImport(fmt.name, this.citationKey);
+			new Notice("Triggered Zotero Integration Import");
+		} else {
+			new Notice("Obsidian Zotero Desktop Connector plugin not found or configured.");
 		}
 	}
 }

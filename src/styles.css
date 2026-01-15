@@ -218,3 +218,254 @@
 	border-bottom: 1px dashed var(--background-modifier-border);
 	color: var(--text-normal);
 }
+
+/* ==========================================================================
+   MODAL & LAYOUT (Readability)
+   ========================================================================== */
+
+/* Wide Modal Configuration */
+.modal.zotero-reviewer-modal {
+	width: 90vw !important;
+	max-width: 1400px !important;
+	height: 85vh !important;
+	display: flex;
+	flex-direction: column;
+	padding: 0;
+	background-color: var(--background-primary);
+	border-radius: 12px;
+	box-shadow: 0 20px 50px rgba(0,0,0,0.3);
+}
+
+.modal.zotero-reviewer-modal .modal-content {
+	flex: 1;
+	padding: 30px 40px; /* Spacious padding */
+	overflow-y: auto;
+}
+
+/* Header Actions */
+.zotero-modal-header-actions {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 20px;
+}
+
+.zotero-no-margin { margin: 0 !important; }
+
+/* Status */
+.zotero-status {
+	text-align: center;
+	font-size: 1.2em;
+	color: var(--text-muted);
+	margin-top: 50px;
+}
+.zotero-text-error { color: var(--text-error) !important; }
+.zotero-text-success { color: var(--text-success) !important; }
+
+/* ==========================================================================
+   METADATA SECTION
+   ========================================================================== */
+.zotero-metadata-container {
+	margin-bottom: 25px;
+	background-color: var(--background-primary-alt);
+	padding: 15px;
+	border-radius: 8px;
+	border: 1px solid var(--background-modifier-border);
+}
+
+.zotero-metadata-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 10px;
+}
+
+.zotero-verify-target {
+	font-size: 0.85em;
+	color: var(--text-accent);
+	font-weight: 600;
+}
+
+.zotero-verify-warning {
+	font-size: 0.85em;
+	color: var(--text-warning);
+}
+
+/* Table */
+.zotero-metadata-table {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: 0.9em;
+}
+
+.zotero-metadata-table th {
+	text-align: left;
+	padding: 8px;
+	border-bottom: 2px solid var(--background-modifier-border);
+	color: var(--text-muted);
+}
+
+.zotero-metadata-table td {
+	padding: 8px;
+	border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.zotero-cell-label {
+	width: 20%;
+	font-weight: 600;
+	color: var(--text-normal);
+}
+
+.zotero-metadata-value {
+	color: var(--text-muted);
+}
+
+.zotero-col-status { width: 100px; text-align: center; }
+.zotero-cell-center { text-align: center; }
+
+/* ==========================================================================
+   ANNOTATION CARDS
+   ========================================================================== */
+.zotero-list {
+	display: flex;
+	flex-direction: column;
+	gap: 20px;
+}
+
+.zotero-card {
+	background-color: var(--background-secondary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 8px;
+	padding: 20px;
+	transition: transform 0.2s ease, box-shadow 0.2s ease;
+	/* Border left is set dynamically in JS via inline style for color */
+}
+
+.zotero-card:hover {
+	box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+	transform: translateY(-2px);
+}
+
+.zotero-blockquote-no-margin {
+	margin: 10px 0;
+	padding-left: 15px;
+	border-left: 3px solid var(--interactive-accent);
+	font-size: 1.1em;
+	line-height: 1.6;
+}
+
+.zotero-comment-italic {
+	font-style: italic;
+	color: var(--text-muted);
+	margin-top: 10px;
+	padding: 8px;
+	background: var(--background-primary);
+	border-radius: 4px;
+}
+
+/* Images */
+.zotero-img-container {
+	margin-bottom: 15px;
+	text-align: center;
+	background: var(--background-primary);
+	padding: 10px;
+	border-radius: 6px;
+}
+
+.zotero-card-img {
+	max-height: 300px;
+	border-radius: 4px;
+	box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+
+.zotero-img-caption {
+	font-size: 0.8em;
+	color: var(--text-muted);
+	margin-top: 5px;
+}
+
+.zotero-img-placeholder {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 10px;
+	padding: 20px;
+	background: var(--background-modifier-error-hover); /* Subtle red tint */
+	border-radius: 6px;
+	margin-bottom: 15px;
+}
+
+/* Footer */
+.zotero-card-footer {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-top: 15px;
+	padding-top: 15px;
+	border-top: 1px dashed var(--background-modifier-border);
+	font-size: 0.9em;
+}
+
+.zotero-footer-left {
+	display: flex;
+	gap: 15px;
+	color: var(--text-muted);
+}
+
+.zotero-footer-right {
+	display: flex;
+	gap: 10px;
+}
+
+/* ==========================================================================
+   FANCY BUTTONS
+   ========================================================================== */
+.zotero-btn-fancy {
+	background: linear-gradient(135deg, var(--interactive-accent) 0%, var(--interactive-accent-hover) 100%);
+	color: var(--text-on-accent) !important;
+	border: none;
+	border-radius: 6px;
+	padding: 6px 16px;
+	font-weight: 600;
+	cursor: pointer;
+	box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+	transition: all 0.2s;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	text-decoration: none !important;
+}
+
+.zotero-btn-fancy:hover {
+	transform: translateY(-1px);
+	box-shadow: 0 4px 8px rgba(0,0,0,0.25);
+	filter: brightness(1.1);
+}
+
+.zotero-btn-fancy:active {
+	transform: translateY(1px);
+	box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+}
+
+.zotero-btn-secondary {
+	background: var(--background-modifier-border);
+	color: var(--text-normal) !important;
+}
+
+.zotero-btn-small {
+	padding: 2px 8px;
+	font-size: 0.85em;
+}
+
+.zotero-btn-subtle {
+	background: transparent;
+	color: var(--text-muted);
+	border: 1px solid var(--background-modifier-border);
+	padding: 4px 10px;
+	border-radius: 4px;
+	cursor: pointer;
+}
+.zotero-btn-subtle:hover {
+	background: var(--background-primary);
+	color: var(--text-normal);
+}
