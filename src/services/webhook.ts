@@ -17,12 +17,12 @@ export class WebhookService {
 		new Notice(`🚀 Triggering: ${profile.name}...`);
 
 		try {
-			// 1. Gather Data (TFile Access)
+			// 1. Context: Active Note (TFile)
 			const cache = this.app.metadataCache.getFileCache(file);
 			const frontmatter = cache?.frontmatter || {};
 			const content = await this.app.vault.read(file);
 
-			// 2. Prepare Variables
+			// 2. Variables
 			const variables: Record<string, string> = {
 				'{{filename}}': file.name,
 				'{{path}}': file.path,
@@ -30,66 +30,45 @@ export class WebhookService {
 				'{{timestamp}}': new Date().toISOString()
 			};
 
-			// Flatten frontmatter for easier access
 			Object.keys(frontmatter).forEach(key => {
-				const val = frontmatter[key];
-				// Support {{frontmatter.key}}
-				variables[`{{frontmatter.${key}}}`] = String(val);
-				// Also support simple {{key}} if no conflict, though specific is safer
+				variables[`{{frontmatter.${key}}}`] = String(frontmatter[key]);
 			});
 
-			// 3. Process Body Template
+			// 3. Body Replacement
 			let body = profile.bodyTemplate || "";
 			if (profile.method !== 'GET' && body.trim().length > 0) {
 				for (const [key, val] of Object.entries(variables)) {
-					// Safe JSON escape for content
-					const safeVal = val.replace(/\\/g, '\\\\')
-						.replace(/\n/g, '\\n')
-						.replace(/"/g, '\\"')
-						.replace(/\r/g, '\\r')
-						.replace(/\t/g, '\\t');
-
-					// Replace all occurrences
+					const safeVal = val.replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/"/g, '\\"');
 					body = body.split(key).join(safeVal);
 				}
 			}
 
-			// 4. Process Headers (Secret Support)
+			// 4. Headers & Content-Type
 			const headers: Record<string, string> = {};
 
-			// Auto Content-Type if JSON
-			if (body.trim().startsWith('{')) {
-				headers['Content-Type'] = 'application/json';
-			}
+			// Auto-set Content-Type based on setting
+			if (profile.contentType === 'json') headers['Content-Type'] = 'application/json';
+			else if (profile.contentType === 'form') headers['Content-Type'] = 'application/x-www-form-urlencoded';
+			else if (profile.contentType === 'text') headers['Content-Type'] = 'text/plain';
 
+			// Mix in custom headers (overrides if key exists)
 			for (const h of profile.headers) {
 				let finalValue = h.value;
 
-				// SECRET HANDLING
 				if (h.type === 'secret') {
 					if (this.app.secretStorage) {
-						// h.value holds the KEY of the secret (e.g. "openai_api_key")
-						const secret = await this.app.secretStorage.getSecret(h.value);
-						if (secret) {
-							finalValue = secret;
-						} else {
-							console.warn(`Secret '${h.value}' not found or empty.`);
-							finalValue = ""; // Or keep key? Better empty to avoid leaking key name.
-						}
-					} else {
-						console.warn("SecretStorage not supported.");
+						const secret = this.app.secretStorage.getSecret(h.value);
+						if (secret) finalValue = secret;
 					}
 				}
-
-				// Apply templating to headers too (e.g. {{filename}} in header)
+				// Template headers
 				for (const [vKey, vVal] of Object.entries(variables)) {
 					finalValue = finalValue.split(vKey).join(vVal);
 				}
-
 				headers[h.key] = finalValue;
 			}
 
-			// 5. Send Request
+			// 5. Send
 			const response = await requestUrl({
 				url: profile.url,
 				method: profile.method,
@@ -101,7 +80,6 @@ export class WebhookService {
 				new Notice(`✅ ${profile.name} Sent!`);
 			} else {
 				new Notice(`⚠️ ${profile.name} Failed: ${response.status}`);
-				console.warn(response.text);
 			}
 
 		} catch (e) {

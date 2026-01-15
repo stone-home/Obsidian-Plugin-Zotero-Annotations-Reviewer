@@ -25,42 +25,21 @@
       "zoteroProp": "creators",
       "noteProp": "authors",
       "enabled": false
-    },
-    {
-      "label": "DOI",
-      "zoteroProp": "doi",
-      "noteProp": "doi",
-      "enabled": false
-    },
-    {
-      "label": "Publisher",
-      "zoteroProp": "publisher",
-      "noteProp": "publisher",
-      "enabled": false
-    },
-    {
-      "label": "Pages",
-      "zoteroProp": "pages",
-      "noteProp": "pages",
-      "enabled": false
     }
   ],
   "assistantScript": "",
   "sortProperty": "color",
   "webhooks": [
     {
-      "id": "1768515792962",
+      "id": "1768517993206",
       "name": "New Webhook",
       "url": "",
       "method": "POST",
       "icon": "plane",
-      "headers": [
-        {
-          "key": "Content-Type",
-          "value": "application/json"
-        }
-      ],
-      "bodyTemplate": "{\n  \"filename\": \"{{filename}}\",\n  \"content\": \"{{content}}\"\n}"
+      "headers": [],
+      "bodyTemplate": "{\n  \"filename\": \"{{filename}}\",\n  \"content\": \"{{content}}\"\n}",
+      "hidden": false,
+      "contentType": "json"
     }
   ],
   "webhookUrl": "http://www.google.com",

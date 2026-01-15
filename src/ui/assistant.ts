@@ -1,4 +1,5 @@
 import { MarkdownPostProcessorContext, MarkdownRenderChild, TFile, ButtonComponent, Notice } from 'obsidian';
+import * as obsidian from 'obsidian';
 import ZoteroGKPlugin from '../main';
 import { HighlightModal } from './highlights';
 import { parseImageMap } from '../utils/parser';
@@ -30,7 +31,7 @@ export class AssistantView extends MarkdownRenderChild {
 		const cache = this.plugin.app.metadataCache.getFileCache(file);
 		const key = cache?.frontmatter?.['zotero-key'] || cache?.frontmatter?.['citation-key'];
 
-		// 1. Standard Highlight Review Button
+		// 1. Review Button
 		const reviewBtn = new ButtonComponent(btnRow)
 			.setButtonText(`Review Highlights`)
 			.setIcon("highlighter")
@@ -41,7 +42,6 @@ export class AssistantView extends MarkdownRenderChild {
 		reviewBtn.buttonEl.addClass("zotero-btn-fancy");
 
 		// 2. DYNAMIC WEBHOOK BUTTONS
-		// Iterate through all configured webhooks and create a button for each
 		if (this.plugin.settings.webhooks.length > 0) {
 			this.plugin.settings.webhooks.forEach(hook => {
 				// CHECK VISIBILITY
@@ -57,6 +57,7 @@ export class AssistantView extends MarkdownRenderChild {
 				btn.buttonEl.addClass("zotero-btn-fancy", "zotero-btn-secondary");
 			});
 		}
+
 		// --- Local Highlights ---
 		container.createEl("hr");
 		container.createEl("h5", { text: "📝 Related Notes / Highlights" });
@@ -70,8 +71,9 @@ export class AssistantView extends MarkdownRenderChild {
 
 		if (customScript && customScript.trim().length > 0) {
 			try {
-				const func = new Function('container', 'file', 'app', customScript);
-				await func(container, file, this.plugin.app);
+				// PASS 'obsidian' module to the script
+				const func = new Function('container', 'file', 'app', 'obsidian', customScript);
+				await func(container, file, this.plugin.app, obsidian);
 			} catch (e) {
 				container.createDiv({
 					text: `⚠️ Custom Script Error: ${(e as Error).message}`,
@@ -82,7 +84,7 @@ export class AssistantView extends MarkdownRenderChild {
 			return;
 		}
 
-		// Default Logic
+		// Default Logic (Fallback)
 		const content = await this.plugin.app.vault.read(file);
 		const lines = content.split('\n');
 		let found = 0;

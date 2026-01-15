@@ -37,11 +37,10 @@ export interface MetadataMapInfo {
 }
 
 // --- MODULAR WEBHOOK TYPES ---
-
 export interface WebhookHeader {
 	key: string;
 	value: string;
-	type: 'text' | 'secret'; // RESTORED: Secret support
+	type: 'text' | 'secret';
 }
 
 export interface WebhookProfile {
@@ -52,7 +51,8 @@ export interface WebhookProfile {
 	method: 'GET' | 'POST' | 'PUT' | 'DELETE';
 	headers: WebhookHeader[];
 	bodyTemplate: string;
-	hidden: boolean; // NEW: Visibility toggle
+	hidden: boolean;
+	contentType: 'json' | 'form' | 'text'; // NEW: Explicit content type option
 }
 
 export interface MyPluginSettings {
@@ -64,6 +64,33 @@ export interface MyPluginSettings {
 	webhooks: WebhookProfile[];
 }
 
+// --- NEW: DEFAULT DATAVIEW SCRIPT ---
+export const DEFAULT_ASSISTANT_SCRIPT = `
+// 🤖 Default Dataview Script
+// This script finds list items with "==" (highlights) or tags in the active file.
+// Variables available: container, file, app, obsidian
+
+// Get the current page object
+const page = dv.page(file.path);
+if (!page) return;
+
+// 1. Find Highlights (==text==) in list items
+const highlights = page.file.lists.where(l => l.text.includes("=="));
+
+if (highlights.length > 0) {
+    container.createEl("h5", {text: "🖍️ Local Highlights (Dataview)", style: "margin-top: 10px;"});
+    const ul = container.createEl("ul", {cls: "zotero-highlight-list"});
+    
+    for (const item of highlights) {
+        const li = ul.createEl("li", {cls: "zotero-highlight-item"});
+        // Simple text cleaning
+        li.innerText = item.text.replace(/==/g, ''); 
+    }
+} else {
+    container.createDiv({text: "No local highlights found.", cls: "zotero-text-muted-italic"});
+}
+`;
+
 export const DEFAULT_SETTINGS: MyPluginSettings = {
 	zoteroPort: 23119,
 	fleetingNoteFolder: "Fleeting Notes",
@@ -74,7 +101,7 @@ export const DEFAULT_SETTINGS: MyPluginSettings = {
 		{ label: "Authors", zoteroProp: "creators", noteProp: "authors", enabled: true },
 		{ label: "DOI", zoteroProp: "doi", noteProp: "doi", enabled: true }
 	],
-	assistantScript: "",
+	assistantScript: DEFAULT_ASSISTANT_SCRIPT, // Set the default script
 	sortProperty: "color",
 	webhooks: []
 };
