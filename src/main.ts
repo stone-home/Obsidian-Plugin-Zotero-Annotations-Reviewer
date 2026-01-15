@@ -1,17 +1,8 @@
 import { Plugin, Notice } from 'obsidian';
+import { DEFAULT_SETTINGS, MyPluginSettings } from './types';
 import { ZoteroSettingTab } from './settings';
-import { HighlightModal } from './highlightModel';
-import { InputModal } from './InputModal';
-
-interface MyPluginSettings {
-	zoteroPort: number;
-	fleetingNoteFolder: string;
-}
-
-const DEFAULT_SETTINGS: MyPluginSettings = {
-	zoteroPort: 23119,
-	fleetingNoteFolder: 'Fleeting Notes'
-}
+import { HighlightModal } from './ui/highlights';
+import { InputModal } from './ui/inputs'; // Reuse your existing InputModal
 
 export default class ZoteroGKPlugin extends Plugin {
 	settings!: MyPluginSettings;
@@ -19,36 +10,14 @@ export default class ZoteroGKPlugin extends Plugin {
 	async onload() {
 		await this.loadSettings();
 
-		// 命令: 手动输入 Citation Key
+		// Command: Review Highlights (Manual)
 		this.addCommand({
-			id: 'open-zotero-reviewer',
+			id: 'zotero-review-manual',
 			name: 'Review Highlights (Enter Citation Key)',
 			callback: () => {
 				new InputModal(this.app, (key) => {
-					if (key && key.trim().length > 0) {
-						new HighlightModal(this.app, this.settings, key).open();
-					}
+					if (key) new HighlightModal(this.app, this.settings, key).open();
 				}).open();
-			}
-		});
-
-		// 命令: 从当前笔记属性自动获取
-		this.addCommand({
-			id: 'review-current-note-highlights',
-			name: 'Review Highlights (Current Note)',
-			callback: () => {
-				const file = this.app.workspace.getActiveFile();
-				if(!file) return;
-
-				const fm = this.app.metadataCache.getFileCache(file)?.frontmatter;
-				// 支持 zotero-key 或 citation-key
-				const key = fm?.['zotero-key'] || fm?.['citation-key'];
-
-				if (key) {
-					new HighlightModal(this.app, this.settings, key).open();
-				} else {
-					new Notice("No 'citation-key' found in frontmatter.");
-				}
 			}
 		});
 

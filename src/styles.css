@@ -750,3 +750,136 @@
 .header-container h3 {
   margin: 0;
 }
+
+
+/* Container for the Annotation List */
+.zotero-annotation-list {
+	margin-top: 20px;
+}
+
+/* Metadata Section */
+.zotero-metadata-section {
+	background-color: var(--background-primary-alt);
+	padding: 15px;
+	border-radius: 8px;
+	margin-bottom: 20px;
+	border: 1px solid var(--background-modifier-border);
+}
+
+.zotero-metadata-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 10px;
+}
+
+.zotero-metadata-table {
+	width: 100%;
+	font-size: 0.9em;
+	border-collapse: collapse;
+}
+
+.zotero-metadata-table th {
+	text-align: left;
+	padding-bottom: 5px;
+	color: var(--text-muted);
+}
+
+.zotero-metadata-table td {
+	padding: 5px 0;
+}
+
+.zotero-metadata-value {
+	color: var(--text-accent);
+}
+
+/* Annotation Cards */
+.zotero-card {
+	background-color: var(--background-secondary);
+	padding: 15px;
+	margin-bottom: 15px;
+	border-radius: 4px;
+	/* border-left is handled dynamically in JS */
+	transition: all 0.2s ease-in-out;
+}
+
+.zotero-card:hover {
+	box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+/* Text Highlights */
+.zotero-card-blockquote {
+	margin: 0 0 10px 0;
+	font-style: italic;
+	border-left: none; /* We use the card border */
+	padding-left: 0;
+}
+
+/* Image Placeholder Styling */
+.zotero-image-placeholder {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	background-color: var(--background-primary);
+	border: 2px dashed var(--text-muted);
+	border-radius: 6px;
+	padding: 20px;
+	color: var(--text-muted);
+	font-size: 0.9em;
+	margin-bottom: 10px;
+	text-align: center;
+}
+
+.zotero-image-icon {
+	font-size: 24px;
+	margin-bottom: 8px;
+	opacity: 0.7;
+}
+
+.zotero-card-comment {
+	font-weight: bold;
+	margin-bottom: 8px;
+	padding-top: 5px;
+	border-top: 1px dashed var(--background-modifier-border);
+}
+
+.zotero-card-meta {
+	display: flex;
+	justify-content: space-between;
+	font-size: 0.8em;
+	color: var(--text-muted);
+	margin-top: 10px;
+}
+
+/* Button Row */
+.zotero-card-actions {
+	display: flex;
+	gap: 10px;
+	margin-top: 10px;
+	justify-content: flex-end;
+	align-items: center;
+}
+
+.zotero-status-exported {
+	margin-right: auto;
+	color: var(--text-success);
+	font-weight: bold;
+	display: flex;
+	align-items: center;
+	gap: 5px;
+}
+
+/* Zotero Child Notes */
+.zotero-note-container {
+	border: 1px solid var(--background-modifier-border);
+	padding: 10px;
+	margin-bottom: 10px;
+	border-radius: 4px;
+}
+
+.zotero-note-content {
+	font-size: 0.9em;
+	color: var(--text-muted);
+	margin-top: 5px;
+}
