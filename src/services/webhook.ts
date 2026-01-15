@@ -1,120 +1,112 @@
 import { requestUrl, Notice, TFile, App } from 'obsidian';
-import { MyPluginSettings } from '../types';
+import { WebhookProfile } from '../types';
 
 export class WebhookService {
-	private settings: MyPluginSettings;
 	private app: App;
 
-	constructor(app: App, settings: MyPluginSettings) {
+	constructor(app: App) {
 		this.app = app;
-		this.settings = settings;
 	}
 
-	async checkConditions(file: TFile): Promise<boolean> {
-		if (this.settings.webhookConditions.length === 0) return true;
-
-		const cache = this.app.metadataCache.getFileCache(file);
-		const frontmatter = cache?.frontmatter || {};
-		const content = await this.app.vault.read(file);
-
-		let result = true;
-
-		for (const [index, cond] of this.settings.webhookConditions.entries()) {
-			let fieldValue = "";
-			if (cond.field === "content") {
-				fieldValue = content;
-			} else if (cond.field.startsWith("frontmatter.")) {
-				const key = cond.field.replace("frontmatter.", "");
-				fieldValue = frontmatter[key] ? String(frontmatter[key]) : "";
-			} else if (cond.field === "filename") {
-				fieldValue = file.name;
-			} else {
-				fieldValue = frontmatter[cond.field] ? String(frontmatter[cond.field]) : "";
-			}
-
-			let match = false;
-			switch (cond.operator) {
-				case 'eq': match = fieldValue === cond.value; break;
-				case 'neq': match = fieldValue !== cond.value; break;
-				case 'contains': match = fieldValue.includes(cond.value); break;
-				case 'not_contains': match = !fieldValue.includes(cond.value); break;
-				case 'regex':
-					try {
-						match = new RegExp(cond.value).test(fieldValue);
-					} catch (e) { console.error(e); match = false; }
-					break;
-			}
-
-			if (index === 0) result = match;
-			else {
-				if (cond.logic === 'AND') result = result && match;
-				else if (cond.logic === 'OR') result = result || match;
-			}
-		}
-		return result;
-	}
-
-	async sendNoteData(file: TFile) {
-		if (!this.settings.webhookUrl) {
-			new Notice("❌ Webhook URL not configured.");
+	async triggerWebhook(profile: WebhookProfile, file: TFile) {
+		if (!profile.url) {
+			new Notice(`❌ Webhook "${profile.name}" has no URL.`);
 			return;
 		}
 
-		if (!(await this.checkConditions(file))) {
-			new Notice("⚠️ Webhook conditions not met.");
-			return;
-		}
-
-		new Notice("🚀 Sending Webhook...");
+		new Notice(`🚀 Triggering: ${profile.name}...`);
 
 		try {
+			// 1. Gather Data (TFile Access)
 			const cache = this.app.metadataCache.getFileCache(file);
-			const payload = {
-				filename: file.name,
-				path: file.path,
-				frontmatter: cache?.frontmatter,
-				content: await this.app.vault.read(file),
-				timestamp: new Date().toISOString()
+			const frontmatter = cache?.frontmatter || {};
+			const content = await this.app.vault.read(file);
+
+			// 2. Prepare Variables
+			const variables: Record<string, string> = {
+				'{{filename}}': file.name,
+				'{{path}}': file.path,
+				'{{content}}': content,
+				'{{timestamp}}': new Date().toISOString()
 			};
 
-			// Build Headers
-			const headers: Record<string, string> = {
-				'Content-Type': 'application/json'
-			};
-			console.error(this.settings.webhookHeaders)
-			for (const h of this.settings.webhookHeaders) {
-				if (h.type === 'secret') {
-					if (this.app.secretStorage) {
-						const secretVal = this.app.secretStorage.getSecret(h.value);
-						if (secretVal) {
-							headers[h.name] = secretVal;
-						} else {
-							console.warn(`Secret key '${h.value}' returned empty or null.`);
-						}
-					} else {
-						console.warn("SecretStorage API is not available on this version of Obsidian.");
-					}
-				} else {
-					headers[h.name] = h.value;
+			// Flatten frontmatter for easier access
+			Object.keys(frontmatter).forEach(key => {
+				const val = frontmatter[key];
+				// Support {{frontmatter.key}}
+				variables[`{{frontmatter.${key}}}`] = String(val);
+				// Also support simple {{key}} if no conflict, though specific is safer
+			});
+
+			// 3. Process Body Template
+			let body = profile.bodyTemplate || "";
+			if (profile.method !== 'GET' && body.trim().length > 0) {
+				for (const [key, val] of Object.entries(variables)) {
+					// Safe JSON escape for content
+					const safeVal = val.replace(/\\/g, '\\\\')
+						.replace(/\n/g, '\\n')
+						.replace(/"/g, '\\"')
+						.replace(/\r/g, '\\r')
+						.replace(/\t/g, '\\t');
+
+					// Replace all occurrences
+					body = body.split(key).join(safeVal);
 				}
 			}
 
+			// 4. Process Headers (Secret Support)
+			const headers: Record<string, string> = {};
+
+			// Auto Content-Type if JSON
+			if (body.trim().startsWith('{')) {
+				headers['Content-Type'] = 'application/json';
+			}
+
+			for (const h of profile.headers) {
+				let finalValue = h.value;
+
+				// SECRET HANDLING
+				if (h.type === 'secret') {
+					if (this.app.secretStorage) {
+						// h.value holds the KEY of the secret (e.g. "openai_api_key")
+						const secret = await this.app.secretStorage.getSecret(h.value);
+						if (secret) {
+							finalValue = secret;
+						} else {
+							console.warn(`Secret '${h.value}' not found or empty.`);
+							finalValue = ""; // Or keep key? Better empty to avoid leaking key name.
+						}
+					} else {
+						console.warn("SecretStorage not supported.");
+					}
+				}
+
+				// Apply templating to headers too (e.g. {{filename}} in header)
+				for (const [vKey, vVal] of Object.entries(variables)) {
+					finalValue = finalValue.split(vKey).join(vVal);
+				}
+
+				headers[h.key] = finalValue;
+			}
+
+			// 5. Send Request
 			const response = await requestUrl({
-				url: this.settings.webhookUrl,
-				method: 'POST',
+				url: profile.url,
+				method: profile.method,
 				headers: headers,
-				body: JSON.stringify(payload)
+				body: profile.method !== 'GET' ? body : undefined
 			});
 
 			if (response.status >= 200 && response.status < 300) {
-				new Notice("✅ Webhook Sent Successfully!");
+				new Notice(`✅ ${profile.name} Sent!`);
 			} else {
-				new Notice(`⚠️ Webhook Error: ${response.status}`);
+				new Notice(`⚠️ ${profile.name} Failed: ${response.status}`);
+				console.warn(response.text);
 			}
 
 		} catch (e) {
 			console.error(e);
-			new Notice(`❌ Webhook Failed: ${(e as Error).message}`);
+			new Notice(`❌ Webhook Error: ${(e as Error).message}`);
 		}
 	}
 }

@@ -1,5 +1,5 @@
-import { Plugin, Notice, TFile } from 'obsidian';
-import { DEFAULT_SETTINGS, MyPluginSettings } from './types';
+import { Plugin, Notice, TFile, SuggestModal, App } from 'obsidian';
+import { DEFAULT_SETTINGS, MyPluginSettings, WebhookProfile } from './types';
 import { ZoteroSettingTab } from './settings';
 import { HighlightModal } from './ui/highlights';
 import { InputModal } from './ui/inputs';
@@ -19,7 +19,7 @@ export default class ZoteroGKPlugin extends Plugin {
 
 		this.zotero = new ZoteroService(this.settings.zoteroPort);
 		this.obsidian = new ObsidianService(this.app, this.settings);
-		this.webhookService = new WebhookService(this.app, this.settings);
+		this.webhookService = new WebhookService(this.app);
 
 		// 1. Register Code Block
 		this.registerMarkdownCodeBlockProcessor("zotero-assistant", (source, el, ctx) => {
@@ -28,7 +28,7 @@ export default class ZoteroGKPlugin extends Plugin {
 			view.render(source, ctx);
 		});
 
-		// 2. Manual Command
+		// 2. Create Note Command
 		this.addCommand({
 			id: 'zotero-create-dashboard',
 			name: 'Create Literature Note (Enter Citation Key)',
@@ -60,6 +60,23 @@ export default class ZoteroGKPlugin extends Plugin {
 			}
 		});
 
+		// 4. NEW: Trigger Webhook Command
+		this.addCommand({
+			id: 'zotero-trigger-webhook',
+			name: 'Trigger Webhook...',
+			checkCallback: (checking: boolean) => {
+				const file = this.app.workspace.getActiveFile();
+				if (!file) return false;
+				if (!checking) {
+					// Open selection modal
+					new WebhookSelectionModal(this.app, this.settings.webhooks, (hook) => {
+						this.webhookService.triggerWebhook(hook, file);
+					}).open();
+				}
+				return true;
+			}
+		});
+
 		this.addSettingTab(new ZoteroSettingTab(this.app, this));
 	}
 
@@ -80,5 +97,30 @@ export default class ZoteroGKPlugin extends Plugin {
 
 	async saveSettings() {
 		await this.saveData(this.settings);
+	}
+}
+
+// Simple Helper Modal for selecting a webhook from command palette
+class WebhookSelectionModal extends SuggestModal<WebhookProfile> {
+	webhooks: WebhookProfile[];
+	onChoose: (hook: WebhookProfile) => void;
+
+	constructor(app: App, webhooks: WebhookProfile[], onChoose: (hook: WebhookProfile) => void) {
+		super(app);
+		this.webhooks = webhooks;
+		this.onChoose = onChoose;
+	}
+
+	getSuggestions(query: string): WebhookProfile[] {
+		return this.webhooks.filter(hook => hook.name.toLowerCase().includes(query.toLowerCase()));
+	}
+
+	renderSuggestion(hook: WebhookProfile, el: HTMLElement) {
+		el.createDiv({ text: hook.name });
+		el.createDiv({ text: hook.url, cls: "zotero-text-muted-italic" });
+	}
+
+	onChooseSuggestion(hook: WebhookProfile, evt: MouseEvent | KeyboardEvent) {
+		this.onChoose(hook);
 	}
 }

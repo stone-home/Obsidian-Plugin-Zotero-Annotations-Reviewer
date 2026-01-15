@@ -1,7 +1,3 @@
-import { App } from 'obsidian';
-// If you get an error saying 'secretStorage does not exist on App',
-// run `npm i obsidian@latest` or restore the 'declare module' block.
-
 export interface ZoteroAnnotation {
 	key: string;
 	citationKey: string;
@@ -40,37 +36,32 @@ export interface MetadataMapInfo {
 	enabled: boolean;
 }
 
-// --- Webhook Types ---
+// --- MODULAR WEBHOOK TYPES ---
 
 export interface WebhookHeader {
-	id: string;
-	name: string; // Header Key (e.g. "Authorization")
-	type: 'text' | 'secret'; // The type of input
-	value: string; // The text value OR the Secret Key (if type is secret)
+	key: string;
+	value: string;
+	type: 'text' | 'secret'; // RESTORED: Secret support
 }
 
-export interface WebhookCondition {
+export interface WebhookProfile {
 	id: string;
-	logic: 'AND' | 'OR';
-	field: string;
-	operator: 'eq' | 'neq' | 'contains' | 'not_contains' | 'regex';
-	value: string;
+	name: string;
+	icon: string;
+	url: string;
+	method: 'GET' | 'POST' | 'PUT' | 'DELETE';
+	headers: WebhookHeader[];
+	bodyTemplate: string;
+	hidden: boolean; // NEW: Visibility toggle
 }
 
 export interface MyPluginSettings {
-	// General
 	zoteroPort: number;
 	fleetingNoteFolder: string;
-
-	// Zotero / Highlights
 	metadataMapping: MetadataMapInfo[];
 	assistantScript: string;
 	sortProperty: string;
-
-	// Webhook
-	webhookUrl: string;
-	webhookHeaders: WebhookHeader[];
-	webhookConditions: WebhookCondition[];
+	webhooks: WebhookProfile[];
 }
 
 export const DEFAULT_SETTINGS: MyPluginSettings = {
@@ -81,14 +72,9 @@ export const DEFAULT_SETTINGS: MyPluginSettings = {
 		{ label: "Date", zoteroProp: "date", noteProp: "date", enabled: true },
 		{ label: "Publication", zoteroProp: "publication", noteProp: "publication", enabled: true },
 		{ label: "Authors", zoteroProp: "creators", noteProp: "authors", enabled: true },
-		{ label: "DOI", zoteroProp: "doi", noteProp: "doi", enabled: true },
-		{ label: "Publisher", zoteroProp: "publisher", noteProp: "publisher", enabled: false },
-		{ label: "Pages", zoteroProp: "pages", noteProp: "pages", enabled: false }
+		{ label: "DOI", zoteroProp: "doi", noteProp: "doi", enabled: true }
 	],
 	assistantScript: "",
 	sortProperty: "color",
-
-	webhookUrl: "",
-	webhookHeaders: [],
-	webhookConditions: []
+	webhooks: []
 };

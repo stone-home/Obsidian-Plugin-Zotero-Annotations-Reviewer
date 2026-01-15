@@ -23,47 +23,40 @@ export class AssistantView extends MarkdownRenderChild {
 		let imageMap = parseImageMap(source);
 		const container = el.createDiv({ cls: 'zotero-assistant-container' });
 
-		// Header
 		const header = container.createDiv({ cls: 'zotero-assistant-header' });
 		header.createEl("h4", { text: "🤖 Zotero Assistant", cls: "zotero-title" });
 
-		// --- Actions Row (FANCY BUTTONS) ---
 		const btnRow = container.createDiv({ cls: 'zotero-assistant-actions' });
-
 		const cache = this.plugin.app.metadataCache.getFileCache(file);
 		const key = cache?.frontmatter?.['zotero-key'] || cache?.frontmatter?.['citation-key'];
 
-		// 1. Review Button
+		// 1. Standard Highlight Review Button
 		const reviewBtn = new ButtonComponent(btnRow)
-			.setButtonText(`Fetch / Review Highlights`)
+			.setButtonText(`Review Highlights`)
 			.setIcon("highlighter")
 			.setDisabled(!key)
 			.onClick(() => {
 				if (key) new HighlightModal(this.plugin.app, this.plugin.settings, key, imageMap).open();
 			});
-
-		// Apply Fancy Class
 		reviewBtn.buttonEl.addClass("zotero-btn-fancy");
 
-		// 2. Webhook Button
-		const webhookBtn = new ButtonComponent(btnRow)
-			.setButtonText("Send Webhook")
-			.setIcon("plane");
+		// 2. DYNAMIC WEBHOOK BUTTONS
+		// Iterate through all configured webhooks and create a button for each
+		if (this.plugin.settings.webhooks.length > 0) {
+			this.plugin.settings.webhooks.forEach(hook => {
+				// CHECK VISIBILITY
+				if (hook.hidden) return;
 
-		webhookBtn.buttonEl.addClass("zotero-btn-fancy");
+				const btn = new ButtonComponent(btnRow)
+					.setButtonText(hook.name)
+					.setIcon(hook.icon || "plane")
+					.onClick(async () => {
+						await this.plugin.webhookService.triggerWebhook(hook, file);
+					});
 
-		// Check Conditions
-		const isWebhookActive = await this.plugin.webhookService.checkConditions(file);
-		if (isWebhookActive) {
-			webhookBtn.onClick(async () => {
-				await this.plugin.webhookService.sendNoteData(file);
+				btn.buttonEl.addClass("zotero-btn-fancy", "zotero-btn-secondary");
 			});
-		} else {
-			webhookBtn.setDisabled(true);
-			webhookBtn.setTooltip("Conditions not met (check settings)");
-			// Optional: make it look disabled visually via CSS if needed, though .setDisabled does logic
 		}
-
 		// --- Local Highlights ---
 		container.createEl("hr");
 		container.createEl("h5", { text: "📝 Related Notes / Highlights" });
@@ -89,6 +82,7 @@ export class AssistantView extends MarkdownRenderChild {
 			return;
 		}
 
+		// Default Logic
 		const content = await this.plugin.app.vault.read(file);
 		const lines = content.split('\n');
 		let found = 0;

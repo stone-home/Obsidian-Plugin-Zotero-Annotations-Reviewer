@@ -47,6 +47,22 @@
   ],
   "assistantScript": "",
   "sortProperty": "color",
+  "webhooks": [
+    {
+      "id": "1768515792962",
+      "name": "New Webhook",
+      "url": "",
+      "method": "POST",
+      "icon": "plane",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "bodyTemplate": "{\n  \"filename\": \"{{filename}}\",\n  \"content\": \"{{content}}\"\n}"
+    }
+  ],
   "webhookUrl": "http://www.google.com",
   "webhookHeaders": [
     {
