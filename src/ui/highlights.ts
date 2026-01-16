@@ -24,7 +24,7 @@ export class HighlightModal extends Modal {
 		onUpdate?: () => void
 	) {
 		super(app);
-		this.citationKey = citationKey;
+		this.citationKey = String(citationKey);
 		this.settings = settings;
 		this.imageMap = imageMap;
 		this.zotero = new ZoteroService(settings.zoteroPort);

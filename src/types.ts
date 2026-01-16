@@ -8,8 +8,8 @@ export interface ZoteroAnnotation {
 	pageLabel: string;
 	link: string;
 	attachmentTitle: string;
+	date: string;
 	position?: any;
-	date: string
 }
 
 export interface ZoteroItemMetadata {

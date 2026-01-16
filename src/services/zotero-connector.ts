@@ -15,7 +15,7 @@ export class ZoteroConnectorService {
 		const plugin = this.app.plugins.getPlugin('obsidian-zotero-desktop-connector');
 		if(plugin && plugin.settings.exportFormats) {
 			const fmt = plugin.settings.exportFormats[0];
-			if(fmt) await plugin.runImport(fmt.name, citationKey);
+			if(fmt) await plugin.runImport(fmt.name, String(citationKey));
 			console.error(citationKey)
 			new Notice("Triggered Zotero Integration Import");
 		} else {
