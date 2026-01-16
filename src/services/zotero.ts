@@ -10,9 +10,6 @@ export class ZoteroService {
 		this.port = port;
 	}
 
-	// --- Public API ---
-	// ... (getRawMetadata, getItemMetadata logic remains the same) ...
-
 	async getRawMetadata(citationKey: string): Promise<any> {
 		const libraryId = await this.resolveLibraryId(citationKey);
 		return await this.sendRpc('item.export', [[citationKey], this.BBT_JSON_TRANSLATOR_ID, libraryId]);

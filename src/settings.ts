@@ -1,4 +1,20 @@
-import { App, PluginSettingTab, Setting, ButtonComponent, TextComponent, ToggleComponent, TextAreaComponent, Modal, DropdownComponent, Notice, SuggestModal, setIcon } from 'obsidian';
+import {
+	App,
+	FuzzySuggestModal,
+	FuzzyMatch,
+	PluginSettingTab,
+	Setting,
+	ButtonComponent,
+	TextComponent,
+	ToggleComponent,
+	TextAreaComponent,
+	Modal,
+	DropdownComponent,
+	Notice,
+	SuggestModal,
+	getIconIds,
+	setIcon
+} from 'obsidian';
 import ZoteroGKPlugin from './main';
 import { WebhookProfile } from './types';
 
@@ -244,18 +260,53 @@ export class ZoteroSettingTab extends PluginSettingTab {
 	}
 }
 
-class IconSuggestModal extends SuggestModal<string> {
-	// (Same as before, simplified for brevity since it was correct)
-	onChoose: (icon: string) => void;
-	constructor(app: App, onChoose: (icon: string) => void) { super(app); this.onChoose = onChoose; }
-	// @ts-ignore
-	getSuggestions(query: string) { return (import('obsidian') as any).getIconIds().filter((i:string) => i.includes(query)); }
-	renderSuggestion(icon: string, el: HTMLElement) {
-		el.style.display="flex"; el.style.alignItems="center"; el.style.gap="10px";
-		const span = el.createSpan(); setIcon(span, icon); el.createSpan({text: icon});
+// class IconSuggestModal extends SuggestModal<string> {
+// 	// (Same as before, simplified for brevity since it was correct)
+// 	onChoose: (icon: string) => void;
+// 	constructor(app: App, onChoose: (icon: string) => void) { super(app); this.onChoose = onChoose; }
+// 	// @ts-ignore
+// 	getSuggestions(query: string) { return (import('obsidian') as any).getIconIds().filter((i:string) => i.includes(query)); }
+// 	renderSuggestion(icon: string, el: HTMLElement) {
+// 		el.style.display="flex"; el.style.alignItems="center"; el.style.gap="10px";
+// 		const span = el.createSpan(); setIcon(span, icon); el.createSpan({text: icon});
+// 	}
+// 	onChooseSuggestion(icon: string) { this.onChoose(icon); }
+// }
+
+
+export class IconSuggestModal extends FuzzySuggestModal<string> {
+	callback: (icon: string) => void;
+
+	constructor(app: App, callback: (icon: string) => void) {
+		super(app);
+		this.callback = callback;
 	}
-	onChooseSuggestion(icon: string) { this.onChoose(icon); }
+
+	getItems(): string[] {
+		return getIconIds(); // This requires the import above
+	}
+
+	getItemText(icon: string): string {
+		return icon;
+	}
+
+	// 2. USE FuzzyMatch<string> here, not just string
+	renderSuggestion(match: FuzzyMatch<string>, el: HTMLElement) {
+		el.addClass("mod-icon-suggestion");
+
+		const iconName = match.item; // Extract the string from the match object
+
+		const iconContainer = el.createDiv({ cls: "suggestion-icon" });
+		setIcon(iconContainer, iconName);
+
+		el.createDiv({ text: iconName });
+	}
+
+	onChooseItem(icon: string, evt: MouseEvent | KeyboardEvent) {
+		this.callback(icon);
+	}
 }
+
 
 class WebhookEditModal extends Modal {
 	webhook: WebhookProfile;
@@ -291,12 +342,14 @@ class WebhookEditModal extends Modal {
 		iconContainer.style.alignItems = "center";
 		const previewEl = iconContainer.createDiv({ cls: "zotero-icon-preview-box" });
 		setIcon(previewEl, this.webhook.icon || "help-circle");
-		new ButtonComponent(iconContainer).setButtonText(this.webhook.icon || "Select").setIcon("search").onClick(() => {
-			// @ts-ignore
-			new IconSuggestModal(this.app, (selectedIcon) => {
-				this.webhook.icon = selectedIcon;
-				previewEl.empty();
-				setIcon(previewEl, selectedIcon);
+
+		const iconSearcher = new ButtonComponent(iconContainer)
+		iconSearcher.setButtonText(this.webhook.icon || "Select")
+			.setIcon("search").onClick(() => {
+				new IconSuggestModal(this.app, (selectedIcon) => {
+					this.webhook.icon = selectedIcon;
+					previewEl.empty();
+					setIcon(previewEl, selectedIcon);
 			}).open();
 		});
 

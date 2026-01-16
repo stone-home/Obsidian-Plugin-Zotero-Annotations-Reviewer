@@ -2,6 +2,7 @@ import { App, Modal, Notice, TFile} from 'obsidian';
 import { ZoteroAnnotation, ZoteroItemMetadata, MyPluginSettings } from '../types';
 import { ZoteroService } from '../services/zotero';
 import { ObsidianService } from '../services/obsidian';
+import { ZoteroConnectorService } from "../services/zotero-connector";
 import { ObsidianNoteFactory, NoteModel } from 'markdown-note-orm';
 
 export class HighlightModal extends Modal {
@@ -9,6 +10,7 @@ export class HighlightModal extends Modal {
 	private settings: MyPluginSettings;
 	private zotero: ZoteroService;
 	private obsidian: ObsidianService;
+	private zoteroConnector: ZoteroConnectorService
 	private annotations: ZoteroAnnotation[] = [];
 	private itemMetadata: ZoteroItemMetadata | null = null;
 	private imageMap: Record<string, string>;
@@ -27,6 +29,7 @@ export class HighlightModal extends Modal {
 		this.imageMap = imageMap;
 		this.zotero = new ZoteroService(settings.zoteroPort);
 		this.obsidian = new ObsidianService(app, settings);
+		this.zoteroConnector = new ZoteroConnectorService(app, settings)
 		this.onUpdate = onUpdate;
 	}
 
@@ -68,9 +71,9 @@ export class HighlightModal extends Modal {
 		const header = contentEl.createDiv({ cls: "zotero-modal-header-actions" });
 		header.createEl("h2", { text: `Review: ${this.citationKey}`, cls: "zotero-no-margin" });
 
-		const btnFetch = header.createEl("button", { text: "📥 Fetch Images" });
+		const btnFetch = header.createEl("button", { text: "📥 Update Paper" });
 		btnFetch.addClass("zotero-btn-fancy");
-		btnFetch.onclick = () => this.triggerZoteroIntegrationImport();
+		btnFetch.onclick = () => this.zoteroConnector.triggerZoteroIntegrationImport();
 
 		const metaContainer = contentEl.createDiv({ cls: 'zotero-metadata-container' });
 		if (this.itemMetadata) {
@@ -221,7 +224,7 @@ export class HighlightModal extends Modal {
 			p.createDiv({ text: "📷 Image Not Found" });
 			const btn = p.createEl("button", { text: "📥 Fetch" });
 			btn.addClass("zotero-btn-fancy", "zotero-btn-small");
-			btn.onclick = () => this.triggerZoteroIntegrationImport();
+			btn.onclick = () => this.zoteroConnector.triggerZoteroIntegrationImport();
 		}
 
 		if (ann.text) card.createEl("blockquote", { text: ann.text, cls: "zotero-blockquote-no-margin" });
@@ -257,15 +260,5 @@ export class HighlightModal extends Modal {
 		}
 	}
 
-	async triggerZoteroIntegrationImport() {
-		// @ts-ignore
-		const plugin = this.app.plugins.getPlugin('obsidian-zotero-desktop-connector');
-		if(plugin && plugin.settings.exportFormats) {
-			const fmt = plugin.settings.exportFormats[0];
-			if(fmt) await plugin.runImport(fmt.name, this.citationKey);
-			new Notice("Triggered Zotero Integration Import");
-		} else {
-			new Notice("Obsidian Zotero Desktop Connector plugin not found or configured.");
-		}
-	}
+
 }
