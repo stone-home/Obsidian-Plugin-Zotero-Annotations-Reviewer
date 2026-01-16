@@ -81,7 +81,8 @@ export class ZoteroService {
 						link: `zotero://open-pdf/library/items/${attachmentItemKey}?page=${ann.annotationPageLabel || 1}&annotation=${ann.key}`,
 						attachmentTitle: att.title || "Unknown Attachment",
 						// NEW: Capture Position for Image Matching
-						position: ann.position // BBT provides { pageIndex: 0, rects: [...] }
+						position: ann.position, // BBT provides { pageIndex: 0, rects: [...] }
+						date: ann.date
 					});
 				}
 			}

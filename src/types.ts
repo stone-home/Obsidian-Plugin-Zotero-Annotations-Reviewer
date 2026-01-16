@@ -9,6 +9,7 @@ export interface ZoteroAnnotation {
 	link: string;
 	attachmentTitle: string;
 	position?: any;
+	date: string
 }
 
 export interface ZoteroItemMetadata {

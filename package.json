@@ -41,7 +41,7 @@
 	},
 	"dependencies": {
 		"date-fns": "^4.1.0",
-		"markdown-note-orm": "^1.1.1",
+		"markdown-note-orm": "^1.2.0",
 		"winston": "^3.19.0"
 	},
 	"repository": {

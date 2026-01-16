@@ -1,6 +1,8 @@
 import { App, TFile, normalizePath, Notice } from 'obsidian';
 import { ZoteroAnnotation, ZoteroItemMetadata, MyPluginSettings } from '../types';
 import {NoteModel, ObsidianNoteFactory, ZettelNoteModel} from 'markdown-note-orm';
+import Module from "node:module";
+import FAILED = module
 
 export class ObsidianService {
 	private app: App;
@@ -49,7 +51,7 @@ export class ObsidianService {
 	 */
 	async saveNote(
 		annotation: ZoteroAnnotation,
-		mode: 'create' | 'overwrite',
+		mode: 'create' | 'overwrite' | "append",
 		targetFile?: TFile,
 		imageFile?: TFile | null
 	): Promise<void> {
@@ -61,22 +63,13 @@ export class ObsidianService {
 			await this.setNoteContent(note, annotation, imageFile || null);
 		} else if (mode === 'overwrite' && targetFile) {
 			note = await ObsidianNoteFactory.loadAndPatch(this.app, targetFile.path);
-			await this.setNoteContent(note, annotation, imageFile || null);
+			await this.modifyToNote(note, annotation, true, imageFile || null, );
+		} else if (mode === "append" && targetFile) {
+			note = await ObsidianNoteFactory.loadAndPatch(this.app, targetFile.path);
+			await this.modifyToNote(note, annotation, false, imageFile || null);
 		} else { return; }
 
 		await note.save();
-	}
-
-	async appendToNote(annotation: ZoteroAnnotation, targetFile: TFile, imageFile?: TFile | null): Promise<void> {
-		const note = await ObsidianNoteFactory.loadAndPatch(this.app, targetFile.path);
-		const dateStr = new Date().toLocaleDateString();
-
-		const lines = [`> ${annotation.text}`, "", `**Comment**: ${annotation.comment}`];
-		if (imageFile) lines.push("", `![[${imageFile.path}]]`);
-
-		note.content.addSection(`Update (${dateStr})`, 2, lines);
-		await note.save();
-		new Notice("Appended.");
 	}
 
 	/**
@@ -120,6 +113,25 @@ export class ObsidianService {
 		return null;
 	}
 
+	private async modifyToNote(note: ZettelNoteModel<any>, ann: ZoteroAnnotation,  replace: boolean = false, imageFile?: TFile | null): Promise<void> {
+		const lines = [`\`\`\`ad-quote`, `title: Modified at ${ann.date}`, `${ann.text}`, `\`\`\``];
+		if (imageFile) lines.push("", `![[${imageFile.path}]]`);
+
+		if (replace) {
+			const highlightContent = note.content.getSection("Highlight")
+			if (highlightContent) {
+				highlightContent.content = []
+			}
+			const thoughtContent = note.content.getSection("Thoughts")
+			if (thoughtContent) {
+				thoughtContent.content = []
+			}
+		}
+		note.content.addSection('Highlight', 2, lines);
+		if (ann.comment) note.content.addSection('Thoughts', 2, [`Comment at ${ann.date}`, ann.comment]);
+		new Notice("Appended.");
+	}
+
 	private async setNoteContent(note: ZettelNoteModel<any>, ann: ZoteroAnnotation, img: TFile | null) {
 		const activeFile = this.app.workspace.getActiveFile();
 		if (activeFile) {
@@ -133,11 +145,11 @@ export class ObsidianService {
 		note.properties.set(this.settings.annotationKeyName, ann.key);
 		note.properties.set(this.settings.citationKeyName, ann.citationKey);
 
-		const lines = ["> [!quote]", `> ${ann.text}`];
+		const lines = [`\`\`\`ad-quote`, `title: Modified at ${ann.date}`, `${ann.text}`, `\`\`\``];
 		if (img) lines.push("", `![[${img.path}]]`);
 
 		note.content.addSection('Highlight', 2, lines);
-		if (ann.comment) note.content.addSection('Thoughts', 2, [ann.comment]);
+		if (ann.comment) note.content.addSection('Thoughts', 2, [`Comment at ${ann.date}`, ann.comment]);
 		note.content.addSection('Source', 2, [`[PDF](${ann.link})`]);
 		note.content.addSection("Related Projects", 2, ["```project-picker\n```\n"])
 	}

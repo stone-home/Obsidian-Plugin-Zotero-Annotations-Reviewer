@@ -179,23 +179,40 @@ export class HighlightModal extends Modal {
 	}
 
 	private renderVerifyButton(container: HTMLElement, model: NoteModel<any>, propKey: string, zVal: string, label: string) {
-		const btn = container.createEl("button", { text: "Verify" });
-		btn.addClass("zotero-btn-small");
-		btn.onclick = () => {
-			const nVal = String(model.properties.get(propKey) || "").trim().toLowerCase();
-			const zNorm = zVal.trim().toLowerCase();
-			const isMatch = nVal === zNorm || (nVal.length > 5 && zNorm.includes(nVal));
 
-			if (isMatch) {
-				btn.setText("✅");
-				btn.addClass("zotero-text-success");
-				btn.setAttr("disabled", "true");
-			} else {
-				btn.setText("❌");
-				btn.addClass("zotero-text-error");
-				new Notice(`Mismatch for ${label}`);
-			}
-		};
+		const btn = container.createEl("button", { text: "Verify" });
+		const nVal = String(model.properties.get(propKey) || "").trim().toLowerCase();
+		const zNorm = zVal.trim().toLowerCase();
+		const isMatch = nVal === zNorm || (nVal.length > 5 && zNorm.includes(nVal));
+
+		if (isMatch) {
+			btn.setText("✅");
+			btn.addClass("zotero-text-success");
+			btn.setAttr("disabled", "true");
+		} else {
+			btn.setText("❌");
+			btn.addClass("zotero-text-error");
+			new Notice(`Mismatch for ${label}`);
+		}
+
+		// ==================== deprecated as auto checking is better ============================
+		// const btn = container.createEl("button", { text: "Verify" });
+		// btn.addClass("zotero-btn-small");
+		// btn.onclick = () => {
+		// 	const nVal = String(model.properties.get(propKey) || "").trim().toLowerCase();
+		// 	const zNorm = zVal.trim().toLowerCase();
+		// 	const isMatch = nVal === zNorm || (nVal.length > 5 && zNorm.includes(nVal));
+		//
+		// 	if (isMatch) {
+		// 		btn.setText("✅");
+		// 		btn.addClass("zotero-text-success");
+		// 		btn.setAttr("disabled", "true");
+		// 	} else {
+		// 		btn.setText("❌");
+		// 		btn.addClass("zotero-text-error");
+		// 		new Notice(`Mismatch for ${label}`);
+		// 	}
+		// };
 	}
 
 	async renderAnnotationCard(container: HTMLElement, ann: ZoteroAnnotation) {
@@ -246,6 +263,21 @@ export class HighlightModal extends Modal {
 				await this.app.workspace.getLeaf(true).openFile(existingNote);
 				this.close();
 			};
+
+			const replaceBtnOpen = right.createEl("button", { text: "Replace Note" });
+			replaceBtnOpen.addClass("zotero-btn-fancy", "zotero-btn-secondary");
+			replaceBtnOpen.onclick = async () => {
+				await this.obsidian.saveNote(ann, 'overwrite', existingNote, localImageFile);
+				this.close();
+			};
+
+			const appendBtnOpen = right.createEl("button", { text: "Append Note" });
+			appendBtnOpen.addClass("zotero-btn-fancy", "zotero-btn-secondary");
+			appendBtnOpen.onclick = async () => {
+				await this.obsidian.saveNote(ann, 'append', existingNote, localImageFile);
+				this.close();
+			};
+
 		} else {
 			const btnCreate = right.createEl("button", { text: "Create Note", cls: "mod-cta" });
 			btnCreate.addClass("zotero-btn-fancy");
