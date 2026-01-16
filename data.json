@@ -33,11 +33,11 @@
     {
       "id": "1768517993206",
       "name": "New Webhook",
-      "url": "",
+      "url": "http://throbbing-bush-856c.still-pot3850.workers.dev",
       "method": "POST",
       "icon": "plane",
       "headers": [],
-      "bodyTemplate": "{\n  \"filename\": \"{{filename}}\",\n  \"content\": \"{{content}}\"\n}",
+      "bodyTemplate": "{\n  \"test\": \"true\"\n}",
       "hidden": false,
       "contentType": "json"
     }

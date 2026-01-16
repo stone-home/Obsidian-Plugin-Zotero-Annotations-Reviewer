@@ -7,15 +7,80 @@ import {
 	ButtonComponent,
 	TextComponent,
 	ToggleComponent,
-	TextAreaComponent,
+	TextAreaComponent, // Still used for simple text areas if any
 	Modal,
 	DropdownComponent,
 	getIconIds,
-	setIcon
+	setIcon,
+	Notice
 } from 'obsidian';
+import { EditorView, keymap, lineNumbers, highlightActiveLine, drawSelection } from "@codemirror/view";
+import { EditorState } from "@codemirror/state";
+import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
+import { syntaxHighlighting, defaultHighlightStyle, bracketMatching } from "@codemirror/language";
+import { javascript } from "@codemirror/lang-javascript";
+import { json } from "@codemirror/lang-json";
+import { oneDark } from "@codemirror/theme-one-dark";
 import ZoteroGKPlugin from './main';
 import { WebhookProfile } from './types';
 
+// =========================================================================
+// HELPER: Mount CodeMirror Editor
+// =========================================================================
+function mountCodeMirror(
+	container: HTMLElement,
+	initialValue: string,
+	mode: 'javascript' | 'json',
+	onChange: (value: string) => void,
+	options: { height?: string, placeholder?: string } = {}
+): EditorView {
+	const extensions = [
+		lineNumbers(),
+		highlightActiveLine(),
+		drawSelection(),
+		history(),
+		bracketMatching(),
+		syntaxHighlighting(defaultHighlightStyle),
+		keymap.of([...defaultKeymap, ...historyKeymap]),
+		EditorView.updateListener.of((update) => {
+			if (update.docChanged) {
+				onChange(update.state.doc.toString());
+			}
+		}),
+		oneDark // Keep a dark theme for code blocks
+	];
+
+	if (mode === 'javascript') extensions.push(javascript());
+	if (mode === 'json') extensions.push(json());
+
+	// Custom Theme for CSS overrides
+	extensions.push(EditorView.theme({
+		"&": {
+			height: options.height || "300px",
+			border: "1px solid var(--background-modifier-border)",
+			borderRadius: "4px",
+			fontSize: "13px"
+		},
+		".cm-scroller": { overflow: "auto" },
+		".cm-content": { fontFamily: "var(--font-monospace)" }
+	}));
+
+	const startState = EditorState.create({
+		doc: initialValue,
+		extensions: extensions
+	});
+
+	const view = new EditorView({
+		state: startState,
+		parent: container
+	});
+
+	return view;
+}
+
+// =========================================================================
+// MAIN SETTING TAB
+// =========================================================================
 export class ZoteroSettingTab extends PluginSettingTab {
 	plugin: ZoteroGKPlugin;
 	activeTab: 'general' | 'zotero' | 'webhook' = 'general';
@@ -54,9 +119,9 @@ export class ZoteroSettingTab extends PluginSettingTab {
 		};
 	}
 
-	// =========================================================================
+	// -------------------------------------------------------------------------
 	// TAB 1: GENERAL
-	// =========================================================================
+	// -------------------------------------------------------------------------
 	renderGeneralSettings(container: HTMLElement) {
 		new Setting(container)
 			.setName('Zotero Port')
@@ -121,9 +186,9 @@ export class ZoteroSettingTab extends PluginSettingTab {
 				}));
 	}
 
-	// =========================================================================
+	// -------------------------------------------------------------------------
 	// TAB 2: ZOTERO & HIGHLIGHTS
-	// =========================================================================
+	// -------------------------------------------------------------------------
 	renderZoteroSettings(container: HTMLElement) {
 		// Sorting
 		new Setting(container)
@@ -174,19 +239,29 @@ export class ZoteroSettingTab extends PluginSettingTab {
 		// Script
 		container.createEl("hr");
 		container.createEl("h3", { text: "Assistant Custom JS" });
-		new TextAreaComponent(container.createDiv())
-			.setValue(this.plugin.settings.assistantScript)
-			.setPlaceholder('// Custom JS... params: container, file, app')
-			.onChange(async (value) => {
-				this.plugin.settings.assistantScript = value;
+		container.createDiv({
+			text: "Available params: container, file, app",
+			cls: "setting-item-description",
+			attr: { style: "margin-bottom: 8px;" }
+		});
+
+		// --- [REWRITE: CodeMirror JS Editor] ---
+		const scriptWrapper = container.createDiv();
+		mountCodeMirror(
+			scriptWrapper,
+			this.plugin.settings.assistantScript,
+			'javascript',
+			async (val) => {
+				this.plugin.settings.assistantScript = val;
 				await this.plugin.saveSettings();
-			})
-			.inputEl.addClass("zotero-settings-code-block", "zotero-input-wide");
+			},
+			{ height: "300px" }
+		);
 	}
 
-	// =========================================================================
+	// -------------------------------------------------------------------------
 	// TAB 3: MODULAR WEBHOOKS
-	// =========================================================================
+	// -------------------------------------------------------------------------
 	renderWebhookSettings(container: HTMLElement) {
 		container.createDiv({
 			text: "Configure modular webhooks. Toggle 'Show in Assistant' to display them on the note.",
@@ -268,18 +343,17 @@ export class IconSuggestModal extends FuzzySuggestModal<string> {
 	}
 
 	getItems(): string[] {
-		return getIconIds(); // This requires the import above
+		return getIconIds();
 	}
 
 	getItemText(icon: string): string {
 		return icon;
 	}
 
-	// 2. USE FuzzyMatch<string> here, not just string
 	renderSuggestion(match: FuzzyMatch<string>, el: HTMLElement) {
 		el.addClass("mod-icon-suggestion");
 
-		const iconName = match.item; // Extract the string from the match object
+		const iconName = match.item;
 
 		const iconContainer = el.createDiv({ cls: "suggestion-icon" });
 		setIcon(iconContainer, iconName);
@@ -296,6 +370,8 @@ export class IconSuggestModal extends FuzzySuggestModal<string> {
 class WebhookEditModal extends Modal {
 	webhook: WebhookProfile;
 	onSave: (hook: WebhookProfile) => void;
+	// Store editor instance to format it manually if needed
+	jsonEditor: EditorView | null = null;
 
 	constructor(app: App, webhook: WebhookProfile, onSave: (hook: WebhookProfile) => void) {
 		super(app);
@@ -331,10 +407,10 @@ class WebhookEditModal extends Modal {
 		const iconSearcher = new ButtonComponent(iconContainer)
 		iconSearcher.setButtonText(this.webhook.icon || "Select")
 			.setIcon("search").onClick(() => {
-				new IconSuggestModal(this.app, (selectedIcon) => {
-					this.webhook.icon = selectedIcon;
-					previewEl.empty();
-					setIcon(previewEl, selectedIcon);
+			new IconSuggestModal(this.app, (selectedIcon) => {
+				this.webhook.icon = selectedIcon;
+				previewEl.empty();
+				setIcon(previewEl, selectedIcon);
 			}).open();
 		});
 
@@ -358,7 +434,7 @@ class WebhookEditModal extends Modal {
 				.onChange(v => this.webhook.contentType = v as any));
 
 		// 4. Body Template & Usage Guide
-		contentEl.createEl("h4", { text: "Body Template" });
+		contentEl.createEl("h4", { text: "Body Template (JSON)" });
 
 		// Usage Box
 		const usageBox = contentEl.createDiv({ cls: "zotero-usage-box" });
@@ -370,28 +446,43 @@ class WebhookEditModal extends Modal {
 		usageBox.style.color = "var(--text-muted)";
 
 		usageBox.createEl("strong", { text: "ℹ️ Usage Guide: " });
-		usageBox.createSpan({ text: "The input context is the " });
+		usageBox.createSpan({ text: "Placeholders: " });
+		usageBox.createSpan({ text: "{{content}}, {{filename}}, {{path}}, {{frontmatter.KEY}}", style: "color: var(--text-accent);" });
 
-		// FIX: Use `attr` for style, or set .style property directly
-		const strong = usageBox.createEl("strong", { text: "Active Note (TFile)" });
-		strong.style.color = "var(--text-accent)";
+		// JSON Control Bar
+		const jsonControls = contentEl.createDiv({ style: "display:flex; justify-content: flex-end; margin-bottom: 5px;" });
+		new ButtonComponent(jsonControls)
+			.setButtonText("Format JSON")
+			.setIcon("code-glyph")
+			.setTooltip("Prettify JSON")
+			.onClick(() => {
+				if(!this.jsonEditor) return;
+				try {
+					const current = this.jsonEditor.state.doc.toString();
+					// Only format if there is content
+					if (!current.trim()) return;
 
-		usageBox.createSpan({ text: ". You can use these placeholders:" });
+					const formatted = JSON.stringify(JSON.parse(current), null, 2);
 
-		const ul = usageBox.createEl("ul", { attr: { style: "margin: 5px 0 0 20px;" } });
-		ul.createEl("li", { text: "{{content}} - Full file content" });
-		ul.createEl("li", { text: "{{filename}} - Note name (e.g. MyNote.md)" });
-		ul.createEl("li", { text: "{{path}} - Vault path" });
-		ul.createEl("li", { text: "{{frontmatter.KEY}} - Any frontmatter property (e.g. {{frontmatter.title}})" });
+					// Replace entire content
+					this.jsonEditor.dispatch({
+						changes: {from: 0, to: current.length, insert: formatted}
+					});
+					new Notice("JSON Formatted!");
+				} catch(e) {
+					new Notice("Invalid JSON, cannot format.");
+				}
+			});
 
-		// Text Area
-		const bodyTa = new TextAreaComponent(contentEl)
-			.setValue(this.webhook.bodyTemplate)
-			.setPlaceholder('{\n  "note": "{{content}}"\n}')
-			.onChange(v => this.webhook.bodyTemplate = v);
-
-		bodyTa.inputEl.rows = 12;
-		bodyTa.inputEl.addClass("zotero-input-wide", "zotero-settings-code-block");
+		// --- [REWRITE: CodeMirror JSON Editor] ---
+		const jsonWrapper = contentEl.createDiv();
+		this.jsonEditor = mountCodeMirror(
+			jsonWrapper,
+			this.webhook.bodyTemplate,
+			'json',
+			(val) => { this.webhook.bodyTemplate = val; },
+			{ height: "250px" }
+		);
 
 		// 5. Headers
 		contentEl.createEl("h4", { text: "Custom Headers" });

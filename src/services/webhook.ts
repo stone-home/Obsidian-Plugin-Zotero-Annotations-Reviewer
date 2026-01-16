@@ -9,6 +9,7 @@ export class WebhookService {
 	}
 
 	async triggerWebhook(profile: WebhookProfile, file: TFile) {
+		console.error(profile.url)
 		if (!profile.url) {
 			new Notice(`❌ Webhook "${profile.name}" has no URL.`);
 			return;
@@ -68,6 +69,8 @@ export class WebhookService {
 				headers[h.key] = finalValue;
 			}
 
+			console.error(headers);
+			console.error(body)
 			// 5. Send
 			const response = await requestUrl({
 				url: profile.url,
