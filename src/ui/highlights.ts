@@ -73,7 +73,7 @@ export class HighlightModal extends Modal {
 
 		const btnFetch = header.createEl("button", { text: "📥 Update Paper" });
 		btnFetch.addClass("zotero-btn-fancy");
-		btnFetch.onclick = () => this.zoteroConnector.triggerZoteroIntegrationImport();
+		btnFetch.onclick = () => this.zoteroConnector.triggerZoteroIntegrationImport(this.citationKey);
 
 		const metaContainer = contentEl.createDiv({ cls: 'zotero-metadata-container' });
 		if (this.itemMetadata) {
@@ -224,7 +224,7 @@ export class HighlightModal extends Modal {
 			p.createDiv({ text: "📷 Image Not Found" });
 			const btn = p.createEl("button", { text: "📥 Fetch" });
 			btn.addClass("zotero-btn-fancy", "zotero-btn-small");
-			btn.onclick = () => this.zoteroConnector.triggerZoteroIntegrationImport();
+			btn.onclick = () => this.zoteroConnector.triggerZoteroIntegrationImport(this.citationKey);
 		}
 
 		if (ann.text) card.createEl("blockquote", { text: ann.text, cls: "zotero-blockquote-no-margin" });

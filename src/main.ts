@@ -59,7 +59,9 @@ export default class ZoteroGKPlugin extends Plugin {
 
 	async triggerReviewForActiveFile(file: TFile) {
 		const cache = this.app.metadataCache.getFileCache(file);
-		const key = cache?.frontmatter?.['zotero-key'] || cache?.frontmatter?.['citation-key'];
+		const key = cache?.frontmatter?.[this.settings.citationKeyName] ||
+			cache?.frontmatter?.['zotero-key'] ||
+			cache?.frontmatter?.['citation-key'];
 
 		if (key) {
 			new HighlightModal(this.app, this.settings, key, {}).open();

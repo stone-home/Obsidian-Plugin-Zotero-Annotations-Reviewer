@@ -41,13 +41,12 @@ export class AssistantView extends MarkdownRenderChild {
 			cache?.frontmatter?.['citation-key'];
 
 		// Review Button
-		const btnFetch = header.createEl("button", { text: "📥 Update Paper" });
-		btnFetch.addClass("zotero-btn-fancy");
-		btnFetch.onclick = () => this.zoteroConnector.triggerZoteroIntegrationImport();
-
 		const updateBtn = new ButtonComponent(btnRow)
 			.setButtonText("Update Metadata")
-			.setIcon("update")
+			.setIcon("lucide-refresh-cw")
+			.setDisabled(!key)
+			.onClick(() => this.zoteroConnector.triggerZoteroIntegrationImport(key));
+		updateBtn.buttonEl.addClass("zotero-btn-fancy");
 
 		const reviewBtn = new ButtonComponent(btnRow)
 			.setButtonText(`Review Highlights`)

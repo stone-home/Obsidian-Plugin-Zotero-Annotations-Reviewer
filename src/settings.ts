@@ -10,8 +10,6 @@ import {
 	TextAreaComponent,
 	Modal,
 	DropdownComponent,
-	Notice,
-	SuggestModal,
 	getIconIds,
 	setIcon
 } from 'obsidian';
@@ -259,19 +257,6 @@ export class ZoteroSettingTab extends PluginSettingTab {
 			});
 	}
 }
-
-// class IconSuggestModal extends SuggestModal<string> {
-// 	// (Same as before, simplified for brevity since it was correct)
-// 	onChoose: (icon: string) => void;
-// 	constructor(app: App, onChoose: (icon: string) => void) { super(app); this.onChoose = onChoose; }
-// 	// @ts-ignore
-// 	getSuggestions(query: string) { return (import('obsidian') as any).getIconIds().filter((i:string) => i.includes(query)); }
-// 	renderSuggestion(icon: string, el: HTMLElement) {
-// 		el.style.display="flex"; el.style.alignItems="center"; el.style.gap="10px";
-// 		const span = el.createSpan(); setIcon(span, icon); el.createSpan({text: icon});
-// 	}
-// 	onChooseSuggestion(icon: string) { this.onChoose(icon); }
-// }
 
 
 export class IconSuggestModal extends FuzzySuggestModal<string> {
