@@ -14,6 +14,16 @@ describe('WebhookService', () => {
 	let service: WebhookService;
 	let mockFile: TFile;
 
+	beforeAll(() => {
+		jest.spyOn(console, 'warn').mockImplementation(() => {});
+		jest.spyOn(console, 'error').mockImplementation(() => {});
+	});
+
+	// 2. Restore console logs after tests finish (Critical!)
+	afterAll(() => {
+		jest.restoreAllMocks();
+	});
+
 	beforeEach(() => {
 		jest.clearAllMocks();
 		app = new App();
@@ -61,7 +71,7 @@ describe('WebhookService', () => {
 				'Content-Type': 'application/json',
 				'X-Custom': 'test-note.md'
 			}),
-			body: expect.stringContaining('"content": "File content here"')
+			body: expect.stringContaining(JSON.stringify({"content": "File content here", "status": "wip"}))
 		}));
 	});
 

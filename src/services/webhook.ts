@@ -91,9 +91,6 @@ export class WebhookService {
 			}
 
 			// 5. Send Request
-			console.log("Sending Webhook to:", profile.url);
-			console.log("Method:", profile.method);
-			console.log(body)
 			const response = await requestUrl({
 				url: profile.url.trim(),
 				method: profile.method,
@@ -105,7 +102,7 @@ export class WebhookService {
 				new Notice(`✅ ${profile.name} Sent!`);
 			} else {
 				new Notice(`⚠️ ${profile.name} Failed: ${response.status}`);
-				console.error("Webhook Failed Body:", body);
+				console.error("Webhook Failed Body:", body||"");
 			}
 
 		} catch (e) {
