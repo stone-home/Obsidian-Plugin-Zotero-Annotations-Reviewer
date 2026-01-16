@@ -27,7 +27,7 @@
       "enabled": false
     }
   ],
-  "assistantScript": "",
+  "assistantScript": "dv.table([\"File\"], dv.pages('\"Fleeting Notes\"')\n    .map(b => [b.file.link]))",
   "sortProperty": "color",
   "webhooks": [
     {

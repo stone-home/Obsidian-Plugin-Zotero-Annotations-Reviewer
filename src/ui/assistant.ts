@@ -21,17 +21,21 @@ export class AssistantView extends MarkdownRenderChild {
 			return;
 		}
 
+		// 1. Parse Image Map (Legacy/Standard feature)
 		let imageMap = parseImageMap(source);
+
 		const container = el.createDiv({ cls: 'zotero-assistant-container' });
 
+		// Header
 		const header = container.createDiv({ cls: 'zotero-assistant-header' });
 		header.createEl("h4", { text: "🤖 Zotero Assistant", cls: "zotero-title" });
 
+		// Actions
 		const btnRow = container.createDiv({ cls: 'zotero-assistant-actions' });
 		const cache = this.plugin.app.metadataCache.getFileCache(file);
 		const key = cache?.frontmatter?.['zotero-key'] || cache?.frontmatter?.['citation-key'];
 
-		// 1. Review Button
+		// Review Button
 		const reviewBtn = new ButtonComponent(btnRow)
 			.setButtonText(`Review Highlights`)
 			.setIcon("highlighter")
@@ -41,50 +45,70 @@ export class AssistantView extends MarkdownRenderChild {
 			});
 		reviewBtn.buttonEl.addClass("zotero-btn-fancy");
 
-		// 2. DYNAMIC WEBHOOK BUTTONS
+		// Webhook Buttons
 		if (this.plugin.settings.webhooks.length > 0) {
 			this.plugin.settings.webhooks.forEach(hook => {
-				// CHECK VISIBILITY
 				if (hook.hidden) return;
-
 				const btn = new ButtonComponent(btnRow)
 					.setButtonText(hook.name)
 					.setIcon(hook.icon || "plane")
 					.onClick(async () => {
 						await this.plugin.webhookService.triggerWebhook(hook, file);
 					});
-
 				btn.buttonEl.addClass("zotero-btn-fancy", "zotero-btn-secondary");
 			});
 		}
 
-		// --- Local Highlights ---
+		// --- Local Highlights / Script Execution ---
 		container.createEl("hr");
 		container.createEl("h5", { text: "📝 Related Notes / Highlights" });
 		const highlightsDiv = container.createDiv({ cls: 'zotero-local-highlights' });
 
-		await this.renderLocalHighlights(file, highlightsDiv);
+		// Pass 'source' to parse parameters for the script
+		await this.renderLocalHighlights(file, highlightsDiv, source);
 	}
 
-	async renderLocalHighlights(file: TFile, container: HTMLElement) {
+	async renderLocalHighlights(file: TFile, container: HTMLElement, source: string) {
 		const customScript = this.plugin.settings.assistantScript;
 
 		if (customScript && customScript.trim().length > 0) {
-			try {
-				// PASS 'obsidian' module to the script
-				const func = new Function('container', 'file', 'app', 'obsidian', customScript);
-				await func(container, file, this.plugin.app, obsidian);
-			} catch (e) {
-				container.createDiv({
-					text: `⚠️ Custom Script Error: ${(e as Error).message}`,
-					cls: "zotero-text-error"
+			if (this.plugin.dataviewService.isAvailable) {
+
+				// --- PARSING LOGIC (Requested) ---
+				const lines = source.trim().split("\n");
+				// lines[0] is theoretically the script ID, but we currently use the settings script.
+				// We still parse it to be consistent with your request structure.
+				const params: Record<string, any> = {};
+
+				lines.slice(1).forEach((line) => {
+					const [key, value] = line.split(/[=:]/).map((s) => s.trim());
+					if (key && value) {
+						try {
+							params[key] = JSON.parse(value);
+						} catch {
+							params[key] = value.replace(/^["']|["']$/g, "");
+						}
+					}
 				});
-				console.error("Assistant Script Error:", e);
+
+				// Execute with Params
+				await this.plugin.dataviewService.executeScript(
+					customScript,
+					container,
+					this,
+					file.path,
+					params // Inject { input: params }
+				);
+			} else {
+				container.createDiv({
+					text: "⚠️ Dataview plugin not found. Please install Dataview.",
+					cls: "zotero-text-muted-italic"
+				});
 			}
 			return;
 		}
 
-		// Default Logic (Fallback)
+		// Fallback Logic...
 		const content = await this.plugin.app.vault.read(file);
 		const lines = content.split('\n');
 		let found = 0;

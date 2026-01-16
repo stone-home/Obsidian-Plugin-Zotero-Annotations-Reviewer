@@ -7,12 +7,14 @@ import { AssistantView } from './ui/assistant';
 import { WebhookService } from './services/webhook';
 import { ZoteroService } from './services/zotero';
 import { ObsidianService } from './services/obsidian';
+import { DataviewService } from './services/dataview';
 
 export default class ZoteroGKPlugin extends Plugin {
 	settings!: MyPluginSettings;
 	zotero!: ZoteroService;
 	obsidian!: ObsidianService;
 	webhookService!: WebhookService;
+	dataviewService!: DataviewService;
 
 	async onload() {
 		await this.loadSettings();
@@ -20,6 +22,7 @@ export default class ZoteroGKPlugin extends Plugin {
 		this.zotero = new ZoteroService(this.settings.zoteroPort);
 		this.obsidian = new ObsidianService(this.app, this.settings);
 		this.webhookService = new WebhookService(this.app);
+		this.dataviewService = new DataviewService(this.app);
 
 		// 1. Register Code Block
 		this.registerMarkdownCodeBlockProcessor("zotero-assistant", (source, el, ctx) => {
@@ -60,7 +63,7 @@ export default class ZoteroGKPlugin extends Plugin {
 			}
 		});
 
-		// 4. NEW: Trigger Webhook Command
+		// 4. Webhook Command
 		this.addCommand({
 			id: 'zotero-trigger-webhook',
 			name: 'Trigger Webhook...',
@@ -68,7 +71,6 @@ export default class ZoteroGKPlugin extends Plugin {
 				const file = this.app.workspace.getActiveFile();
 				if (!file) return false;
 				if (!checking) {
-					// Open selection modal
 					new WebhookSelectionModal(this.app, this.settings.webhooks, (hook) => {
 						this.webhookService.triggerWebhook(hook, file);
 					}).open();
@@ -100,7 +102,6 @@ export default class ZoteroGKPlugin extends Plugin {
 	}
 }
 
-// Simple Helper Modal for selecting a webhook from command palette
 class WebhookSelectionModal extends SuggestModal<WebhookProfile> {
 	webhooks: WebhookProfile[];
 	onChoose: (hook: WebhookProfile) => void;
