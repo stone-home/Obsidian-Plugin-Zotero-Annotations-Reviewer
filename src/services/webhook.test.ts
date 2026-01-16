@@ -27,6 +27,7 @@ describe('WebhookService', () => {
 		mockFile.path = 'folder/test-note.md';
 
 		// Mock Vault & Metadata
+		// Ensure your __mocks__/obsidian.ts has 'read' and 'getFileCache' mocked as shown in previous steps
 		(app.vault.read as jest.Mock).mockResolvedValue('File content here');
 		(app.metadataCache.getFileCache as jest.Mock).mockReturnValue({
 			frontmatter: { status: 'wip' }
@@ -35,6 +36,11 @@ describe('WebhookService', () => {
 
 	it('should trigger webhook with correct variable replacement', async () => {
 		const profile: WebhookProfile = {
+			// --- ADDED MISSING FIELDS ---
+			id: 'test-hook-1',
+			icon: 'webhook',
+			hidden: false,
+			// ----------------------------
 			name: 'Test Hook',
 			url: 'https://api.example.com/post',
 			method: 'POST',
@@ -53,18 +59,29 @@ describe('WebhookService', () => {
 			method: 'POST',
 			headers: expect.objectContaining({
 				'Content-Type': 'application/json',
-				'X-Custom': 'test-note.md' // Header variable replaced
+				'X-Custom': 'test-note.md'
 			}),
-			body: expect.stringContaining('"content": "File content here"') // Body variable replaced
+			body: expect.stringContaining('"content": "File content here"')
 		}));
 	});
 
 	it('should handle 404 errors gracefully', async () => {
-		const profile: WebhookProfile = { name: 'Fail', url: 'bad-url', method: 'GET', contentType: 'json', headers: [], bodyTemplate: '' };
+		const profile: WebhookProfile = {
+			// --- ADDED MISSING FIELDS ---
+			id: 'test-hook-2',
+			icon: 'cross',
+			hidden: false,
+			// ----------------------------
+			name: 'Fail',
+			url: 'bad-url',
+			method: 'GET',
+			contentType: 'json',
+			headers: [],
+			bodyTemplate: ''
+		};
 
 		(requestUrl as jest.Mock).mockResolvedValue({ status: 404 });
 
-		// Should not throw, just log/notify
 		await expect(service.triggerWebhook(profile, mockFile)).resolves.not.toThrow();
 	});
 });
