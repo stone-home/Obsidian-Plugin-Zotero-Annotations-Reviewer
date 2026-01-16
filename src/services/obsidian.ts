@@ -30,7 +30,7 @@ export class ObsidianService {
 			note = await ObsidianNoteFactory.createByType(this.app, path, 'literature', metadata.title);
 		}
 
-		note.properties.set('zotero-key', metadata.key);
+		note.properties.set('zotero-key', String(metadata.key));
 		note.properties.set('authors', metadata.creators);
 		note.properties.set('year', metadata.date);
 		note.properties.set('publication', metadata.publication);
