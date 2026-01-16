@@ -1,22 +1,18 @@
 /** @type {import('ts-jest').JestConfigWithTsJest} */
 module.exports = {
 	preset: 'ts-jest',
-	// 1. Change environment from 'node' to 'jsdom'
 	testEnvironment: 'jsdom',
 	moduleNameMapper: {
 		'^obsidian$': '<rootDir>/__mocks__/obsidian.ts',
 	},
 	transform: {
-		// 2. Configure ts-jest cleanly
-		'^.+\\.tsx?$': ['ts-jest', {
-			// "isolatedModules" is better set in tsconfig.json,
-			// but if you must do it here, use the new syntax if the warning persists.
-			// For now, let's keep the transform simple.
-		}],
+		// Cleaned up transform: removing the deprecated 'isolatedModules' option
+		'^.+\\.tsx?$': ['ts-jest', {}],
 	},
 	collectCoverage: true,
 	collectCoverageFrom: [
-		'src/main.ts',
-		'src/settings.ts',
+		'src/**/*.ts',
+		'!src/types.ts',
+		'!src/**/*.d.ts'
 	],
 };

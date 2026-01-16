@@ -57,11 +57,14 @@ const createMockEl = (tag: string) => {
 };
 
 // 2. Mock Classes using the helper
+
+
 export class App {
 	workspace: any;
 	metadataCache: any;
 	secretStorage: any;
 	vault: any;
+	plugins: any; // Add plugins for DataviewService
 
 	constructor() {
 		this.workspace = {
@@ -73,12 +76,28 @@ export class App {
 		};
 		this.secretStorage = {
 			listSecrets: mockFn().mockResolvedValue(['secret1', 'secret2']),
+			getSecret: mockFn().mockReturnValue('mock-secret'),
 		};
+
+		// --- UPDATED VAULT MOCK ---
 		this.vault = {
 			getAbstractFileByPath: mockFn(),
+			// Missing methods that caused the crash:
+			createFolder: mockFn().mockResolvedValue(undefined),
+			read: mockFn().mockResolvedValue("mock content"),
+			getMarkdownFiles: mockFn().mockReturnValue([]),
+			getFiles: mockFn().mockReturnValue([]),
+			// Helper to modify file
+			modify: mockFn().mockResolvedValue(undefined),
+		};
+
+		// --- ADDED PLUGINS MOCK (for DataviewService coverage) ---
+		this.plugins = {
+			getPlugin: mockFn().mockReturnValue(null),
 		};
 	}
 }
+
 
 export class Plugin {
 	app: App;
@@ -236,3 +255,61 @@ export class DropdownComponent {
 
 export const setIcon = mockFn();
 export class TFile {}
+
+
+// Add this to __mocks__/obsidian.ts
+
+export class FuzzySuggestModal extends SuggestModal {
+	constructor(app: App) {
+		super(app);
+	}
+
+	// FuzzySuggestModal specific methods usually mocked:
+	getItemText(item: any): string {
+		return "mock-item-text";
+	}
+
+	onChooseItem(item: any, evt: any) {
+		// Redirects to the generic handler for simple mocking
+		this.onChooseSuggestion(item, evt);
+	}
+}
+
+export class Component {
+	load() {}
+	onload() {}
+	unload() {}
+	onunload() {}
+	addChild(child: Component) { return child; }
+	removeChild(child: Component) {}
+	register(cb: () => void) {}
+	registerEvent(event: any) {}
+	registerDomEvent(el: any, type: any, callback: any) {}
+	registerInterval(id: number) {}
+}
+
+// 2. Add MarkdownRenderChild (Extends Component) - THIS IS THE FIX FOR YOUR ERROR
+export class MarkdownRenderChild extends Component {
+	containerEl: HTMLElement;
+
+	constructor(containerEl: HTMLElement) {
+		super();
+		this.containerEl = containerEl;
+	}
+}
+
+
+export class MarkdownRenderer {
+	static render(app: App, markdown: string, el: HTMLElement, sourcePath: string, component: Component) {
+		// FIX: Cast 'el' to 'any' to access the Obsidian-specific 'setText' method
+		(el as any).setText(markdown);
+		return Promise.resolve();
+	}
+}
+
+export const normalizePath = (path: string) => {
+	// Simple mock: just replace backslashes with forward slashes
+	return path.replace(/\\/g, '/');
+};
+
+
