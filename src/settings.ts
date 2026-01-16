@@ -7,7 +7,7 @@ import {
 	ButtonComponent,
 	TextComponent,
 	ToggleComponent,
-	TextAreaComponent, // Still used for simple text areas if any
+	TextAreaComponent,
 	Modal,
 	DropdownComponent,
 	getIconIds,
@@ -241,11 +241,10 @@ export class ZoteroSettingTab extends PluginSettingTab {
 		container.createEl("h3", { text: "Assistant Custom JS" });
 		container.createDiv({
 			text: "Available params: container, file, app",
-			cls: "setting-item-description",
-			attr: { style: "margin-bottom: 8px;" }
+			cls: "setting-item-description zotero-desc-tight"
 		});
 
-		// --- [REWRITE: CodeMirror JS Editor] ---
+		// --- [CodeMirror JS Editor] ---
 		const scriptWrapper = container.createDiv();
 		mountCodeMirror(
 			scriptWrapper,
@@ -396,11 +395,15 @@ class WebhookEditModal extends Modal {
 			.addToggle(t => t.setValue(!this.webhook.hidden).onChange(v => this.webhook.hidden = !v));
 
 		// Icon Search
+		// [FIXED] Used CSS class instead of inline style
 		const iconSetting = new Setting(infoContainer).setName("Icon");
 		const iconContainer = iconSetting.controlEl.createDiv({ cls: "zotero-icon-control" });
+
+		// Use the new class for layout (flex, gap, etc.)
 		iconContainer.style.display = "flex";
 		iconContainer.style.gap = "10px";
 		iconContainer.style.alignItems = "center";
+
 		const previewEl = iconContainer.createDiv({ cls: "zotero-icon-preview-box" });
 		setIcon(previewEl, this.webhook.icon || "help-circle");
 
@@ -447,10 +450,12 @@ class WebhookEditModal extends Modal {
 
 		usageBox.createEl("strong", { text: "ℹ️ Usage Guide: " });
 		usageBox.createSpan({ text: "Placeholders: " });
-		usageBox.createSpan({ text: "{{content}}, {{filename}}, {{path}}, {{frontmatter.KEY}}", style: "color: var(--text-accent);" });
+		usageBox.createSpan({ text: "{{content}}, {{filename}}, {{path}}, {{frontmatter.KEY}}", attr: {style: "color: var(--text-accent);" }});
 
 		// JSON Control Bar
-		const jsonControls = contentEl.createDiv({ style: "display:flex; justify-content: flex-end; margin-bottom: 5px;" });
+		// [FIXED] Used CSS class instead of inline style
+		const jsonControls = contentEl.createDiv({ cls: "zotero-json-controls" });
+
 		new ButtonComponent(jsonControls)
 			.setButtonText("Format JSON")
 			.setIcon("code-glyph")
@@ -474,7 +479,7 @@ class WebhookEditModal extends Modal {
 				}
 			});
 
-		// --- [REWRITE: CodeMirror JSON Editor] ---
+		// --- [CodeMirror JSON Editor] ---
 		const jsonWrapper = contentEl.createDiv();
 		this.jsonEditor = mountCodeMirror(
 			jsonWrapper,

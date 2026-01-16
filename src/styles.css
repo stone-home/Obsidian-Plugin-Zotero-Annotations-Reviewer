@@ -495,11 +495,8 @@
 	flex-wrap: wrap;
 	align-items: center;
 	gap: 8px;
-	/* We remove the inline marginBottom from TS if you prefer pure CSS control,
-	   but otherwise this styling complements it */
 }
 
-/* Enhancing the internal link appearance within the status */
 .project-status .internal-link {
 	color: var(--text-accent);
 	text-decoration: none;
@@ -517,9 +514,28 @@
 	border-color: var(--interactive-accent);
 }
 
-/* Optional: If you want the button to look 'fancy' like the others without
-   modifying the TS to add the class 'zotero-btn-fancy' explicitly */
 .project-selector-container button {
 	margin-top: 10px;
 	cursor: pointer;
+}
+
+/* ==========================================================================
+   FIXES for TypeScript Errors (Moved from inline styles)
+   ========================================================================== */
+.zotero-webhook-icon-row {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 10px;
+}
+
+.zotero-json-controls {
+	display: flex;
+	gap: 10px;
+	margin-bottom: 5px;
+	justify-content: flex-end;
+}
+
+.zotero-desc-tight {
+	margin-bottom: 8px !important;
 }

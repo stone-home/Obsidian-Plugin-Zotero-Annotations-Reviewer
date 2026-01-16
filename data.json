@@ -27,17 +27,17 @@
       "enabled": false
     }
   ],
-  "assistantScript": "dv.table([\"File\"], dv.pages('\"Fleeting Notes\"')\n    .map(b => [b.file.link]))",
+  "assistantScript": "dv.table([\"File\"], dv.pages('\"Fleeting Notes\"').map(b => [b.file.link]))",
   "sortProperty": "color",
   "webhooks": [
     {
       "id": "1768517993206",
       "name": "New Webhook",
-      "url": "http://throbbing-bush-856c.still-pot3850.workers.dev",
+      "url": "https://throbbing-bush-856c.still-pot3850.workers.dev",
       "method": "POST",
       "icon": "plane",
       "headers": [],
-      "bodyTemplate": "{\n  \"test\": \"true\"\n}",
+      "bodyTemplate": "{\n  \"test\": \"true\",\n  \"type\": 3\n}",
       "hidden": false,
       "contentType": "json"
     }
