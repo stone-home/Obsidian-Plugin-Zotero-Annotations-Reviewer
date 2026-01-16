@@ -3,13 +3,16 @@ import * as obsidian from 'obsidian';
 import ZoteroGKPlugin from '../main';
 import { HighlightModal } from './highlights';
 import { parseImageMap } from '../utils/parser';
+import { ZoteroConnectorService} from "../services/zotero-connector";
 
 export class AssistantView extends MarkdownRenderChild {
 	plugin: ZoteroGKPlugin;
+	private zoteroConnector: ZoteroConnectorService
 
 	constructor(containerEl: HTMLElement, plugin: ZoteroGKPlugin) {
 		super(containerEl);
 		this.plugin = plugin;
+		this.zoteroConnector = new ZoteroConnectorService(this.plugin.app, this.plugin.settings);
 	}
 
 	async render(source: string, ctx: MarkdownPostProcessorContext) {
@@ -38,6 +41,13 @@ export class AssistantView extends MarkdownRenderChild {
 			cache?.frontmatter?.['citation-key'];
 
 		// Review Button
+		const updateBtn = new ButtonComponent(btnRow)
+			.setButtonText("Update Metadata")
+			.setIcon("lucide-refresh-cw")
+			.setDisabled(!key)
+			.onClick(() => this.zoteroConnector.triggerZoteroIntegrationImport(key));
+		updateBtn.buttonEl.addClass("zotero-btn-fancy");
+
 		const reviewBtn = new ButtonComponent(btnRow)
 			.setButtonText(`Review Highlights`)
 			.setIcon("highlighter")

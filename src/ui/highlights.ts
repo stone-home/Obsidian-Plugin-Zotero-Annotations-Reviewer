@@ -2,6 +2,7 @@ import { App, Modal, Notice, TFile} from 'obsidian';
 import { ZoteroAnnotation, ZoteroItemMetadata, MyPluginSettings } from '../types';
 import { ZoteroService } from '../services/zotero';
 import { ObsidianService } from '../services/obsidian';
+import { ZoteroConnectorService } from "../services/zotero-connector";
 import { ObsidianNoteFactory, NoteModel } from 'markdown-note-orm';
 
 export class HighlightModal extends Modal {
@@ -9,6 +10,7 @@ export class HighlightModal extends Modal {
 	private settings: MyPluginSettings;
 	private zotero: ZoteroService;
 	private obsidian: ObsidianService;
+	private zoteroConnector: ZoteroConnectorService
 	private annotations: ZoteroAnnotation[] = [];
 	private itemMetadata: ZoteroItemMetadata | null = null;
 	private imageMap: Record<string, string>;
@@ -27,6 +29,7 @@ export class HighlightModal extends Modal {
 		this.imageMap = imageMap;
 		this.zotero = new ZoteroService(settings.zoteroPort);
 		this.obsidian = new ObsidianService(app, settings);
+		this.zoteroConnector = new ZoteroConnectorService(app, settings)
 		this.onUpdate = onUpdate;
 	}
 
@@ -68,9 +71,9 @@ export class HighlightModal extends Modal {
 		const header = contentEl.createDiv({ cls: "zotero-modal-header-actions" });
 		header.createEl("h2", { text: `Review: ${this.citationKey}`, cls: "zotero-no-margin" });
 
-		const btnFetch = header.createEl("button", { text: "📥 Fetch Images" });
+		const btnFetch = header.createEl("button", { text: "📥 Update Paper" });
 		btnFetch.addClass("zotero-btn-fancy");
-		btnFetch.onclick = () => this.triggerZoteroIntegrationImport();
+		btnFetch.onclick = () => this.zoteroConnector.triggerZoteroIntegrationImport(this.citationKey);
 
 		const metaContainer = contentEl.createDiv({ cls: 'zotero-metadata-container' });
 		if (this.itemMetadata) {
@@ -176,23 +179,40 @@ export class HighlightModal extends Modal {
 	}
 
 	private renderVerifyButton(container: HTMLElement, model: NoteModel<any>, propKey: string, zVal: string, label: string) {
-		const btn = container.createEl("button", { text: "Verify" });
-		btn.addClass("zotero-btn-small");
-		btn.onclick = () => {
-			const nVal = String(model.properties.get(propKey) || "").trim().toLowerCase();
-			const zNorm = zVal.trim().toLowerCase();
-			const isMatch = nVal === zNorm || (nVal.length > 5 && zNorm.includes(nVal));
 
-			if (isMatch) {
-				btn.setText("✅");
-				btn.addClass("zotero-text-success");
-				btn.setAttr("disabled", "true");
-			} else {
-				btn.setText("❌");
-				btn.addClass("zotero-text-error");
-				new Notice(`Mismatch for ${label}`);
-			}
-		};
+		const btn = container.createEl("button", { text: "Verify" });
+		const nVal = String(model.properties.get(propKey) || "").trim().toLowerCase();
+		const zNorm = zVal.trim().toLowerCase();
+		const isMatch = nVal === zNorm || (nVal.length > 5 && zNorm.includes(nVal));
+
+		if (isMatch) {
+			btn.setText("✅");
+			btn.addClass("zotero-text-success");
+			btn.setAttr("disabled", "true");
+		} else {
+			btn.setText("❌");
+			btn.addClass("zotero-text-error");
+			new Notice(`Mismatch for ${label}`);
+		}
+
+		// ==================== deprecated as auto checking is better ============================
+		// const btn = container.createEl("button", { text: "Verify" });
+		// btn.addClass("zotero-btn-small");
+		// btn.onclick = () => {
+		// 	const nVal = String(model.properties.get(propKey) || "").trim().toLowerCase();
+		// 	const zNorm = zVal.trim().toLowerCase();
+		// 	const isMatch = nVal === zNorm || (nVal.length > 5 && zNorm.includes(nVal));
+		//
+		// 	if (isMatch) {
+		// 		btn.setText("✅");
+		// 		btn.addClass("zotero-text-success");
+		// 		btn.setAttr("disabled", "true");
+		// 	} else {
+		// 		btn.setText("❌");
+		// 		btn.addClass("zotero-text-error");
+		// 		new Notice(`Mismatch for ${label}`);
+		// 	}
+		// };
 	}
 
 	async renderAnnotationCard(container: HTMLElement, ann: ZoteroAnnotation) {
@@ -221,7 +241,7 @@ export class HighlightModal extends Modal {
 			p.createDiv({ text: "📷 Image Not Found" });
 			const btn = p.createEl("button", { text: "📥 Fetch" });
 			btn.addClass("zotero-btn-fancy", "zotero-btn-small");
-			btn.onclick = () => this.triggerZoteroIntegrationImport();
+			btn.onclick = () => this.zoteroConnector.triggerZoteroIntegrationImport(this.citationKey);
 		}
 
 		if (ann.text) card.createEl("blockquote", { text: ann.text, cls: "zotero-blockquote-no-margin" });
@@ -243,6 +263,21 @@ export class HighlightModal extends Modal {
 				await this.app.workspace.getLeaf(true).openFile(existingNote);
 				this.close();
 			};
+
+			const replaceBtnOpen = right.createEl("button", { text: "Replace Note" });
+			replaceBtnOpen.addClass("zotero-btn-fancy", "zotero-btn-secondary");
+			replaceBtnOpen.onclick = async () => {
+				await this.obsidian.saveNote(ann, 'overwrite', existingNote, localImageFile);
+				this.close();
+			};
+
+			const appendBtnOpen = right.createEl("button", { text: "Append Note" });
+			appendBtnOpen.addClass("zotero-btn-fancy", "zotero-btn-secondary");
+			appendBtnOpen.onclick = async () => {
+				await this.obsidian.saveNote(ann, 'append', existingNote, localImageFile);
+				this.close();
+			};
+
 		} else {
 			const btnCreate = right.createEl("button", { text: "Create Note", cls: "mod-cta" });
 			btnCreate.addClass("zotero-btn-fancy");
@@ -257,15 +292,5 @@ export class HighlightModal extends Modal {
 		}
 	}
 
-	async triggerZoteroIntegrationImport() {
-		// @ts-ignore
-		const plugin = this.app.plugins.getPlugin('obsidian-zotero-desktop-connector');
-		if(plugin && plugin.settings.exportFormats) {
-			const fmt = plugin.settings.exportFormats[0];
-			if(fmt) await plugin.runImport(fmt.name, this.citationKey);
-			new Notice("Triggered Zotero Integration Import");
-		} else {
-			new Notice("Obsidian Zotero Desktop Connector plugin not found or configured.");
-		}
-	}
+
 }

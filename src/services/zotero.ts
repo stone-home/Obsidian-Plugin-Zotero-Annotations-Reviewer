@@ -10,9 +10,6 @@ export class ZoteroService {
 		this.port = port;
 	}
 
-	// --- Public API ---
-	// ... (getRawMetadata, getItemMetadata logic remains the same) ...
-
 	async getRawMetadata(citationKey: string): Promise<any> {
 		const libraryId = await this.resolveLibraryId(citationKey);
 		return await this.sendRpc('item.export', [[citationKey], this.BBT_JSON_TRANSLATOR_ID, libraryId]);
@@ -84,7 +81,8 @@ export class ZoteroService {
 						link: `zotero://open-pdf/library/items/${attachmentItemKey}?page=${ann.annotationPageLabel || 1}&annotation=${ann.key}`,
 						attachmentTitle: att.title || "Unknown Attachment",
 						// NEW: Capture Position for Image Matching
-						position: ann.position // BBT provides { pageIndex: 0, rects: [...] }
+						position: ann.position, // BBT provides { pageIndex: 0, rects: [...] }
+						date: ann.date
 					});
 				}
 			}
