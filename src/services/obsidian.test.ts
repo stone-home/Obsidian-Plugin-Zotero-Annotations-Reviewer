@@ -89,7 +89,7 @@ describe('ObsidianService', () => {
 			expect(mockNoteModel.content.addSection).toHaveBeenCalledWith(
 				'Highlight',
 				2,
-				expect.arrayContaining(['> Important quote'])
+				expect.arrayContaining(["```ad-quote", "title: Modified at undefined", "Important quote", "```"])
 			);
 		});
 	});
