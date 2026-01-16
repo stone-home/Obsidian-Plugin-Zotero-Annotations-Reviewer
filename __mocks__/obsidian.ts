@@ -1,6 +1,7 @@
 import { jest } from '@jest/globals';
 
 // Helper to create loose mocks that accept any arguments
+// @ts-ignore
 const mockFn = () => jest.fn<any, any[]>();
 
 // 1. Helper to create DOM elements with Obsidian extensions
@@ -151,6 +152,7 @@ export class Setting {
 	setDesc = mockFn().mockReturnThis();
 
 	// Explicitly type 'cb' as any to fix TS2322/TS2345
+	// @ts-ignore
 	addText = jest.fn<any, any[]>((cb: any) => {
 		const comp = {
 			setValue: mockFn().mockReturnThis(),
@@ -161,6 +163,7 @@ export class Setting {
 		return this;
 	}).mockReturnThis();
 
+	// @ts-ignore
 	addDropdown = jest.fn<any, any[]>((cb: any) => {
 		const comp = {
 			addOption: mockFn().mockReturnThis(),
@@ -171,6 +174,7 @@ export class Setting {
 		return this;
 	}).mockReturnThis();
 
+	// @ts-ignore
 	addToggle = jest.fn<any, any[]>((cb: any) => {
 		const comp = {
 			setValue: mockFn().mockReturnThis(),
@@ -192,6 +196,7 @@ export class ButtonComponent {
 	setCta = mockFn().mockReturnThis();
 
 	// Fix TS2322 by typing cb as any
+	// @ts-ignore
 	onClick = jest.fn<any, any[]>((cb: any) => {
 		this._click = cb;
 		return this;

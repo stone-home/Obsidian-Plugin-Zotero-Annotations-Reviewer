@@ -87,7 +87,7 @@ export class ObsidianService {
 		const files = this.app.vault.getMarkdownFiles();
 		for (const f of files) {
 			const cache = this.app.metadataCache.getFileCache(f);
-			if (cache?.frontmatter?.['zotero-annotation-key'] === key) {
+			if (cache?.frontmatter?.[this.settings.annotationKeyName] === key) {
 				return f;
 			}
 		}
@@ -121,8 +121,8 @@ export class ObsidianService {
 	}
 
 	private setNoteContent(note: ZettelNoteModel<any>, ann: ZoteroAnnotation, img: TFile | null) {
-		note.properties.set('zotero-annotation-key', ann.key);
-		note.properties.set('zotero-citation-key', ann.citationKey);
+		note.properties.set(this.settings.annotationKeyName, ann.key);
+		note.properties.set(this.settings.citationKeyName, ann.citationKey);
 
 		const lines = ["> [!quote]", `> ${ann.text}`];
 		if (img) lines.push("", `![[${img.path}]]`);

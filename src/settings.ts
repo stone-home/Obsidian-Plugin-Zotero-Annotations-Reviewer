@@ -63,6 +63,26 @@ export class ZoteroSettingTab extends PluginSettingTab {
 					this.plugin.settings.fleetingNoteFolder = value;
 					await this.plugin.saveSettings();
 				}));
+
+		new Setting(container)
+			.setName('Citation Key Name')
+			.setDesc('A name used in the frontmatter to store the citation key for each note (e.g. "zotero-citation-key").')
+			.addText(text => text
+				.setValue(this.plugin.settings.citationKeyName)
+				.onChange(async (value) => {
+					this.plugin.settings.citationKeyName = value;
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(container)
+			.setName('Annotation Key Name')
+			.setDesc('A name used in the frontmatter to identify the annotation (e.g. "zotero-annotation-key").')
+			.addText(text => text
+				.setValue(this.plugin.settings.annotationKeyName)
+				.onChange(async (value) => {
+					this.plugin.settings.annotationKeyName = value;
+					await this.plugin.saveSettings();
+				}));
 	}
 
 	// =========================================================================

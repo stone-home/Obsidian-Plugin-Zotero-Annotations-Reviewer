@@ -33,7 +33,9 @@ export class AssistantView extends MarkdownRenderChild {
 		// Actions
 		const btnRow = container.createDiv({ cls: 'zotero-assistant-actions' });
 		const cache = this.plugin.app.metadataCache.getFileCache(file);
-		const key = cache?.frontmatter?.['zotero-key'] || cache?.frontmatter?.['citation-key'];
+		const key = cache?.frontmatter?.[this.plugin.settings.citationKeyName] ||
+			cache?.frontmatter?.['zotero-key'] ||
+			cache?.frontmatter?.['citation-key'];
 
 		// Review Button
 		const reviewBtn = new ButtonComponent(btnRow)
