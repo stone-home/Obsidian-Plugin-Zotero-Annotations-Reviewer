@@ -1,0 +1,56 @@
+@startuml
+skinparam backgroundColor white
+skinparam handwritten false
+skinparam sequenceArrowThickness 2
+skinparam roundcorner 10
+
+actor User
+participant "AssistantView" as UI
+participant "HighlightModal" as Modal
+participant "ZoteroService" as ZoteroSvc
+participant "ObsidianService" as ObsSvc
+database "Zotero App\n(Better BibTeX)" as Zotero
+database "Obsidian Vault" as Vault
+
+== Initialization ==
+User -> UI: Clicks "Review Highlights"
+UI -> Modal: open(citationKey)
+activate Modal
+
+== Data Fetching ==
+Modal -> UI: Show Loading State
+Modal -> ZoteroSvc: getAnnotations(citationKey)
+activate ZoteroSvc
+
+ZoteroSvc -> Zotero: HTTP POST (JSON-RPC)
+note right: Retrieves item data & children
+Zotero --> ZoteroSvc: JSON Response
+ZoteroSvc -> ZoteroSvc: Parse & Normalize Data
+ZoteroSvc --> Modal: ZoteroAnnotation[]
+deactivate ZoteroSvc
+
+== Processing & Linking ==
+loop For each Annotation
+    Modal -> ObsSvc: findLocalImage(annotation)
+    ObsSvc -> Vault: Check for matching image file
+    Vault --> ObsSvc: File path or null
+
+    Modal -> ObsSvc: isAnnotationExported(key)
+    ObsSvc -> Vault: Check for existing Note
+    Vault --> ObsSvc: TFile or null
+end
+
+== Rendering ==
+Modal -> Modal: Sort Annotations\n(by Color/Page/Date)
+Modal -> Modal: Render Cards to DOM
+Modal --> User: Display Interactive Modal
+
+== Actions ==
+opt Create Note
+    User -> Modal: Click "Create Note"
+    Modal -> ObsSvc: saveNote(annotation)
+    ObsSvc -> Vault: Write Markdown File
+end
+
+deactivate Modal
+@enduml
