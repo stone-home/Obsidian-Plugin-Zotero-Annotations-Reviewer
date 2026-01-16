@@ -1,85 +1,75 @@
-import {App, Editor, MarkdownView, Modal, Notice, Plugin, MarkdownFileInfo} from 'obsidian';
-import {DEFAULT_SETTINGS, MyPluginSettings, SampleSettingTab} from "./settings";
+import { Plugin, Notice, TFile, SuggestModal, App } from 'obsidian';
+import { DEFAULT_SETTINGS, MyPluginSettings, WebhookProfile } from './types';
+import { ZoteroSettingTab } from './settings';
+import { HighlightModal } from './ui/highlights';
+import { AssistantView } from './ui/assistant';
+import { WebhookService } from './services/webhook';
+import { ZoteroService } from './services/zotero';
+import { ObsidianService } from './services/obsidian';
+import { DataviewService } from './services/dataview';
+import { ProjectSelectorView} from "./ui/project-selector";
 
-// Remember to rename these classes and interfaces!
-
-export default class MyPlugin extends Plugin {
-	settings: MyPluginSettings | undefined;
+export default class ZoteroGKPlugin extends Plugin {
+	settings!: MyPluginSettings;
+	zotero!: ZoteroService;
+	obsidian!: ObsidianService;
+	webhookService!: WebhookService;
+	dataviewService!: DataviewService;
 
 	async onload() {
 		await this.loadSettings();
 
-		// This creates an icon in the left ribbon.
-		this.addRibbonIcon('dice', 'Sample', (evt: MouseEvent) => {
-			// Called when the user clicks the icon.
-			new Notice('This is a notice!');
+		this.zotero = new ZoteroService(this.settings.zoteroPort);
+		this.obsidian = new ObsidianService(this.app, this.settings);
+		this.webhookService = new WebhookService(this.app);
+		this.dataviewService = new DataviewService(this.app);
+
+		// 1. Register Code Block
+		this.registerMarkdownCodeBlockProcessor("zotero-assistant", (source, el, ctx) => {
+			const view = new AssistantView(el, this);
+			ctx.addChild(view);
+			view.render(source, ctx);
 		});
 
-		// This adds a status bar item to the bottom of the app. Does not work on mobile apps.
-		const statusBarItemEl = this.addStatusBarItem();
-		statusBarItemEl.setText('Status bar text');
+		this.registerMarkdownCodeBlockProcessor("project-picker", (source, el, ctx) => {
+			const view = new ProjectSelectorView(el, this);
+			ctx.addChild(view);
+			// We call view.onload() or view.render() immediately
+			view.render();
+		});
 
-		// This adds a simple command that can be triggered anywhere
+		// 4. Webhook Command
 		this.addCommand({
-			id: 'open-modal-simple',
-			name: 'Open modal (simple)',
-			callback: () => {
-				new SampleModal(this.app).open();
-			},
-		});
-		// This adds an editor command that can perform some operation on the current editor instance
-		this.addCommand({
-			id: 'replace-selected',
-			name: 'Replace selected content',
-			editorCallback: (editor: Editor, view: (MarkdownView | MarkdownFileInfo)) => {
-				return editor.replaceSelection('Sample editor command');
-			},
-		});
-		// This adds a complex command that can check whether the current state of the app allows execution of the command
-		this.addCommand({
-			id: 'open-modal-complex',
-			name: 'Open modal (complex)',
+			id: 'zotero-trigger-webhook',
+			name: 'Trigger Webhook...',
 			checkCallback: (checking: boolean) => {
-				// Conditions to check
-				const markdownView =
-					this.app.workspace.getActiveViewOfType(MarkdownView);
-				if (markdownView) {
-					// If checking is true, we're simply "checking" if the command can be run.
-					// If checking is false, then we want to actually perform the operation.
-					if (!checking) {
-						new SampleModal(this.app).open();
-					}
-
-					// This command will only show up in Command Palette when the check function returns true
-					return true;
+				const file = this.app.workspace.getActiveFile();
+				if (!file) return false;
+				if (!checking) {
+					new WebhookSelectionModal(this.app, this.settings.webhooks, (hook) => {
+						this.webhookService.triggerWebhook(hook, file);
+					}).open();
 				}
-				return false;
-			},
+				return true;
+			}
 		});
 
-		// This adds a settings tab so the user can configure various aspects of the plugin
-		this.addSettingTab(new SampleSettingTab(this.app, this));
-
-		// If the plugin hooks up any global DOM events (on parts of the app that doesn't belong to this plugin)
-		// Using this function will automatically remove the event listener when this plugin is disabled.
-		this.registerDomEvent(document, 'click', (evt: MouseEvent) => {
-			new Notice('Click');
-		});
-
-		// When registering intervals, this function will automatically clear the interval when the plugin is disabled.
-		this.registerInterval(
-			window.setInterval(() => console.log('setInterval'), 5 * 60 * 1000)
-		);
+		this.addSettingTab(new ZoteroSettingTab(this.app, this));
 	}
 
-	onunload() {}
+	async triggerReviewForActiveFile(file: TFile) {
+		const cache = this.app.metadataCache.getFileCache(file);
+		const key = cache?.frontmatter?.['zotero-key'] || cache?.frontmatter?.['citation-key'];
+
+		if (key) {
+			new HighlightModal(this.app, this.settings, key, {}).open();
+		} else {
+			new Notice("❌ No citation key found.");
+		}
+	}
 
 	async loadSettings() {
-		this.settings = Object.assign(
-			{},
-			DEFAULT_SETTINGS,
-			(await this.loadData()) as Partial<MyPluginSettings>
-		);
+		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
 	}
 
 	async saveSettings() {
@@ -87,18 +77,26 @@ export default class MyPlugin extends Plugin {
 	}
 }
 
-class SampleModal extends Modal {
-	constructor(app: App) {
+class WebhookSelectionModal extends SuggestModal<WebhookProfile> {
+	webhooks: WebhookProfile[];
+	onChoose: (hook: WebhookProfile) => void;
+
+	constructor(app: App, webhooks: WebhookProfile[], onChoose: (hook: WebhookProfile) => void) {
 		super(app);
+		this.webhooks = webhooks;
+		this.onChoose = onChoose;
 	}
 
-	onOpen() {
-		const {contentEl} = this;
-		contentEl.setText('Woah!');
+	getSuggestions(query: string): WebhookProfile[] {
+		return this.webhooks.filter(hook => hook.name.toLowerCase().includes(query.toLowerCase()));
 	}
 
-	onClose() {
-		const {contentEl} = this;
-		contentEl.empty();
+	renderSuggestion(hook: WebhookProfile, el: HTMLElement) {
+		el.createDiv({ text: hook.name });
+		el.createDiv({ text: hook.url, cls: "zotero-text-muted-italic" });
+	}
+
+	onChooseSuggestion(hook: WebhookProfile, evt: MouseEvent | KeyboardEvent) {
+		this.onChoose(hook);
 	}
 }

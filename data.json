@@ -1,0 +1,60 @@
+{
+  "zoteroPort": 23119,
+  "fleetingNoteFolder": "Fleeting Notes",
+  "metadataMapping": [
+    {
+      "label": "Title",
+      "zoteroProp": "title",
+      "noteProp": "title",
+      "enabled": true
+    },
+    {
+      "label": "Date",
+      "zoteroProp": "date",
+      "noteProp": "date",
+      "enabled": true
+    },
+    {
+      "label": "Publication",
+      "zoteroProp": "publication",
+      "noteProp": "publication",
+      "enabled": false
+    },
+    {
+      "label": "Authors",
+      "zoteroProp": "creators",
+      "noteProp": "authors",
+      "enabled": false
+    }
+  ],
+  "assistantScript": "dv.table([\"File\"], dv.pages('\"Fleeting Notes\"')\n    .map(b => [b.file.link]))",
+  "sortProperty": "color",
+  "webhooks": [
+    {
+      "id": "1768517993206",
+      "name": "New Webhook",
+      "url": "",
+      "method": "POST",
+      "icon": "plane",
+      "headers": [],
+      "bodyTemplate": "{\n  \"filename\": \"{{filename}}\",\n  \"content\": \"{{content}}\"\n}",
+      "hidden": false,
+      "contentType": "json"
+    }
+  ],
+  "annotationKeyName": "annotation-id",
+  "citationKeyName": "zotero-key",
+  "projectsFolder": "projects",
+  "projectFrontmatterKey": "projects",
+  "webhookUrl": "http://www.google.com",
+  "webhookHeaders": [
+    {
+      "id": "1768514105664",
+      "name": "test",
+      "type": "secret",
+      "value": "new"
+    }
+  ],
+  "webhookConditions": [],
+  "webhookCondition": ""
+}

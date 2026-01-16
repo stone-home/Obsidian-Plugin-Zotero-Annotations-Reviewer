@@ -1,0 +1,44 @@
+@startuml
+skinparam backgroundColor white
+skinparam sequenceArrowThickness 2
+
+participant "Obsidian" as Obs
+participant "AssistantView" as UI
+participant "DataviewService" as DVS
+participant "Dataview Plugin" as DV_Plugin
+collections "Custom Script" as Script
+
+== Rendering ==
+Obs -> UI: render("zotero-assistant")
+activate UI
+UI -> UI: Parse Code Block Parameters
+UI -> UI: Create Container Element
+
+== Script Execution ==
+UI -> DVS: executeScript(script, container, file, params)
+activate DVS
+
+DVS -> DV_Plugin: Check Availability
+alt Dataview Not Installed
+    DVS --> UI: Error Message
+else Dataview Available
+    DVS -> DVS: Prepare Injection\n(const input = params...)
+
+    DVS -> DV_Plugin: executeJs(code, container, component, path)
+    activate DV_Plugin
+
+    DV_Plugin -> Script: Run User Code
+    activate Script
+
+    == User Script Logic ==
+    Script -> DV_Plugin: dv.current() / dv.pages()
+    DV_Plugin --> Script: Page Data / Metadata
+    Script -> UI: Create DOM Elements (Tables/Lists)
+
+    deactivate Script
+    deactivate DV_Plugin
+end
+
+deactivate DVS
+deactivate UI
+@enduml

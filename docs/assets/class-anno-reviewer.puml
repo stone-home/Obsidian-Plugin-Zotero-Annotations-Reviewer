@@ -1,0 +1,103 @@
+@startuml
+skinparam classAttributeIconSize 0
+skinparam backgroundColor white
+skinparam roundcorner 10
+
+package "Core" {
+    class ZoteroGKPlugin {
+        +settings: MyPluginSettings
+        +zotero: ZoteroService
+        +obsidian: ObsidianService
+        +webhookService: WebhookService
+        +dataviewService: DataviewService
+        +onload()
+        +triggerReviewForActiveFile(file: TFile)
+    }
+
+    interface MyPluginSettings {
+        +zoteroPort: number
+        +fleetingNoteFolder: string
+        +assistantScript: string
+        +webhooks: WebhookProfile[]
+    }
+}
+
+package "Services" {
+    class WebhookService {
+        -app: App
+        +triggerWebhook(profile, file)
+        -checkConditions(file)
+    }
+
+    class DataviewService {
+        -app: App
+        +api: any
+        +isAvailable: boolean
+        +executeScript(code, container, component, path, params)
+    }
+
+    class ZoteroService {
+        +port: number
+        +getItemMetadata(key)
+        +getAnnotations(key)
+    }
+
+    class ObsidianService {
+        -app: App
+        -settings: MyPluginSettings
+        +createLiteratureNote(meta)
+        +saveNote(annotation)
+        +findLocalImage(annotation)
+    }
+}
+
+package "UI Components" {
+    class ZoteroSettingTab {
+        +plugin: ZoteroGKPlugin
+        +display()
+        -renderWebhookSettings()
+    }
+
+    class AssistantView {
+        +plugin: ZoteroGKPlugin
+        +render(source, ctx)
+        -renderLocalHighlights()
+    }
+
+    class HighlightModal {
+        -citationKey: string
+        -zotero: ZoteroService
+        -obsidian: ObsidianService
+        +onOpen()
+        +render()
+        -renderAnnotationCard()
+    }
+
+    class WebhookEditModal {
+        +webhook: WebhookProfile
+        +onSave(hook)
+        +onOpen()
+    }
+}
+
+' Relationships
+ZoteroGKPlugin *-- MyPluginSettings
+ZoteroGKPlugin *-- ZoteroService
+ZoteroGKPlugin *-- ObsidianService
+ZoteroGKPlugin *-- WebhookService
+ZoteroGKPlugin *-- DataviewService
+
+ZoteroGKPlugin ..> ZoteroSettingTab : creates
+ZoteroGKPlugin ..> AssistantView : registers
+ZoteroGKPlugin ..> HighlightModal : creates (via command)
+
+ZoteroSettingTab --> ZoteroGKPlugin
+ZoteroSettingTab ..> WebhookEditModal : creates
+
+AssistantView --> ZoteroGKPlugin
+AssistantView ..> HighlightModal : opens
+
+HighlightModal --> ZoteroService
+HighlightModal --> ObsidianService
+
+@enduml

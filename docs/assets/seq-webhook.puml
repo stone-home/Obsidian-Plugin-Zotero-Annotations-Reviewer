@@ -1,0 +1,55 @@
+@startuml
+skinparam backgroundColor white
+skinparam sequenceArrowThickness 2
+
+actor User
+participant "AssistantView" as UI
+participant "WebhookService" as Webhook
+participant "Vault & Cache" as Data
+participant "SecretStorage" as Keychain
+boundary "External API" as Server
+
+== Trigger ==
+User -> UI: Clicks Webhook Button (e.g. "Send to API")
+UI -> Webhook: triggerWebhook(profile, activeFile)
+activate Webhook
+
+== Context Gathering ==
+Webhook -> Data: read(activeFile)
+Data --> Webhook: Markdown Content
+Webhook -> Data: getFileCache(activeFile)
+Data --> Webhook: Frontmatter Metadata
+
+== Template Processing ==
+Webhook -> Webhook: Initialize Variables\n{{content}}, {{filename}}, etc.
+Webhook -> Webhook: Apply Variables to Body Template
+
+== Security & Secrets ==
+loop For each Header
+    alt Header type is 'Secret'
+        Webhook -> Keychain: get(header.value)
+        Keychain --> Webhook: Decrypted API Key
+    else Header type is 'Text'
+        Webhook -> Webhook: Use raw value
+    end
+end
+
+== Execution ==
+Webhook -> Server: HTTP Request (POST/PUT/GET)
+note right
+    Headers: Auth, Content-Type
+    Body: Processed JSON
+end note
+activate Server
+Server --> Webhook: Response (200 OK / Error)
+deactivate Server
+
+== Feedback ==
+alt Success
+    Webhook -> User: Notice("✅ Webhook Sent!")
+else Failure
+    Webhook -> User: Notice("⚠️ Error: [Status Code]")
+end
+
+deactivate Webhook
+@enduml
