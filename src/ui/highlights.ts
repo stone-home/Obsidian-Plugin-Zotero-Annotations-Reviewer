@@ -1,4 +1,4 @@
-import { App, Modal, Notice, TFile } from 'obsidian';
+import { App, Modal, Notice, TFile} from 'obsidian';
 import { ZoteroAnnotation, ZoteroItemMetadata, MyPluginSettings } from '../types';
 import { ZoteroService } from '../services/zotero';
 import { ObsidianService } from '../services/obsidian';
@@ -12,12 +12,14 @@ export class HighlightModal extends Modal {
 	private annotations: ZoteroAnnotation[] = [];
 	private itemMetadata: ZoteroItemMetadata | null = null;
 	private imageMap: Record<string, string>;
+	onUpdate?: () => void;
 
 	constructor(
 		app: App,
 		settings: MyPluginSettings,
 		citationKey: string,
-		imageMap: Record<string, string> = {}
+		imageMap: Record<string, string> = {},
+		onUpdate?: () => void
 	) {
 		super(app);
 		this.citationKey = citationKey;
@@ -25,6 +27,7 @@ export class HighlightModal extends Modal {
 		this.imageMap = imageMap;
 		this.zotero = new ZoteroService(settings.zoteroPort);
 		this.obsidian = new ObsidianService(app, settings);
+		this.onUpdate = onUpdate;
 	}
 
 	async onOpen() {
@@ -244,9 +247,12 @@ export class HighlightModal extends Modal {
 			const btnCreate = right.createEl("button", { text: "Create Note", cls: "mod-cta" });
 			btnCreate.addClass("zotero-btn-fancy");
 			btnCreate.onclick = async () => {
+				const scrollPos = this.contentEl.scrollTop;
 				await this.obsidian.saveNote(ann, 'create', undefined, localImageFile);
 				new Notice("Note Created");
+				await sleep(200);
 				await this.render();
+				this.contentEl.scrollTop = scrollPos;
 			};
 		}
 	}

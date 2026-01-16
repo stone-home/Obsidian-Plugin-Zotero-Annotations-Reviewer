@@ -83,6 +83,28 @@ export class ZoteroSettingTab extends PluginSettingTab {
 					this.plugin.settings.annotationKeyName = value;
 					await this.plugin.saveSettings();
 				}));
+
+		container.createEl("h3", { text: "Project Linker" });
+
+		new Setting(container)
+			.setName('Projects Folder')
+			.setDesc('Folder containing your project notes.')
+			.addText(text => text
+				.setValue(this.plugin.settings.projectsFolder)
+				.onChange(async (value) => {
+					this.plugin.settings.projectsFolder = value;
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(container)
+			.setName('Project Frontmatter Key')
+			.setDesc('The YAML key to update when a project is selected (e.g. "project" or "related-project").')
+			.addText(text => text
+				.setValue(this.plugin.settings.projectFrontmatterKey)
+				.onChange(async (value) => {
+					this.plugin.settings.projectFrontmatterKey = value;
+					await this.plugin.saveSettings();
+				}));
 	}
 
 	// =========================================================================

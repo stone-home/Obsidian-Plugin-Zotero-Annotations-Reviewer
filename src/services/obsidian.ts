@@ -1,6 +1,6 @@
 import { App, TFile, normalizePath, Notice } from 'obsidian';
 import { ZoteroAnnotation, ZoteroItemMetadata, MyPluginSettings } from '../types';
-import { ObsidianNoteFactory, ZettelNoteModel } from 'markdown-note-orm';
+import {NoteModel, ObsidianNoteFactory, ZettelNoteModel} from 'markdown-note-orm';
 
 export class ObsidianService {
 	private app: App;
@@ -58,10 +58,10 @@ export class ObsidianService {
 		if (mode === 'create') {
 			const path = await this.getUniquePath(annotation);
 			note = await ObsidianNoteFactory.createByType(this.app, path, 'fleeting', this.generateTitle(annotation));
-			this.setNoteContent(note, annotation, imageFile || null);
+			await this.setNoteContent(note, annotation, imageFile || null);
 		} else if (mode === 'overwrite' && targetFile) {
 			note = await ObsidianNoteFactory.loadAndPatch(this.app, targetFile.path);
-			this.setNoteContent(note, annotation, imageFile || null);
+			await this.setNoteContent(note, annotation, imageFile || null);
 		} else { return; }
 
 		await note.save();
@@ -120,7 +120,16 @@ export class ObsidianService {
 		return null;
 	}
 
-	private setNoteContent(note: ZettelNoteModel<any>, ann: ZoteroAnnotation, img: TFile | null) {
+	private async setNoteContent(note: ZettelNoteModel<any>, ann: ZoteroAnnotation, img: TFile | null) {
+		const activeFile = this.app.workspace.getActiveFile();
+		if (activeFile) {
+			if (activeFile.parent?.path && activeFile.parent.path !== "/"){
+				note.addSourceToProps(`[[${activeFile.parent.path}/${activeFile.basename}]]`)
+			} else {
+				note.addSourceToProps(`[[${activeFile.basename}]]`)
+			}
+		}
+
 		note.properties.set(this.settings.annotationKeyName, ann.key);
 		note.properties.set(this.settings.citationKeyName, ann.citationKey);
 
@@ -130,10 +139,11 @@ export class ObsidianService {
 		note.content.addSection('Highlight', 2, lines);
 		if (ann.comment) note.content.addSection('Thoughts', 2, [ann.comment]);
 		note.content.addSection('Source', 2, [`[PDF](${ann.link})`]);
+		note.content.addSection("Related Projects", 2, ["```project-picker\n```\n"])
 	}
 
 	private generateTitle(ann: ZoteroAnnotation): string {
-		return ann.comment ? ann.comment.slice(0, 30).replace(/[\\/:*?"<>|]/g, "").trim() : `Annotation-${ann.key}`;
+		return ann.comment ? ann.comment.slice(0, 30).replace(/[\\/:*?"<>|]/g, "").trim() : `Annotation-${ann.citationKey}-${ann.key}`;
 	}
 
 	private async getUniquePath(ann: ZoteroAnnotation): Promise<string> {

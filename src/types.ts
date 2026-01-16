@@ -64,6 +64,8 @@ export interface MyPluginSettings {
 	webhooks: WebhookProfile[];
 	annotationKeyName: string
 	citationKeyName: string
+	projectsFolder: string;
+	projectFrontmatterKey: string;
 }
 
 // --- NEW: DEFAULT DATAVIEW SCRIPT ---
@@ -86,5 +88,7 @@ export const DEFAULT_SETTINGS: MyPluginSettings = {
 	sortProperty: "color",
 	webhooks: [],
 	annotationKeyName: "annotation-id",
-	citationKeyName: "citation-key"
+	citationKeyName: "citation-key",
+	projectsFolder: 'Projects', // Default folder name
+	projectFrontmatterKey: 'projects', // Default YAML key
 };

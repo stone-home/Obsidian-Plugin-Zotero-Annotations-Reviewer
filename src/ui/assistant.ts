@@ -43,7 +43,13 @@ export class AssistantView extends MarkdownRenderChild {
 			.setIcon("highlighter")
 			.setDisabled(!key)
 			.onClick(() => {
-				if (key) new HighlightModal(this.plugin.app, this.plugin.settings, key, imageMap).open();
+				if (key) new HighlightModal(
+					this.plugin.app,
+					this.plugin.settings,
+					key,
+					imageMap, async () => {
+						await this.render(source, ctx);
+					}).open();
 			});
 		reviewBtn.buttonEl.addClass("zotero-btn-fancy");
 

@@ -2,12 +2,12 @@ import { Plugin, Notice, TFile, SuggestModal, App } from 'obsidian';
 import { DEFAULT_SETTINGS, MyPluginSettings, WebhookProfile } from './types';
 import { ZoteroSettingTab } from './settings';
 import { HighlightModal } from './ui/highlights';
-import { InputModal } from './ui/inputs';
 import { AssistantView } from './ui/assistant';
 import { WebhookService } from './services/webhook';
 import { ZoteroService } from './services/zotero';
 import { ObsidianService } from './services/obsidian';
 import { DataviewService } from './services/dataview';
+import { ProjectSelectorView} from "./ui/project-selector";
 
 export default class ZoteroGKPlugin extends Plugin {
 	settings!: MyPluginSettings;
@@ -31,36 +31,11 @@ export default class ZoteroGKPlugin extends Plugin {
 			view.render(source, ctx);
 		});
 
-		// 2. Create Note Command
-		this.addCommand({
-			id: 'zotero-create-dashboard',
-			name: 'Create Literature Note (Enter Citation Key)',
-			callback: () => {
-				new InputModal(this.app, async (key) => {
-					if (!key) return;
-					try {
-						const meta = await this.zotero.getItemMetadata(key);
-						if(meta) {
-							const file = await this.obsidian.createLiteratureNote(meta);
-							await this.app.workspace.getLeaf(true).openFile(file);
-						}
-					} catch(e) {
-						new Notice("Error: " + (e as Error).message);
-					}
-				}).open();
-			}
-		});
-
-		// 3. Review Command
-		this.addCommand({
-			id: 'zotero-review-current',
-			name: 'Review Highlights (Current Note)',
-			checkCallback: (checking: boolean) => {
-				const file = this.app.workspace.getActiveFile();
-				if (!file) return false;
-				if (!checking) this.triggerReviewForActiveFile(file);
-				return true;
-			}
+		this.registerMarkdownCodeBlockProcessor("project-picker", (source, el, ctx) => {
+			const view = new ProjectSelectorView(el, this);
+			ctx.addChild(view);
+			// We call view.onload() or view.render() immediately
+			view.render();
 		});
 
 		// 4. Webhook Command

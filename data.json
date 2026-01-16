@@ -42,6 +42,10 @@
       "contentType": "json"
     }
   ],
+  "annotationKeyName": "annotation-id",
+  "citationKeyName": "zotero-key",
+  "projectsFolder": "projects",
+  "projectFrontmatterKey": "projects",
   "webhookUrl": "http://www.google.com",
   "webhookHeaders": [
     {
