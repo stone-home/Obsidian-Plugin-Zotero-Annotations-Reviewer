@@ -46,56 +46,53 @@ You must use a specific Nunjucks template that generates the **JSON Map** requir
 
 `````jinja2
 ---
-zotero-key: {{citekey}}
-zotero-image-path: "Attachments/{{citekey}}"
+citation-key: {{citekey}}
+zotero-image-path: "{{imageOutputPath}}"
 title: "{{ title | replace('"', '\\"') }}"
 type: literature
 aliases:
-  - "{{citekey}}"
 authors:
-{%- if creators %}
-{%- for creator in creators %}
-  - {{creator.firstName}} {{creator.lastName}}
-{%- endfor %}
+{%- set authorList = authors.split(",") -%}
+{%- if authorList.length > 0 %}  
+	{%- for author in authorList -%}  
+		{% set loopIndex = loop.index | string %}  
+   - {{author | trim | replace(" ", "-") | replace(".", "")}}  
+	{%- endfor -%}  
 {%- endif %}
 date: {{date | format("YYYY-MM-DD")}}
 year: {{date | format("YYYY")}}
+publication: "{{publicationTitle or proceedingsTitle or conferenceName}}"
+doi: "{{DOI}}"
+url: "{{url}}"
 tags:
-{%- for t in tags %}
-  - {{t.tag}}
-{%- endfor %}
+  - source/📜Zotero
+  - type/source
+icon: {% if itemType == "conferencePaper" -%}
+ LiNewspaper
+{%- elif itemType == "journalArticle" -%}
+ FasBookJournalWhills
+{%- else -%}
+ TiArticle
+{%- endif %}
 ---
 
-```zotero-assistant
-{
-{%- set comma = joiner() -%}
-{%- for annotation in annotations -%}
-{%- if annotation.imageRelativePath -%}
-    {{ comma() }}
-    "{{annotation.id}}": "{{ annotation.imageRelativePath | replace('\\', '\\\\') }}"
-{%- endif -%}
-{%- endfor -%}
+```zotero-assistant 
+{ 
+{%- set comma = joiner() -%} {%- for annotation in annotations -%} {%- if annotation.imageRelativePath -%} {{ comma() }} "{{annotation.id}}": "{{ annotation.imageRelativePath | replace('\\', '\\\\') }}" {%- endif -%} {%- endfor -%} 
 }
 
 ```
 
-## Abstract
+## 📰 Abstract
 
 {{abstractNote}}
 
-## Highlights
 
-{% for annotation in annotations %}
-
-> [!quote]
-> {{annotation.annotatedText}}
-> ^ann-{{annotation.id}}
-
-{% if annotation.comment %}
-**Comment**: {{annotation.comment}}
-{% endif %}
-{% endfor %}
-
+# 🧱 Appendix
+## 🔖 Tags in Zotero
+{%- for t in tags %}
+  - {{t.tag}}
+{%- endfor %}
 `````
 
 > **IMPORTANT**: The line `zotero-image-path: "Attachments/{{citekey}}"` in the Frontmatter MUST match the **Image Output Path** you set in Step 1.
