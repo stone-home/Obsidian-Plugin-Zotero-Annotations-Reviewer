@@ -187,7 +187,7 @@ export class ZoteroSettingTab extends PluginSettingTab {
 		
 		new Setting(container)
 			.setName('Project ID Key')
-			.setDesc('The YAML key to update when a project is selected (e.g. "project_id").')
+			.setDesc('Frontmatter key on project notes whose value is used as the link label (e.g. "project_id", "uuid", "alias"). If set, links show as [[note|value]]; otherwise [[note]].')
 			.addText(text => text
 				.setValue(this.plugin.settings.projectIdKey)
 				.onChange(async (value) => {

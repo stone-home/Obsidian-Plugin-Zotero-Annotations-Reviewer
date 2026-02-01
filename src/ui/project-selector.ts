@@ -120,10 +120,11 @@ export class ProjectSelectorView extends MarkdownRenderChild {
 		try {
 			const projectCache = this.plugin.app.metadataCache.getFileCache(projectFile);
 			const targetPropertyKey = this.plugin.settings.projectIdKey; // e.g., "uuid", "alias", "project_code"
-			let linkValue = `[[${projectFile.basename}]]`; // Default fallback
+			const pathWithoutExt = projectFile.path.replace(/\.[^/.]+$/, "");
+			let linkValue = `[[${pathWithoutExt}]]`; // Default fallback
 			if (projectCache?.frontmatter && projectCache.frontmatter[targetPropertyKey]) {
 				const propValue = projectCache.frontmatter[targetPropertyKey];
-				linkValue = `[[${projectFile.basename}|${propValue}]]`
+				linkValue = `[[${pathWithoutExt}|${propValue}]]`
 			}
 			await this.plugin.app.fileManager.processFrontMatter(file, (frontmatter) => {
 				const key = this.plugin.settings.projectFrontmatterKey;
