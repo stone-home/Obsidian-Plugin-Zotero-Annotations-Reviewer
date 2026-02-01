@@ -184,6 +184,16 @@ export class ZoteroSettingTab extends PluginSettingTab {
 					this.plugin.settings.projectFrontmatterKey = value;
 					await this.plugin.saveSettings();
 				}));
+		
+		new Setting(container)
+			.setName('Project ID Key')
+			.setDesc('The YAML key to update when a project is selected (e.g. "project_id").')
+			.addText(text => text
+				.setValue(this.plugin.settings.projectIdKey)
+				.onChange(async (value) => {
+					this.plugin.settings.projectIdKey = value;
+					await this.plugin.saveSettings();
+				}));
 	}
 
 	// -------------------------------------------------------------------------

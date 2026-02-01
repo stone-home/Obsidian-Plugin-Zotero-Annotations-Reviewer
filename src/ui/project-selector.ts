@@ -118,15 +118,21 @@ export class ProjectSelectorView extends MarkdownRenderChild {
 	async addProject(file: TFile, projectFile: TFile) {
 		let newList: string[] = [];
 		try {
+			const projectCache = this.plugin.app.metadataCache.getFileCache(projectFile);
+			const targetPropertyKey = this.plugin.settings.projectIdKey; // e.g., "uuid", "alias", "project_code"
+			let linkValue = `[[${projectFile.basename}]]`; // Default fallback
+			if (projectCache?.frontmatter && projectCache.frontmatter[targetPropertyKey]) {
+				const propValue = projectCache.frontmatter[targetPropertyKey];
+				linkValue = `[[${projectFile.basename}|${propValue}]]`
+			}
 			await this.plugin.app.fileManager.processFrontMatter(file, (frontmatter) => {
 				const key = this.plugin.settings.projectFrontmatterKey;
 				let current = frontmatter[key];
 
 				if (!current) current = [];
 				else if (!Array.isArray(current)) current = [current];
-				const addProject = `[[${projectFile.basename}]]`
-				if (!current.includes(addProject)) {
-					current.push(addProject);
+				if (!current.includes(linkValue)) {
+					current.push(linkValue);
 					frontmatter[key] = current;
 					new Notice(`Added project: ${projectFile.basename}`);
 				} else {

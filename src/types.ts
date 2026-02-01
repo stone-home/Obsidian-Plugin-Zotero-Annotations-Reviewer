@@ -67,6 +67,7 @@ export interface MyPluginSettings {
 	citationKeyName: string
 	projectsFolder: string;
 	projectFrontmatterKey: string;
+	projectIdKey: string;
 }
 
 // --- NEW: DEFAULT DATAVIEW SCRIPT ---
@@ -92,4 +93,5 @@ export const DEFAULT_SETTINGS: MyPluginSettings = {
 	citationKeyName: "citation-key",
 	projectsFolder: 'Projects', // Default folder name
 	projectFrontmatterKey: 'projects', // Default YAML key
+	projectIdKey: 'project_id', // Default YAML key
 };

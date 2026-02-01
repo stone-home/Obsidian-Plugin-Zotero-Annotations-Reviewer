@@ -65,7 +65,9 @@ var DEFAULT_SETTINGS = {
   citationKeyName: "citation-key",
   projectsFolder: "Projects",
   // Default folder name
-  projectFrontmatterKey: "projects"
+  projectFrontmatterKey: "projects",
+  // Default YAML key
+  projectIdKey: "project_id"
   // Default YAML key
 };
 
@@ -892,6 +894,10 @@ var ZoteroSettingTab = class extends import_obsidian.PluginSettingTab {
     }));
     new import_obsidian.Setting(container).setName("Project Frontmatter Key").setDesc('The YAML key to update when a project is selected (e.g. "project" or "related-project").').addText((text) => text.setValue(this.plugin.settings.projectFrontmatterKey).onChange(async (value) => {
       this.plugin.settings.projectFrontmatterKey = value;
+      await this.plugin.saveSettings();
+    }));
+    new import_obsidian.Setting(container).setName("Project ID Key").setDesc('The YAML key to update when a project is selected (e.g. "project_id").').addText((text) => text.setValue(this.plugin.settings.projectIdKey).onChange(async (value) => {
+      this.plugin.settings.projectIdKey = value;
       await this.plugin.saveSettings();
     }));
   }
@@ -10122,14 +10128,20 @@ var ProjectSelectorView = class extends import_obsidian10.MarkdownRenderChild {
   async addProject(file, projectFile) {
     let newList = [];
     try {
+      const projectCache = this.plugin.app.metadataCache.getFileCache(projectFile);
+      const targetPropertyKey = this.plugin.settings.projectIdKey;
+      let linkValue = `[[${projectFile.basename}]]`;
+      if ((projectCache == null ? void 0 : projectCache.frontmatter) && projectCache.frontmatter[targetPropertyKey]) {
+        const propValue = projectCache.frontmatter[targetPropertyKey];
+        linkValue = `[[${projectFile.basename}|${propValue}]]`;
+      }
       await this.plugin.app.fileManager.processFrontMatter(file, (frontmatter) => {
         const key = this.plugin.settings.projectFrontmatterKey;
         let current = frontmatter[key];
         if (!current) current = [];
         else if (!Array.isArray(current)) current = [current];
-        const addProject = `[[${projectFile.basename}]]`;
-        if (!current.includes(addProject)) {
-          current.push(addProject);
+        if (!current.includes(linkValue)) {
+          current.push(linkValue);
           frontmatter[key] = current;
           new import_obsidian10.Notice(`Added project: ${projectFile.basename}`);
         } else {
