@@ -44,6 +44,12 @@ export interface WebhookHeader {
 	type: 'text' | 'secret';
 }
 
+/** When set, triggering this webhook will prompt for a value; use {{name}} in body template. */
+export interface WebhookInputVariable {
+	name: string;   // placeholder name, e.g. "custom" → {{custom}}
+	type: 'text' | 'number';
+}
+
 export interface WebhookProfile {
 	id: string;
 	name: string;
@@ -53,7 +59,9 @@ export interface WebhookProfile {
 	headers: WebhookHeader[];
 	bodyTemplate: string;
 	hidden: boolean;
-	contentType: 'json' | 'form' | 'text'; // NEW: Explicit content type option
+	contentType: 'json' | 'form' | 'text';
+	/** Optional: prompt for these inputs when triggering; use {{name}} in body. */
+	inputVariables?: WebhookInputVariable[];
 }
 
 export interface MyPluginSettings {
@@ -68,6 +76,8 @@ export interface MyPluginSettings {
 	projectsFolder: string;
 	projectFrontmatterKey: string;
 	projectIdKey: string;
+	/** When true, show a webhook icon in the left sidebar to trigger webhooks. */
+	webhookShowInRibbon: boolean;
 }
 
 // --- NEW: DEFAULT DATAVIEW SCRIPT ---
@@ -94,4 +104,5 @@ export const DEFAULT_SETTINGS: MyPluginSettings = {
 	projectsFolder: 'Projects', // Default folder name
 	projectFrontmatterKey: 'projects', // Default YAML key
 	projectIdKey: 'project_id', // Default YAML key
+	webhookShowInRibbon: false,
 };

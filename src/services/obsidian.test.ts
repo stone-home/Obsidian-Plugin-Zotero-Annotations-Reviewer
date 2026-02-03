@@ -93,4 +93,78 @@ describe('ObsidianService', () => {
 			);
 		});
 	});
+
+	describe('isAnnotationExported', () => {
+		it('should return TFile when a note has matching annotation key in frontmatter', async () => {
+			const mockFile = new TFile();
+			(app.vault.getMarkdownFiles as jest.Mock).mockReturnValue([mockFile]);
+			(app.metadataCache.getFileCache as jest.Mock).mockReturnValue({
+				frontmatter: { 'anno-key': 'key123' }
+			});
+			const result = await service.isAnnotationExported('key123');
+			expect(result).toBe(mockFile);
+		});
+
+		it('should return null when no file has the annotation key', async () => {
+			const mockFile = new TFile();
+			(app.vault.getMarkdownFiles as jest.Mock).mockReturnValue([mockFile]);
+			(app.metadataCache.getFileCache as jest.Mock).mockReturnValue({ frontmatter: { other: 'x' } });
+			const result = await service.isAnnotationExported('key123');
+			expect(result).toBeNull();
+		});
+	});
+
+	describe('findLocalImage', () => {
+		it('should return file when name includes annotation key', () => {
+			const mockImage = { name: 'img-annoKey123.png', extension: 'png' };
+			(app.vault.getFiles as jest.Mock).mockReturnValue([mockImage]);
+			const ann: any = { key: 'annoKey123' };
+			const result = service.findLocalImage(ann);
+			expect(result).toBe(mockImage);
+		});
+
+		it('should return null when no matching image', () => {
+			(app.vault.getFiles as jest.Mock).mockReturnValue([]);
+			const ann: any = { key: 'x' };
+			expect(service.findLocalImage(ann)).toBeNull();
+		});
+	});
+
+	describe('createLiteratureNote when file exists', () => {
+		it('should load and patch existing note when path exists as TFile', async () => {
+			const existingFile = new TFile();
+			(app.vault.getAbstractFileByPath as jest.Mock).mockImplementation((p: string) => {
+				if (p.includes('Fleeting/@k1')) return existingFile;
+				return null;
+			});
+			(ObsidianNoteFactory.loadAndPatch as jest.Mock).mockResolvedValue(mockNoteModel);
+			const metadata: any = { key: 'k1', title: 'Existing Note', creators: [], date: '2020', abstract: '' };
+			await service.createLiteratureNote(metadata);
+			expect(ObsidianNoteFactory.loadAndPatch).toHaveBeenCalledWith(app, expect.stringContaining('Fleeting'));
+			expect(mockNoteModel.save).toHaveBeenCalled();
+		});
+	});
+
+	describe('saveNote overwrite and append', () => {
+		it('should overwrite target note when mode is overwrite', async () => {
+			const targetFile = new TFile();
+			(targetFile as any).path = 'Fleeting/target.md';
+			const annotation: any = { key: 'a1', citationKey: '@c1', text: 'T', comment: 'C', date: '2024', link: 'http://x' };
+			mockNoteModel.content.getSection = jest.fn().mockReturnValue({ content: [] });
+			await service.saveNote(annotation, 'overwrite', targetFile);
+			expect(ObsidianNoteFactory.loadAndPatch).toHaveBeenCalledWith(app, 'Fleeting/target.md');
+			expect(mockNoteModel.save).toHaveBeenCalled();
+		});
+
+		it('should append to target note when mode is append', async () => {
+			const targetFile = new TFile();
+			(targetFile as any).path = 'Fleeting/target.md';
+			const annotation: any = { key: 'a1', citationKey: '@c1', text: 'T', comment: 'C', date: '2024', link: 'http://x' };
+			mockNoteModel.content.getSection = jest.fn().mockReturnValue({ content: [] });
+			await service.saveNote(annotation, 'append', targetFile);
+			expect(ObsidianNoteFactory.loadAndPatch).toHaveBeenCalledWith(app, 'Fleeting/target.md');
+			expect(mockNoteModel.content.addSection).toHaveBeenCalledWith('Highlight', 2, expect.any(Array));
+			expect(mockNoteModel.save).toHaveBeenCalled();
+		});
+	});
 });

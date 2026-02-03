@@ -106,6 +106,11 @@ export class Plugin {
 	addCommand = mockFn();
 	addSettingTab = mockFn();
 	registerMarkdownCodeBlockProcessor = mockFn();
+	addRibbonIcon = mockFn().mockImplementation(() => {
+		const el = document.createElement('div');
+		el.remove = mockFn();
+		return el;
+	});
 	loadData = mockFn();
 	saveData = mockFn();
 

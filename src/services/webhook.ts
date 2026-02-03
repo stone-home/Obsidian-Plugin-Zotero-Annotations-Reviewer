@@ -8,7 +8,7 @@ export class WebhookService {
 		this.app = app;
 	}
 
-	async triggerWebhook(profile: WebhookProfile, file: TFile) {
+	async triggerWebhook(profile: WebhookProfile, file: TFile, extraVariables?: Record<string, string>) {
 		if (!profile.url) {
 			new Notice(`❌ Webhook "${profile.name}" has no URL.`);
 			return;
@@ -29,6 +29,11 @@ export class WebhookService {
 				'{{content}}': content,
 				'{{timestamp}}': new Date().toISOString()
 			};
+			if (extraVariables) {
+				for (const [key, val] of Object.entries(extraVariables)) {
+					variables[`{{${key}}}`] = String(val);
+				}
+			}
 
 			Object.keys(frontmatter).forEach(key => {
 				// Ensure frontmatter values are strings for replacement

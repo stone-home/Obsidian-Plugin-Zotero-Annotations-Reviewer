@@ -539,3 +539,138 @@
 .zotero-desc-tight {
 	margin-bottom: 8px !important;
 }
+
+/* ==========================================================================
+   Webhook input variables list (fancy)
+   ========================================================================== */
+.zotero-input-vars-heading {
+	margin-top: 16px;
+	margin-bottom: 4px;
+	font-size: 0.95em;
+	color: var(--text-normal);
+}
+
+.zotero-input-vars-list {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	margin-bottom: 16px;
+}
+
+.zotero-input-var-card {
+	background: var(--background-secondary-alt);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 10px;
+	padding: 12px 14px;
+	transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.zotero-input-var-card:hover {
+	border-color: var(--interactive-accent);
+	box-shadow: 0 2px 8px rgba(var(--interactive-accent-rgb), 0.12);
+}
+
+.zotero-input-var-row {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	flex-wrap: wrap;
+}
+
+.zotero-input-var-name {
+	flex: 1;
+	min-width: 140px;
+	border-radius: 6px;
+	padding: 6px 10px;
+	font-size: 0.9em;
+}
+
+.zotero-input-var-type {
+	min-width: 100px;
+	border-radius: 6px;
+	padding: 6px 10px;
+	font-size: 0.9em;
+}
+
+.zotero-input-var-remove {
+	color: var(--text-muted) !important;
+	padding: 6px 8px !important;
+	border-radius: 6px;
+	transition: color 0.15s, background 0.15s;
+}
+
+.zotero-input-var-remove:hover {
+	color: var(--text-error) !important;
+	background: var(--background-modifier-hover);
+}
+
+.zotero-input-var-add-wrap {
+	display: flex;
+	justify-content: center;
+	padding: 8px 0;
+}
+
+.zotero-input-var-add-btn {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	border: 1px dashed var(--background-modifier-border);
+	background: transparent !important;
+	color: var(--interactive-accent) !important;
+}
+
+.zotero-input-var-add-btn:hover {
+	border-color: var(--interactive-accent);
+	background: rgba(var(--interactive-accent-rgb), 0.08) !important;
+}
+
+/* Webhook trigger – input value modal */
+.zotero-webhook-input-modal {
+	min-width: 360px;
+}
+
+.zotero-webhook-input-title {
+	margin-bottom: 6px;
+	font-size: 1.25em;
+}
+
+.zotero-webhook-input-desc {
+	font-size: 0.9em;
+	color: var(--text-muted);
+	margin-bottom: 16px;
+}
+
+.zotero-webhook-input-form {
+	display: flex;
+	flex-direction: column;
+	gap: 14px;
+	margin-bottom: 20px;
+}
+
+.zotero-webhook-input-row {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+.zotero-webhook-input-label {
+	font-size: 0.85em;
+	font-weight: 600;
+	color: var(--text-accent);
+	font-family: var(--font-monospace);
+}
+
+.zotero-webhook-input-field {
+	width: 100%;
+	box-sizing: border-box;
+	border-radius: 6px;
+	padding: 8px 12px;
+	font-size: 0.95em;
+}
+
+.zotero-webhook-input-footer {
+	display: flex;
+	justify-content: flex-end;
+	gap: 10px;
+	margin-top: 8px;
+}

@@ -31,21 +31,29 @@
   "sortProperty": "color",
   "webhooks": [
     {
-      "id": "1768517993206",
+      "id": "1770138587010",
       "name": "New Webhook",
-      "url": "https://throbbing-bush-856c.still-pot3850.workers.dev",
+      "url": "",
       "method": "POST",
       "icon": "plane",
       "headers": [],
-      "bodyTemplate": "{\n  \"test\": \"true\",\n  \"type\": 3\n}",
+      "bodyTemplate": "{\n  \"filename\": \"{{filename}}\",\n  \"content\": \"{{new name}}\"\n}",
       "hidden": false,
-      "contentType": "json"
+      "contentType": "json",
+      "inputVariables": [
+        {
+          "name": "new name",
+          "type": "text"
+        }
+      ]
     }
   ],
   "annotationKeyName": "annotation-id",
   "citationKeyName": "zotero-key",
   "projectsFolder": "101-Research",
   "projectFrontmatterKey": "projects",
+  "projectIdKey": "project_id",
+  "webhookShowInRibbon": true,
   "webhookUrl": "http://www.google.com",
   "webhookHeaders": [
     {

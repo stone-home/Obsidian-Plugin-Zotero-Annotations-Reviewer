@@ -22,7 +22,7 @@ import { javascript } from "@codemirror/lang-javascript";
 import { json } from "@codemirror/lang-json";
 import { oneDark } from "@codemirror/theme-one-dark";
 import ZoteroGKPlugin from './main';
-import { WebhookProfile } from './types';
+import { WebhookProfile, WebhookInputVariable } from './types';
 
 // =========================================================================
 // HELPER: Mount CodeMirror Editor
@@ -277,6 +277,17 @@ export class ZoteroSettingTab extends PluginSettingTab {
 			cls: "setting-item-description"
 		});
 
+		new Setting(container)
+			.setName('Show webhook icon in sidebar')
+			.setDesc('Add an icon in the left sidebar to quickly trigger a webhook for the active note.')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.webhookShowInRibbon)
+				.onChange(async (value) => {
+					this.plugin.settings.webhookShowInRibbon = value;
+					await this.plugin.saveSettings();
+					this.plugin.updateWebhookRibbonIcon();
+				}));
+
 		const webhookList = container.createDiv({ cls: 'zotero-settings-list' });
 
 		this.plugin.settings.webhooks.forEach((hook, idx) => {
@@ -331,7 +342,8 @@ export class ZoteroSettingTab extends PluginSettingTab {
 					headers: [],
 					bodyTemplate: '{\n  "filename": "{{filename}}",\n  "content": "{{content}}"\n}',
 					hidden: false,
-					contentType: 'json'
+					contentType: 'json',
+					inputVariables: []
 				};
 				new WebhookEditModal(this.app, newHook, async (hook) => {
 					this.plugin.settings.webhooks.push(hook);
@@ -449,6 +461,14 @@ class WebhookEditModal extends Modal {
 		// 4. Body Template & Usage Guide
 		contentEl.createEl("h4", { text: "Body Template (JSON)" });
 
+		// Ensure inputVariables exists (migrate legacy inputVariable) before usage box
+		const legacy = (this.webhook as WebhookProfile & { inputVariable?: WebhookInputVariable }).inputVariable;
+		if (legacy && !this.webhook.inputVariables?.length) {
+			this.webhook.inputVariables = [legacy];
+			delete (this.webhook as { inputVariable?: unknown }).inputVariable;
+		}
+		if (!this.webhook.inputVariables) this.webhook.inputVariables = [];
+
 		// Usage Box
 		const usageBox = contentEl.createDiv({ cls: "zotero-usage-box" });
 		usageBox.style.backgroundColor = "var(--background-secondary)";
@@ -460,7 +480,47 @@ class WebhookEditModal extends Modal {
 
 		usageBox.createEl("strong", { text: "ℹ️ Usage Guide: " });
 		usageBox.createSpan({ text: "Placeholders: " });
-		usageBox.createSpan({ text: "{{content}}, {{filename}}, {{path}}, {{frontmatter.KEY}}", attr: {style: "color: var(--text-accent);" }});
+		const inputNames = (this.webhook.inputVariables ?? [])
+			.map(iv => iv.name?.trim()).filter(Boolean);
+		const inputPlaceholder = inputNames.length
+			? " " + inputNames.map(n => `{{${n}}} (from input)`).join(", ") + "."
+			: "";
+		usageBox.createSpan({ text: "{{content}}, {{filename}}, {{path}}, {{frontmatter.KEY}}." + inputPlaceholder, attr: { style: "color: var(--text-accent);" } });
+
+		// Input variables (inside Body Template section)
+		contentEl.createEl("h4", { text: "Input variables", cls: "zotero-input-vars-heading" });
+		const inputVarsDesc = contentEl.createDiv({ cls: "setting-item-description", attr: { style: "margin-bottom: 10px;" } });
+		inputVarsDesc.setText("Add variables to prompt when triggering. Use {{name}} in the body template above. Each needs a unique name.");
+		const inputVarsList = contentEl.createDiv({ cls: "zotero-input-vars-list" });
+		const renderInputVars = () => {
+			inputVarsList.empty();
+			this.webhook.inputVariables!.forEach((iv, idx) => {
+				const card = inputVarsList.createDiv({ cls: "zotero-input-var-card" });
+				const row = card.createDiv({ cls: "zotero-input-var-row" });
+				new TextComponent(row)
+					.setPlaceholder("Variable name (e.g. custom)")
+					.setValue(iv.name)
+					.onChange(v => iv.name = v.trim()).inputEl.addClass("zotero-input-var-name");
+				new DropdownComponent(row)
+					.addOption("text", "Text")
+					.addOption("number", "Number")
+					.setValue(iv.type)
+					.onChange(v => iv.type = v as 'text' | 'number').selectEl.addClass("zotero-input-var-type");
+				new ButtonComponent(row)
+					.setIcon("trash-2")
+					.setTooltip("Remove")
+					.onClick(() => {
+						this.webhook.inputVariables!.splice(idx, 1);
+						renderInputVars();
+					}).buttonEl.addClass("zotero-input-var-remove");
+			});
+			const addWrap = inputVarsList.createDiv({ cls: "zotero-input-var-add-wrap" });
+			new ButtonComponent(addWrap).setButtonText("+ Add input variable").setIcon("plus").setCta().onClick(() => {
+				this.webhook.inputVariables!.push({ name: '', type: 'text' });
+				renderInputVars();
+			}).buttonEl.addClass("zotero-btn-fancy", "zotero-input-var-add-btn");
+		};
+		renderInputVars();
 
 		// JSON Control Bar
 		// [FIXED] Used CSS class instead of inline style
@@ -559,6 +619,8 @@ class WebhookEditModal extends Modal {
 		footer.style.marginTop = "20px";
 		footer.style.textAlign = "right";
 		new ButtonComponent(footer).setButtonText("Save Webhook").setCta().onClick(() => {
+			if (this.webhook.inputVariables)
+				this.webhook.inputVariables = this.webhook.inputVariables.filter(iv => iv.name?.trim());
 			this.onSave(this.webhook);
 			this.close();
 		});

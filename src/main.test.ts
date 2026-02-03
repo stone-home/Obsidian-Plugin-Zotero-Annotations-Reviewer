@@ -95,8 +95,64 @@ describe('ZoteroGKPlugin', () => {
 
 			// Assert: Modal should NOT be called
 			expect(HighlightModal).not.toHaveBeenCalled();
-			// You might want to mock Notice globally to verify it was called
-			// (Requires creating a spy on the global Notice class or checking the mock implementation)
+		});
+
+		it('should use citationKeyName from settings when present', async () => {
+			plugin.settings.citationKeyName = 'my-key';
+			const mockFile = new TFile();
+			(app.metadataCache.getFileCache as jest.Mock).mockReturnValue({
+				frontmatter: { 'my-key': '@custom2020' }
+			});
+			await plugin.triggerReviewForActiveFile(mockFile);
+			expect(HighlightModal).toHaveBeenCalledWith(app, plugin.settings, '@custom2020', {});
+		});
+
+		it('should fallback to zotero-key then citation-key', async () => {
+			const mockFile = new TFile();
+			(app.metadataCache.getFileCache as jest.Mock).mockReturnValue({
+				frontmatter: { 'zotero-key': '@zotero2020' }
+			});
+			await plugin.triggerReviewForActiveFile(mockFile);
+			expect(HighlightModal).toHaveBeenCalledWith(app, plugin.settings, '@zotero2020', {});
+		});
+	});
+
+	describe('loadSettings', () => {
+		it('should merge DEFAULT_SETTINGS with loaded data', async () => {
+			(plugin.loadData as jest.Mock).mockResolvedValue({ zoteroPort: 9999 });
+			await plugin.loadSettings();
+			expect(plugin.settings.zoteroPort).toBe(9999);
+			expect(plugin.settings.annotationKeyName).toBe(DEFAULT_SETTINGS.annotationKeyName);
+		});
+	});
+
+	describe('saveSettings', () => {
+		it('should call saveData with current settings', async () => {
+			await plugin.saveSettings();
+			expect(plugin.saveData).toHaveBeenCalledWith(plugin.settings);
+		});
+	});
+
+	describe('updateWebhookRibbonIcon', () => {
+		it('should remove existing ribbon icon when called', () => {
+			plugin.settings.webhookShowInRibbon = true;
+			plugin.updateWebhookRibbonIcon();
+			const firstEl = (plugin.addRibbonIcon as jest.Mock).mock.results[0]?.value;
+			expect(firstEl).toBeDefined();
+			plugin.updateWebhookRibbonIcon();
+			expect(firstEl.remove).toHaveBeenCalled();
+		});
+
+		it('should add ribbon icon when webhookShowInRibbon is true', () => {
+			plugin.settings.webhookShowInRibbon = true;
+			plugin.updateWebhookRibbonIcon();
+			expect(plugin.addRibbonIcon).toHaveBeenCalledWith('webhook', 'Trigger Webhook...', expect.any(Function));
+		});
+
+		it('should not add ribbon icon when webhookShowInRibbon is false', () => {
+			plugin.settings.webhookShowInRibbon = false;
+			plugin.updateWebhookRibbonIcon();
+			expect(plugin.addRibbonIcon).not.toHaveBeenCalled();
 		});
 	});
 });
