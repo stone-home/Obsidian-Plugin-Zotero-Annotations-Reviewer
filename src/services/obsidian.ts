@@ -153,7 +153,7 @@ export class ObsidianService {
 	}
 
 	private generateTitle(ann: ZoteroAnnotation): string {
-		return ann.comment ? ann.comment.slice(0, 30).replace(/[\\/:*?"<>|]/g, "").trim() : `Annotation-${ann.citationKey}-${ann.key}`;
+		return `Annotation-${ann.citationKey}-${ann.key}`;
 	}
 
 	private async getUniquePath(ann: ZoteroAnnotation): Promise<string> {
