@@ -58,9 +58,10 @@ describe('ZoteroGKPlugin', () => {
 			}));
 
 			// Verify Code Blocks Registered
-			expect(registerBlockSpy).toHaveBeenCalledTimes(2);
+			expect(registerBlockSpy).toHaveBeenCalledTimes(3);
 			expect(registerBlockSpy).toHaveBeenCalledWith('zotero-assistant', expect.any(Function));
 			expect(registerBlockSpy).toHaveBeenCalledWith('project-picker', expect.any(Function));
+			expect(registerBlockSpy).toHaveBeenCalledWith('cfp-list', expect.any(Function));
 		});
 	});
 

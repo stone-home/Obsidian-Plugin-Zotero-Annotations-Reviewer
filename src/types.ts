@@ -64,6 +64,28 @@ export interface WebhookProfile {
 	inputVariables?: WebhookInputVariable[];
 }
 
+// --- CFP (Call For Paper) TYPES ---
+export type CFPSource = 'manual' | 'wikicfp' | 'ccfddl' | 'easychair' | 'openresearch';
+
+/** API exposed on window for DataviewJS to call plugin refresh (parse/fetch in plugin). */
+export interface CFPWindowAPI {
+	refreshSeries: (programUrl: string, seriesAcronym: string) => Promise<void>;
+}
+
+export interface CFPItem {
+	/** Full event label (e.g. "AOSD 2026"); used for note filename. */
+	acronym: string;
+	/** Pure series name without year/edition (e.g. "AOSD"); used for folder and series note link. */
+	series?: string;
+	fullName: string;
+	location: string;
+	start?: string;
+	end?: string;
+	submissionDdl: string;
+	source: CFPSource;
+	url?: string;
+}
+
 export interface MyPluginSettings {
 	zoteroPort: number;
 	fleetingNoteFolder: string;
@@ -78,6 +100,27 @@ export interface MyPluginSettings {
 	projectIdKey: string;
 	/** When true, show a webhook icon in the left sidebar to trigger webhooks. */
 	webhookShowInRibbon: boolean;
+	// --- CFP ---
+	cfpNoteDir: string;
+	cfpDefaultTags: string[];
+	/** Refresh interval (days) for URL sources: WikiCFP, CCFDDL, EasyChair, OpenResearch. */
+	cfpRefreshDays: number;
+	/** Refresh interval (days) for WikiCFP Conference Series (A–Z) scan only. */
+	cfpSeriesRefreshDays: number;
+	cfpWikicfpUrls: string[];
+	cfpCcfddlUrls: string[];
+	cfpEasychairUrls: string[];
+	cfpOpenresearchUrls: string[];
+	cfpLastFetchTime: number;
+	cfpLastSeriesFetchTime: number;
+	/** Series key -> { programUrl, lastUpdate }. Used for daily staggered refresh. */
+	cfpSeriesMap: Record<string, { programUrl: string; lastUpdate: number }>;
+	/** Timestamp of last daily series-refresh run. */
+	cfpLastDailyRun: number;
+	/** WikiCFP Series Index letters to load (e.g. ['A', 'B']). Empty array means all A-Z. */
+	cfpSeriesIndexLetters: string[];
+	/** DataviewJS code for Series note refresh button. */
+	cfpSeriesDataviewJSCode: string;
 }
 
 // --- NEW: DEFAULT DATAVIEW SCRIPT ---
@@ -105,4 +148,29 @@ export const DEFAULT_SETTINGS: MyPluginSettings = {
 	projectFrontmatterKey: 'projects', // Default YAML key
 	projectIdKey: 'project_id', // Default YAML key
 	webhookShowInRibbon: false,
+	// CFP defaults
+	cfpNoteDir: 'CFP',
+	cfpDefaultTags: ['cfp'],
+	cfpRefreshDays: 5,
+	cfpSeriesRefreshDays: 30,
+	cfpWikicfpUrls: [],
+	cfpCcfddlUrls: [],
+	cfpEasychairUrls: [],
+	cfpOpenresearchUrls: [],
+	cfpLastFetchTime: 0,
+	cfpLastSeriesFetchTime: 0,
+	cfpSeriesMap: {},
+	cfpLastDailyRun: 0,
+	cfpSeriesIndexLetters: [],
+	cfpSeriesDataviewJSCode: `const cur = dv.current();
+if (cur && cur["series-url"]) {
+  const programUrl = cur["series-url"];
+  const seriesAcronym = (cur.file?.name || "").replace(/\\s+Series(\\.md)?$/i, "");
+  const btn = dv.el("button", "Refresh events");
+  btn.addEventListener("click", (e) => {
+    e.preventDefault();
+    if (window.__ZoteroAnnotationReviewerCFP)
+      window.__ZoteroAnnotationReviewerCFP.refreshSeries(programUrl, seriesAcronym);
+  });
+}`,
 };

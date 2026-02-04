@@ -561,3 +561,205 @@
   gap: 10px;
   margin-top: 8px;
 }
+.zotero-cfp-list-modal .zotero-cfp-list-section {
+  margin-bottom: 1.5em;
+}
+.zotero-cfp-list-modal .zotero-cfp-list-section h3 {
+  margin-bottom: 0.5em;
+  font-size: 1em;
+  color: var(--text-muted);
+}
+.zotero-cfp-list-empty {
+  color: var(--text-muted);
+  font-style: italic;
+}
+.zotero-cfp-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.zotero-cfp-list-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  background: var(--background-secondary);
+}
+.zotero-cfp-list-row:hover {
+  background: var(--background-modifier-hover);
+}
+.zotero-cfp-acronym {
+  font-weight: 600;
+  min-width: 100px;
+}
+.zotero-cfp-ddl {
+  color: var(--text-accent);
+  font-size: 0.9em;
+  min-width: 90px;
+}
+.zotero-cfp-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.zotero-cfp-location {
+  color: var(--text-muted);
+  font-size: 0.9em;
+}
+.zotero-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 1em;
+}
+.zotero-cfp-urls-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5em;
+  margin-top: 8px;
+}
+.zotero-cfp-url-section {
+  min-height: 0;
+  padding: 16px;
+  background: var(--background-secondary-alt);
+  border-radius: 8px;
+  border: 1px solid var(--background-modifier-border);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.zotero-cfp-url-section:hover {
+  border-color: var(--interactive-accent);
+  box-shadow: 0 2px 8px rgba(var(--interactive-accent-rgb), 0.1);
+}
+.zotero-cfp-url-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  gap: 12px;
+}
+.zotero-cfp-url-section-title {
+  margin: 0 !important;
+  font-size: 1em !important;
+  font-weight: 600 !important;
+  color: var(--text-normal) !important;
+  flex: 1;
+}
+.zotero-cfp-url-desc {
+  margin-bottom: 12px !important;
+  font-size: 0.85em;
+  color: var(--text-muted);
+}
+.zotero-cfp-add-row {
+  margin-bottom: 10px;
+  padding: 8px;
+  background: var(--background-primary);
+  border-radius: 6px;
+  border: 1px dashed var(--background-modifier-border);
+  transition: border-color 0.2s ease;
+}
+.zotero-cfp-add-row:hover {
+  border-color: var(--interactive-accent);
+}
+.zotero-cfp-url-display {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.9em;
+  color: var(--text-normal);
+  font-family: var(--font-monospace);
+  padding: 4px 8px;
+  background: var(--background-primary-alt);
+  border-radius: 4px;
+}
+.zotero-cfp-letters-section {
+  margin-bottom: 16px;
+}
+.zotero-cfp-filter-title {
+  margin: 0 0 8px 0 !important;
+  font-size: 0.95em !important;
+  font-weight: 600 !important;
+  color: var(--text-normal) !important;
+}
+.zotero-cfp-series-actions-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--background-modifier-border);
+}
+.zotero-cfp-code-actions-row {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--background-modifier-border);
+}
+.zotero-cfp-letters-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(40px, 1fr));
+  gap: 8px;
+  padding: 12px;
+  background: var(--background-primary);
+  border-radius: 8px;
+  border: 1px solid var(--background-modifier-border);
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.zotero-cfp-letter-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  cursor: pointer;
+}
+.zotero-cfp-letter-label {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.95em;
+  color: var(--text-normal);
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  user-select: none;
+  min-width: 0;
+  width: 100%;
+  text-align: center;
+  box-sizing: border-box;
+  background: transparent;
+  order: 1;
+}
+.zotero-cfp-letter-checkbox {
+  cursor: pointer;
+  width: 18px;
+  height: 18px;
+  accent-color: var(--interactive-accent);
+  order: 2;
+}
+.zotero-cfp-letter-item:hover .zotero-cfp-letter-label {
+  color: var(--interactive-accent);
+}
+.zotero-cfp-letter-checkbox:checked ~ .zotero-cfp-letter-label,
+.zotero-cfp-letter-checkbox:checked + .zotero-cfp-letter-label {
+  color: var(--interactive-accent);
+}
+.zotero-cfp-script-wrapper {
+  margin-top: 8px;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid var(--background-modifier-border);
+}
+.zotero-cfp-actions-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+.zotero-cfp-actions-row button {
+  flex: 1;
+  min-width: 180px;
+}
