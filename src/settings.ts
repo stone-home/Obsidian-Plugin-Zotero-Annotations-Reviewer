@@ -414,6 +414,17 @@ export class ZoteroSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				}));
 
+		new Setting(basicCard)
+			.setName('Conference acronym key (for CFP link)')
+			.setDesc('Frontmatter key to read conference acronym for direct CFP match in Assistant (e.g. conference-acronym). If set on a note, exact match is tried first so long titles like "Proceedings of the 16th USENIX Symposium on OSDI" can link by setting this key to "OSDI".')
+			.addText(text => text
+				.setValue(this.plugin.settings.cfpAcronymKey ?? 'conference-acronym')
+				.setPlaceholder('conference-acronym')
+				.onChange(async (value) => {
+					this.plugin.settings.cfpAcronymKey = (value || 'conference-acronym').trim();
+					await this.plugin.saveSettings();
+				}));
+
 		// === WIKICFP SERIES CARD ===
 		const seriesCard = container.createDiv({ cls: 'zotero-setting-card' });
 		seriesCard.createEl("h3", { text: "WikiCFP Conference Series", cls: "zotero-card-title" });

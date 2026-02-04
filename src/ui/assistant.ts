@@ -84,6 +84,12 @@ export class AssistantView extends MarkdownRenderChild {
 
 		// Pass 'source' to parse parameters for the script
 		await this.renderLocalHighlights(file, highlightsDiv, source);
+
+		// --- CFP context section ---
+		container.createEl("hr");
+		container.createEl("h5", { text: "📅 CFP context" });
+		const cfpDiv = container.createDiv({ cls: 'zotero-cfp-context' });
+		await this.renderCFPContext(file, cfpDiv);
 	}
 
 	async renderLocalHighlights(file: TFile, container: HTMLElement, source: string) {
@@ -151,5 +157,159 @@ export class AssistantView extends MarkdownRenderChild {
 			}
 		}
 		if (found === 0) container.createDiv({ text: "No highlights detected.", cls: "zotero-text-muted-italic" });
+	}
+
+	/** Render CFP context for the current note based on existing CFP notes in the vault. */
+	private async renderCFPContext(file: TFile, container: HTMLElement): Promise<void> {
+		if (!this.plugin.cfpService) {
+			container.createDiv({
+				text: "CFP service not available.",
+				cls: "zotero-text-muted-italic"
+			});
+			return;
+		}
+
+		const cache = this.plugin.app.metadataCache.getFileCache(file);
+		const fm = cache?.frontmatter;
+		if (!fm) {
+			container.createDiv({
+				text: "No metadata found for CFP matching.",
+				cls: "zotero-text-muted-italic"
+			});
+			return;
+		}
+
+		const conferenceName = (fm['conferenceName'] ?? fm['conference'] ?? fm['title'] ?? '').toString() || undefined;
+		const proceedingsTitle = (fm['proceedingsTitle'] ?? fm['publication'] ?? '').toString() || undefined;
+		const place = (fm['place'] ?? fm['location'] ?? '').toString() || undefined;
+		const acronymKey = this.plugin.settings.cfpAcronymKey?.trim() || 'conference-acronym';
+		let acronymFromNote = (fm[acronymKey] ?? '').toString().trim() || undefined;
+		// Fallback: try common keys so template users don't have to configure (e.g. acronym, conference_acronym).
+		if (!acronymFromNote) {
+			acronymFromNote = (fm['acronym'] ?? fm['conference_acronym'] ?? fm['conferenceAbbrev'] ?? '').toString().trim() || undefined;
+		}
+		let year: number | undefined;
+		const rawYear = fm['year'] ?? fm['date'];
+		if (typeof rawYear === 'number') {
+			year = rawYear;
+		} else if (typeof rawYear === 'string') {
+			const m = rawYear.match(/\b(20\d{2}|19\d{2})\b/);
+			if (m) year = parseInt(m[1], 10);
+		}
+
+		if (!conferenceName && !proceedingsTitle && !acronymFromNote) {
+			container.createDiv({
+				text: "No conference title or acronym in this note.",
+				cls: "zotero-text-muted-italic"
+			});
+			return;
+		}
+
+		try {
+			const match = await this.plugin.cfpService.findBestMatchingCFPForConference({
+				conferenceName,
+				proceedingsTitle,
+				place,
+				year,
+				acronymFromNote
+			});
+
+			// Case 1: We have a concrete event match → render full event + series info.
+			if (match.event) {
+				const event = match.event.item;
+
+				const titleEl = container.createDiv({ cls: 'zotero-cfp-title' });
+				titleEl.createSpan({ text: event.acronym, cls: 'zotero-cfp-acronym' });
+				if (event.fullName && event.fullName !== event.acronym) {
+					titleEl.createSpan({ text: ` — ${event.fullName}`, cls: 'zotero-cfp-fullname' });
+				}
+
+				const metaList = container.createEl('ul', { cls: 'zotero-cfp-meta' });
+				const dateText = event.start && event.end
+					? `${event.start} → ${event.end}`
+					: (event.start || event.end || 'N/A');
+				const dateLi = metaList.createEl('li');
+				dateLi.createSpan({ text: `Dates: ${dateText}` });
+
+				if (event.location) {
+					const locLi = metaList.createEl('li');
+					locLi.createSpan({ text: `Location: ${event.location}` });
+				}
+
+				if (event.series && match.seriesNotePath) {
+					const seriesLi = metaList.createEl('li');
+					seriesLi.createSpan({ text: 'Series: ' });
+					const link = seriesLi.createEl('a', {
+						text: `${event.series} Series`,
+						href: '#'
+					});
+					link.onclick = (ev) => {
+						ev.preventDefault();
+						const target = this.plugin.app.vault.getAbstractFileByPath(match.seriesNotePath!);
+						if (target instanceof TFile) {
+							this.plugin.app.workspace.getLeaf().openFile(target);
+						} else {
+							new Notice('Series note not found.');
+						}
+					};
+				}
+
+				if (match.latestSeriesDdl) {
+					const ddlLi = metaList.createEl('li');
+					ddlLi.createSpan({ text: `Latest submission deadline in this series: ${match.latestSeriesDdl}` });
+				}
+				return;
+			}
+
+			// Case 2: No specific event, but we found a Series note → show Series-only context.
+			if (!match.event && match.seriesNotePath) {
+				const seriesFile = this.plugin.app.vault.getAbstractFileByPath(match.seriesNotePath);
+				const seriesBase = seriesFile instanceof TFile
+					? seriesFile.basename.replace(/\s+Series$/i, '')
+					: match.seriesNotePath.split('/').pop()?.replace(/\.md$/, '').replace(/\s+Series$/i, '') ?? 'Series';
+
+				const titleEl = container.createDiv({ cls: 'zotero-cfp-title' });
+				titleEl.createSpan({ text: seriesBase, cls: 'zotero-cfp-acronym' });
+				titleEl.createSpan({ text: ' — Series overview', cls: 'zotero-cfp-fullname' });
+
+				const metaList = container.createEl('ul', { cls: 'zotero-cfp-meta' });
+				const seriesLi = metaList.createEl('li');
+				seriesLi.createSpan({ text: 'Series note: ' });
+				const link = seriesLi.createEl('a', {
+					text: `${seriesBase} Series`,
+					href: '#'
+				});
+				link.onclick = (ev) => {
+					ev.preventDefault();
+					if (seriesFile instanceof TFile) {
+						this.plugin.app.workspace.getLeaf().openFile(seriesFile);
+					} else {
+						new Notice('Series note not found.');
+					}
+				};
+
+				if (match.latestSeriesDdl) {
+					const ddlLi = metaList.createEl('li');
+					ddlLi.createSpan({ text: `Latest submission deadline in this series: ${match.latestSeriesDdl}` });
+				}
+
+				return;
+			}
+
+			// Case 3: Nothing at all.
+			const hint = acronymFromNote
+				? ` (acronym from note: "${acronymFromNote}"; check CFP folder and [CFP] in console)`
+				: ' (optional: set conference-acronym or acronym in frontmatter for direct match)';
+			container.createDiv({
+				text: "No related CFP found in your CFP folder." + hint,
+				cls: "zotero-text-muted-italic"
+			});
+		} catch (e) {
+			console.error('[CFP] renderCFPContext failed', e);
+			container.createDiv({
+				text: "Failed to load CFP context. See console.",
+				cls: "zotero-text-muted-italic"
+			});
+		}
 	}
 }
