@@ -86,6 +86,21 @@ export interface CFPItem {
 	url?: string;
 }
 
+/** CFP item together with its file path in the vault. */
+export interface CFPItemWithPath {
+	item: CFPItem;
+	path: string;
+}
+
+/** Result of matching a Zotero conference-like note to CFP data. */
+export interface CFPConferenceMatch {
+	event: CFPItemWithPath | null;
+	/** Path to the Series note (folder + "Series.md"), if available. */
+	seriesNotePath?: string;
+	/** Latest submission deadline among all events in this series (YYYY-MM-DD preferred). */
+	latestSeriesDdl?: string;
+}
+
 export interface MyPluginSettings {
 	zoteroPort: number;
 	fleetingNoteFolder: string;
@@ -121,6 +136,8 @@ export interface MyPluginSettings {
 	cfpSeriesIndexLetters: string[];
 	/** DataviewJS code for Series note refresh button. */
 	cfpSeriesDataviewJSCode: string;
+	/** Frontmatter key to read conference acronym for direct CFP match (e.g. conference-acronym). If set and non-empty, exact match is tried first. */
+	cfpAcronymKey: string;
 }
 
 // --- NEW: DEFAULT DATAVIEW SCRIPT ---
@@ -162,6 +179,7 @@ export const DEFAULT_SETTINGS: MyPluginSettings = {
 	cfpSeriesMap: {},
 	cfpLastDailyRun: 0,
 	cfpSeriesIndexLetters: [],
+	cfpAcronymKey: 'conference-acronym',
 	cfpSeriesDataviewJSCode: `const cur = dv.current();
 if (cur && cur["series-url"]) {
   const programUrl = cur["series-url"];

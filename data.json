@@ -67,7 +67,7 @@
   "cfpEasychairUrls": [],
   "cfpOpenresearchUrls": [],
   "cfpLastFetchTime": 1770163729379,
-  "cfpLastSeriesFetchTime": 1770198477188,
+  "cfpLastSeriesFetchTime": 1770203210520,
   "cfpSeriesMap": {
     "A-MOST": {
       "programUrl": "http://www.wikicfp.com/cfp/program?id=160&s=A-MOST&f=Advances%20in%20Model-Based%20Software%20Testing",
@@ -5239,7 +5239,7 @@
     },
     "OSDI": {
       "programUrl": "http://www.wikicfp.com/cfp/program?id=2277&s=OSDI&f=Operating%20Systems%20Design%20and%20Implementation",
-      "lastUpdate": 0
+      "lastUpdate": 1770203371589
     },
     "OSS": {
       "programUrl": "http://www.wikicfp.com/cfp/program?id=2278&s=OSS&f=Open%20Source%20Systems",
@@ -7319,7 +7319,10 @@
     }
   },
   "cfpLastDailyRun": 1770164757947,
-  "cfpSeriesIndexLetters": [],
+  "cfpSeriesIndexLetters": [
+    "O"
+  ],
+  "cfpAcronymKey": "conference-acronym",
   "cfpSeriesDataviewJSCode": "const cur = dv.current();\nif (cur && cur[\"series-url\"]) {\n  const programUrl = cur[\"series-url\"];\n  const seriesAcronym = (cur.file?.name || \"\").replace(/\\s+Series(\\.md)?$/i, \"\");\n  const btn = dv.el(\"button\", \"Refresh events\");\n  btn.addEventListener(\"click\", (e) => {\n    e.preventDefault();\n    if (window.__ZoteroAnnotationReviewerCFP)\n      window.__ZoteroAnnotationReviewerCFP.refreshSeries(programUrl, seriesAcronym);\n  });\n}",
   "webhookUrl": "http://www.google.com",
   "webhookHeaders": [

@@ -141,7 +141,8 @@ describe('CFPService additional coverage', () => {
 			expect.stringContaining('CFP/CONF'),
 			'CONF',
 			expect.any(Array),
-			'http://program'
+			'http://program',
+			'Conf'
 		);
 		expect(settings.cfpSeriesMap.CONF.programUrl).toBe('http://program');
 		expect(settings.cfpLastSeriesFetchTime).toBeGreaterThan(0);

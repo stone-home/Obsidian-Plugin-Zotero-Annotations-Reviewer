@@ -1,5 +1,5 @@
 import { App, normalizePath, Notice, TFile } from 'obsidian';
-import { CFPItem, MyPluginSettings } from '../types';
+import { CFPItem, MyPluginSettings, CFPItemWithPath, CFPConferenceMatch } from '../types';
 import { fetchWikiCFP } from './cfp-wikicfp';
 import { fetchCcfddl } from './cfp-ccfddl';
 import {
@@ -10,6 +10,7 @@ import {
 } from './cfp-wikicfp-series';
 import { fetchEasychair } from './cfp-easychair';
 import { fetchOpenresearch } from './cfp-openresearch';
+import { pureSeriesFromAcronym } from '../utils/series';
 
 function sanitizeFileName(name: string): string {
 	return name
@@ -252,7 +253,8 @@ export class CFPService {
 		dirPath: string,
 		seriesName: string,
 		defaultTags: string[],
-		programUrl?: string
+		programUrl?: string,
+		seriesFullName?: string
 	): Promise<void> {
 		const seriesFileName = sanitizeFileName(seriesName) + ' Series.md';
 		const seriesPath = normalizePath(dirPath + '/' + seriesFileName);
@@ -270,9 +272,16 @@ export class CFPService {
 			'cfp-series: true'
 		];
 		if (seriesUrl) fmLines.push('series-url: ' + JSON.stringify(seriesUrl));
+		// Store full name (e.g. "OSDI: Operating Systems Design and Implementation" → "Operating Systems Design and Implementation")
+		if (seriesFullName?.trim()) {
+			const displayName = seriesFullName.includes(':')
+				? seriesFullName.split(':').slice(1).join(':').trim()
+				: seriesFullName.trim();
+			if (displayName) fmLines.push('series-full-name: ' + JSON.stringify(displayName));
+		}
 		const fm = fmLines.join('\n');
 		const tableQuery = [
-			'TABLE file.link as "Event", acronym as "Acronym", "full-name" as "Full Name", location as "Location", "submission-ddl" as "Deadline", start as "Start", end as "End", cfp-source as "Source", url as "URL"',
+			'TABLE file.link as "Event", acronym as "Acronym", "full-name" as "Full Name", location as "Location", submission_ddl as "Deadline", start as "Start", end as "End", cfp-source as "Source", url as "URL"',
 			'FROM [[' + seriesName + ' Series]]',
 			'SORT file.name DESC'
 		].join('\n');
@@ -370,7 +379,7 @@ export class CFPService {
 		for (const entry of entries) {
 			const dirPath = normalizePath(basePath + '/' + sanitizeFileName(entry.seriesAcronym));
 			await ensureFolder(this.app, dirPath);
-			await this.ensureSeriesNote(dirPath, entry.seriesAcronym, defaultTags, entry.programUrl);
+			await this.ensureSeriesNote(dirPath, entry.seriesAcronym, defaultTags, entry.programUrl, entry.fullName);
 			const key = entry.seriesAcronym;
 			if (!map[key] || map[key].programUrl !== entry.programUrl) {
 				map[key] = { programUrl: entry.programUrl, lastUpdate: map[key]?.lastUpdate ?? 0 };
@@ -442,6 +451,310 @@ export class CFPService {
 		const yaml = frontmatterFromItem(item, defaultTags);
 		const content = '---\n' + yaml + '\n---\n\n';
 		await createOrOverwriteFile(this.app, path, content);
+	}
+
+	/**
+	 * Find the best matching CFP event for a given conference metadata snapshot
+	 * (from a Zotero literature note), and derive series context.
+	 *
+	 * Uses a heuristic scoring function over all CFP notes under the CFP folder.
+	 */
+	async findBestMatchingCFPForConference(meta: {
+		conferenceName?: string;
+		proceedingsTitle?: string;
+		place?: string;
+		year?: number;
+		/** When set, try exact match by this acronym first (e.g. from note frontmatter). */
+		acronymFromNote?: string;
+	}): Promise<CFPConferenceMatch> {
+		const settings = this.getSettings();
+		const dir = (settings.cfpNoteDir || 'CFP').trim() || 'CFP';
+		const dirPath = normalizePath(dir);
+		const prefix = dirPath + '/';
+
+		const files = this.app.vault.getMarkdownFiles().filter(f => f.path.startsWith(prefix));
+		if (files.length === 0) {
+			console.log('[CFP] findBestMatchingCFPForConference: no CFP notes found under', dirPath);
+			return { event: null };
+		}
+
+		// Extract lightweight CFP items + paths from frontmatter (similar to getCFPNotesForDisplay).
+		const events: CFPItemWithPath[] = [];
+		for (const file of files) {
+			const cache = this.app.metadataCache.getFileCache(file);
+			const fm = cache?.frontmatter;
+			// Skip series notes themselves.
+			if (!fm || fm['cfp-series']) continue;
+			const submissionDdl = (fm['submission-ddl'] ?? fm['submission_ddl'] ?? '').toString();
+			const item: CFPItem = {
+				acronym: (fm['acronym'] ?? '').toString(),
+				series: fm['series']?.toString()?.replace(/^\[\[|\]\]$/g, '').replace(/\s+Series$/, '') || undefined,
+				fullName: (fm['full-name'] ?? fm['title'] ?? '').toString(),
+				location: (fm['location'] ?? '').toString(),
+				start: fm['start']?.toString(),
+				end: fm['end']?.toString(),
+				submissionDdl,
+				source: (fm['cfp-source'] ?? 'manual') as CFPItem['source'],
+				url: fm['url']?.toString()
+			};
+			if (!item.acronym) continue;
+			events.push({ item, path: file.path });
+		}
+
+		if (events.length === 0) {
+			console.log('[CFP] findBestMatchingCFPForConference: no event notes found under', dirPath, '(check CFP folder path in settings)');
+			return { event: null };
+		}
+
+		const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().replace(/\s+/g, ' ');
+
+		// Workaround: if note has an acronym in a dedicated property, do exact match first (e.g. OSDI from "Proceedings of the 16th USENIX Symposium on OSDI").
+		const noteAcronym = meta.acronymFromNote?.trim();
+		if (noteAcronym) {
+			const noteNorm = norm(noteAcronym);
+			if (noteNorm) {
+				const exactMatches = events.filter(e => {
+					const a = norm(e.item.acronym);
+					const series = e.item.series ? norm(e.item.series) : '';
+					return a === noteNorm || a.startsWith(noteNorm + ' ') || series === noteNorm;
+				});
+
+				// Helper: return Series-only match when we can locate the Series note for this acronym.
+				const trySeriesOnlyFallback = (): CFPConferenceMatch | null => {
+					const seriesCandidates = [noteAcronym, pureSeriesFromAcronym(noteAcronym)];
+					for (const candidate of seriesCandidates) {
+						const seriesName = candidate.trim();
+						if (!seriesName) continue;
+						const seriesFolder = normalizePath(dirPath + '/' + sanitizeFileName(seriesName));
+						const seriesNotePath = normalizePath(seriesFolder + '/' + sanitizeFileName(seriesName) + ' Series.md');
+						const file = this.app.vault.getAbstractFileByPath(seriesNotePath);
+						if (file && file instanceof TFile) {
+							let latestTs = 0;
+							let latestStr: string | undefined;
+							for (const e of events) {
+								if (!e.item.series && pureSeriesFromAcronym(e.item.acronym) !== seriesName) continue;
+								if (e.item.series && e.item.series !== seriesName) continue;
+								const ddl = e.item.submissionDdl;
+								if (!ddl) continue;
+								const d = new Date(ddl);
+								const ts = d.getTime();
+								if (!isNaN(ts) && ts > latestTs) {
+									latestTs = ts;
+									latestStr = ddl;
+								}
+							}
+							console.log('[CFP] findBestMatchingCFPForConference: series-only fallback by acronymFromNote', {
+								seriesName,
+								seriesNotePath,
+								latestSeriesDdl: latestStr
+							});
+							return { event: null, seriesNotePath, latestSeriesDdl: latestStr };
+						}
+					}
+					return null;
+				};
+
+				if (exactMatches.length === 0) {
+					console.log('[CFP] findBestMatchingCFPForConference: acronymFromNote had no exact match', {
+						acronymFromNote: noteAcronym,
+						noteNorm,
+						cfpDir: dirPath,
+						eventCount: events.length,
+						sampleAcronyms: events.slice(0, 8).map(e => e.item.acronym)
+					});
+					const fallback = trySeriesOnlyFallback();
+					if (fallback) return fallback;
+				} else {
+					// We have acronym/series matches. Only show a specific event when note has a year and an event matches that year.
+					if (!meta.year) {
+						// No year: do not pick an arbitrary event; show Series only.
+						const fallback = trySeriesOnlyFallback();
+						if (fallback) return fallback;
+						return { event: null };
+					}
+					const yearStr = String(meta.year);
+					const yearMatches = exactMatches.filter(e =>
+						e.item.acronym.includes(yearStr) || (e.item.start != null && e.item.start.includes(yearStr))
+					);
+					if (yearMatches.length === 0) {
+						// No event for this year → series-only.
+						const fallback = trySeriesOnlyFallback();
+						if (fallback) return fallback;
+						return { event: null };
+					}
+					const best = yearMatches[0];
+					console.log('[CFP] findBestMatchingCFPForConference: exact match by acronymFromNote', { acronymFromNote: noteAcronym, year: meta.year, chosen: best.item.acronym });
+					const result: CFPConferenceMatch = { event: best };
+					const seriesName = best.item.series || pureSeriesFromAcronym(best.item.acronym);
+					if (seriesName) {
+						const seriesFolder = normalizePath(dirPath + '/' + sanitizeFileName(seriesName));
+						result.seriesNotePath = normalizePath(seriesFolder + '/' + sanitizeFileName(seriesName) + ' Series.md');
+						let latestTs = 0;
+						let latestStr: string | undefined;
+						for (const e of events) {
+							if (!e.item.series && pureSeriesFromAcronym(e.item.acronym) !== seriesName) continue;
+							if (e.item.series && e.item.series !== seriesName) continue;
+							const ddl = e.item.submissionDdl;
+							if (!ddl) continue;
+							const d = new Date(ddl);
+							const ts = d.getTime();
+							if (!isNaN(ts) && ts > latestTs) {
+								latestTs = ts;
+								latestStr = ddl;
+							}
+						}
+						if (latestStr) result.latestSeriesDdl = latestStr;
+					}
+					return result;
+				}
+			}
+		}
+
+		// --- Build matching key from meta ---
+		const rawName = (meta.conferenceName || meta.proceedingsTitle || '').toString();
+		const place = meta.place?.toString() || '';
+		let year = meta.year;
+		if (!year) {
+			const yearMatch = rawName.match(/\b(20\d{2}|19\d{2})\b/);
+			if (yearMatch) {
+				year = parseInt(yearMatch[1], 10);
+			}
+		}
+
+		let seriesToken = '';
+		if (rawName) {
+			// Take leading capital letters (and optional slashes) as series token, e.g. "SCA/HPCAsia 2026"
+			const m = rawName.match(/^[A-Z][A-Z0-9/+-]*/);
+			if (m) {
+				seriesToken = m[0].replace(/\d+$/, '').trim();
+			}
+		}
+		const seriesTokenNorm = norm(seriesToken);
+		const placeNorm = norm(place);
+		const nameNorm = norm(rawName);
+
+		// Skip generic words when counting title overlap so "Proceedings... Conference... International" don't match any CFP.
+		const STOPWORDS = new Set([
+			'proceedings', 'the', 'and', 'on', 'in', 'of', 'to', 'for', 'conference', 'international',
+			'annual', 'workshop', 'symposium', 'region', 'pacific', 'europe', 'asia', 'high', 'performance',
+			'computing', 'abstract', 'interpretation', 'verification', 'model', 'checking'
+		]);
+		const meaningfulNameTokens = nameNorm
+			? new Set(
+					nameNorm.split(/\s+/).filter(t => t.length > 1 && !STOPWORDS.has(t))
+				)
+			: new Set<string>();
+
+		const scoreEvent = (e: CFPItemWithPath): number => {
+			let score = 0;
+			const item = e.item;
+			const itemSeries = item.series || pureSeriesFromAcronym(item.acronym);
+			const itemSeriesNorm = norm(itemSeries);
+			const acronymNorm = norm(item.acronym);
+			const fullNameNorm = norm(item.fullName);
+			const locationNorm = norm(item.location);
+
+			// Series/acronym alignment: only when we have a real acronym (≥2 chars). Avoid "P" from "Proceedings" matching anything.
+			if (seriesTokenNorm.length >= 2 && (itemSeriesNorm.includes(seriesTokenNorm) || acronymNorm.startsWith(seriesTokenNorm))) {
+				score += 60;
+			}
+
+			// Year alignment (in acronym, start date, or title).
+			if (year) {
+				const yearStr = String(year);
+				if (item.acronym.includes(yearStr) || (item.start && item.start.includes(yearStr))) {
+					score += 40;
+				}
+			}
+
+			// Title/name similarity: only meaningful token overlap (exclude generic words).
+			if (meaningfulNameTokens.size > 0) {
+				const targetTokens = (acronymNorm + ' ' + fullNameNorm).split(/\s+/).filter(Boolean);
+				let overlap = 0;
+				for (const t of targetTokens) {
+					if (t.length > 1 && !STOPWORDS.has(t) && meaningfulNameTokens.has(t)) overlap++;
+				}
+				if (overlap > 0) score += Math.min(overlap * 5, 25);
+			}
+
+			// Location similarity.
+			if (placeNorm && placeNorm.length >= 3 && locationNorm.includes(placeNorm)) {
+				score += 15;
+			}
+
+			return score;
+		};
+
+		let best: CFPItemWithPath | null = null;
+		let bestScore = 0;
+		for (const e of events) {
+			const s = scoreEvent(e);
+			if (s > bestScore) {
+				bestScore = s;
+				best = e;
+			}
+		}
+
+		// When note has a year, require the chosen event to have the same year (acronym or start).
+		if (best && year) {
+			const yearStr = String(year);
+			const eventHasYear = best.item.acronym.includes(yearStr) || (best.item.start != null && best.item.start.includes(yearStr));
+			if (!eventHasYear) {
+				best = null;
+				bestScore = 0;
+			}
+		}
+
+		// Only show when similarity is clearly high (e.g. acronym + year). Avoid "display worse than no display".
+		const MIN_SCORE = 100;
+		if (!best || bestScore < MIN_SCORE) {
+			console.log('[CFP] findBestMatchingCFPForConference: no strong match found', {
+				rawName,
+				place,
+				year,
+				bestScore
+			});
+			return { event: null };
+		}
+
+		console.log('[CFP] findBestMatchingCFPForConference: match found', {
+			rawName,
+			place,
+			year,
+			bestScore,
+			acronym: best.item.acronym,
+			series: best.item.series
+		});
+
+		// Derive series information and latest submission deadline among that series.
+		const result: CFPConferenceMatch = { event: best };
+		const seriesName = best.item.series || pureSeriesFromAcronym(best.item.acronym);
+		if (seriesName) {
+			// Series note path matches ensureSeriesNote.
+			const seriesFolder = normalizePath(dirPath + '/' + sanitizeFileName(seriesName));
+			result.seriesNotePath = normalizePath(seriesFolder + '/' + sanitizeFileName(seriesName) + ' Series.md');
+
+			// Find latest submission_ddl among events of this series.
+			let latestTs = 0;
+			let latestStr: string | undefined;
+			for (const e of events) {
+				if (!e.item.series && pureSeriesFromAcronym(e.item.acronym) !== seriesName) continue;
+				if (e.item.series && e.item.series !== seriesName) continue;
+				const ddl = e.item.submissionDdl;
+				if (!ddl) continue;
+				const d = new Date(ddl);
+				const ts = d.getTime();
+				if (!isNaN(ts) && ts > latestTs) {
+					latestTs = ts;
+					latestStr = ddl;
+				}
+			}
+			if (latestStr) {
+				result.latestSeriesDdl = latestStr;
+			}
+		}
+
+		return result;
 	}
 
 	/** Update DataviewJS code in all existing Series notes. */

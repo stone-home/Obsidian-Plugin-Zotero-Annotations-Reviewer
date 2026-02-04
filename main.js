@@ -146,6 +146,7 @@ var DEFAULT_SETTINGS = {
   cfpSeriesMap: {},
   cfpLastDailyRun: 0,
   cfpSeriesIndexLetters: [],
+  cfpAcronymKey: "conference-acronym",
   cfpSeriesDataviewJSCode: `const cur = dv.current();
 if (cur && cur["series-url"]) {
   const programUrl = cur["series-url"];
@@ -1154,6 +1155,13 @@ var ZoteroSettingTab = class extends import_obsidian2.PluginSettingTab {
       return text.setValue(String((_a = this.plugin.settings.cfpSeriesRefreshDays) != null ? _a : 30)).onChange(async (value) => {
         const n = parseInt(value, 10);
         this.plugin.settings.cfpSeriesRefreshDays = isNaN(n) ? 30 : Math.max(0, n);
+        await this.plugin.saveSettings();
+      });
+    });
+    new import_obsidian2.Setting(basicCard).setName("Conference acronym key (for CFP link)").setDesc('Frontmatter key to read conference acronym for direct CFP match in Assistant (e.g. conference-acronym). If set on a note, exact match is tried first so long titles like "Proceedings of the 16th USENIX Symposium on OSDI" can link by setting this key to "OSDI".').addText((text) => {
+      var _a;
+      return text.setValue((_a = this.plugin.settings.cfpAcronymKey) != null ? _a : "conference-acronym").setPlaceholder("conference-acronym").onChange(async (value) => {
+        this.plugin.settings.cfpAcronymKey = (value || "conference-acronym").trim();
         await this.plugin.saveSettings();
       });
     });
@@ -10285,6 +10293,10 @@ var AssistantView = class extends import_obsidian9.MarkdownRenderChild {
     container.createEl("h5", { text: "\u{1F4DD} Related Notes / Highlights" });
     const highlightsDiv = container.createDiv({ cls: "zotero-local-highlights" });
     await this.renderLocalHighlights(file, highlightsDiv, source);
+    container.createEl("hr");
+    container.createEl("h5", { text: "\u{1F4C5} CFP context" });
+    const cfpDiv = container.createDiv({ cls: "zotero-cfp-context" });
+    await this.renderCFPContext(file, cfpDiv);
   }
   async renderLocalHighlights(file, container, source) {
     const customScript = this.plugin.settings.assistantScript;
@@ -10341,6 +10353,134 @@ var AssistantView = class extends import_obsidian9.MarkdownRenderChild {
       }
     }
     if (found === 0) container.createDiv({ text: "No highlights detected.", cls: "zotero-text-muted-italic" });
+  }
+  /** Render CFP context for the current note based on existing CFP notes in the vault. */
+  async renderCFPContext(file, container) {
+    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n, _o;
+    if (!this.plugin.cfpService) {
+      container.createDiv({
+        text: "CFP service not available.",
+        cls: "zotero-text-muted-italic"
+      });
+      return;
+    }
+    const cache2 = this.plugin.app.metadataCache.getFileCache(file);
+    const fm = cache2 == null ? void 0 : cache2.frontmatter;
+    if (!fm) {
+      container.createDiv({
+        text: "No metadata found for CFP matching.",
+        cls: "zotero-text-muted-italic"
+      });
+      return;
+    }
+    const conferenceName = ((_c = (_b = (_a = fm["conferenceName"]) != null ? _a : fm["conference"]) != null ? _b : fm["title"]) != null ? _c : "").toString() || void 0;
+    const proceedingsTitle = ((_e = (_d = fm["proceedingsTitle"]) != null ? _d : fm["publication"]) != null ? _e : "").toString() || void 0;
+    const place = ((_g = (_f = fm["place"]) != null ? _f : fm["location"]) != null ? _g : "").toString() || void 0;
+    const acronymKey = ((_h = this.plugin.settings.cfpAcronymKey) == null ? void 0 : _h.trim()) || "conference-acronym";
+    let acronymFromNote = ((_i = fm[acronymKey]) != null ? _i : "").toString().trim() || void 0;
+    if (!acronymFromNote) {
+      acronymFromNote = ((_l = (_k = (_j = fm["acronym"]) != null ? _j : fm["conference_acronym"]) != null ? _k : fm["conferenceAbbrev"]) != null ? _l : "").toString().trim() || void 0;
+    }
+    let year;
+    const rawYear = (_m = fm["year"]) != null ? _m : fm["date"];
+    if (typeof rawYear === "number") {
+      year = rawYear;
+    } else if (typeof rawYear === "string") {
+      const m = rawYear.match(/\b(20\d{2}|19\d{2})\b/);
+      if (m) year = parseInt(m[1], 10);
+    }
+    if (!conferenceName && !proceedingsTitle && !acronymFromNote) {
+      container.createDiv({
+        text: "No conference title or acronym in this note.",
+        cls: "zotero-text-muted-italic"
+      });
+      return;
+    }
+    try {
+      const match = await this.plugin.cfpService.findBestMatchingCFPForConference({
+        conferenceName,
+        proceedingsTitle,
+        place,
+        year,
+        acronymFromNote
+      });
+      if (match.event) {
+        const event = match.event.item;
+        const titleEl = container.createDiv({ cls: "zotero-cfp-title" });
+        titleEl.createSpan({ text: event.acronym, cls: "zotero-cfp-acronym" });
+        if (event.fullName && event.fullName !== event.acronym) {
+          titleEl.createSpan({ text: ` \u2014 ${event.fullName}`, cls: "zotero-cfp-fullname" });
+        }
+        const metaList = container.createEl("ul", { cls: "zotero-cfp-meta" });
+        const dateText = event.start && event.end ? `${event.start} \u2192 ${event.end}` : event.start || event.end || "N/A";
+        const dateLi = metaList.createEl("li");
+        dateLi.createSpan({ text: `Dates: ${dateText}` });
+        if (event.location) {
+          const locLi = metaList.createEl("li");
+          locLi.createSpan({ text: `Location: ${event.location}` });
+        }
+        if (event.series && match.seriesNotePath) {
+          const seriesLi = metaList.createEl("li");
+          seriesLi.createSpan({ text: "Series: " });
+          const link = seriesLi.createEl("a", {
+            text: `${event.series} Series`,
+            href: "#"
+          });
+          link.onclick = (ev) => {
+            ev.preventDefault();
+            const target = this.plugin.app.vault.getAbstractFileByPath(match.seriesNotePath);
+            if (target instanceof import_obsidian9.TFile) {
+              this.plugin.app.workspace.getLeaf().openFile(target);
+            } else {
+              new import_obsidian9.Notice("Series note not found.");
+            }
+          };
+        }
+        if (match.latestSeriesDdl) {
+          const ddlLi = metaList.createEl("li");
+          ddlLi.createSpan({ text: `Latest submission deadline in this series: ${match.latestSeriesDdl}` });
+        }
+        return;
+      }
+      if (!match.event && match.seriesNotePath) {
+        const seriesFile = this.plugin.app.vault.getAbstractFileByPath(match.seriesNotePath);
+        const seriesBase = seriesFile instanceof import_obsidian9.TFile ? seriesFile.basename.replace(/\s+Series$/i, "") : (_o = (_n = match.seriesNotePath.split("/").pop()) == null ? void 0 : _n.replace(/\.md$/, "").replace(/\s+Series$/i, "")) != null ? _o : "Series";
+        const titleEl = container.createDiv({ cls: "zotero-cfp-title" });
+        titleEl.createSpan({ text: seriesBase, cls: "zotero-cfp-acronym" });
+        titleEl.createSpan({ text: " \u2014 Series overview", cls: "zotero-cfp-fullname" });
+        const metaList = container.createEl("ul", { cls: "zotero-cfp-meta" });
+        const seriesLi = metaList.createEl("li");
+        seriesLi.createSpan({ text: "Series note: " });
+        const link = seriesLi.createEl("a", {
+          text: `${seriesBase} Series`,
+          href: "#"
+        });
+        link.onclick = (ev) => {
+          ev.preventDefault();
+          if (seriesFile instanceof import_obsidian9.TFile) {
+            this.plugin.app.workspace.getLeaf().openFile(seriesFile);
+          } else {
+            new import_obsidian9.Notice("Series note not found.");
+          }
+        };
+        if (match.latestSeriesDdl) {
+          const ddlLi = metaList.createEl("li");
+          ddlLi.createSpan({ text: `Latest submission deadline in this series: ${match.latestSeriesDdl}` });
+        }
+        return;
+      }
+      const hint = acronymFromNote ? ` (acronym from note: "${acronymFromNote}"; check CFP folder and [CFP] in console)` : " (optional: set conference-acronym or acronym in frontmatter for direct match)";
+      container.createDiv({
+        text: "No related CFP found in your CFP folder." + hint,
+        cls: "zotero-text-muted-italic"
+      });
+    } catch (e) {
+      console.error("[CFP] renderCFPContext failed", e);
+      container.createDiv({
+        text: "Failed to load CFP context. See console.",
+        cls: "zotero-text-muted-italic"
+      });
+    }
   }
 };
 
@@ -13880,7 +14020,7 @@ var CFPService = class {
     const dirPath = item.series ? (0, import_obsidian16.normalizePath)(basePath + "/" + sanitizeFileName(item.series)) : basePath;
     return (0, import_obsidian16.normalizePath)(dirPath + "/" + sanitizeFileName(item.acronym) + ".md");
   }
-  async ensureSeriesNote(dirPath, seriesName, defaultTags, programUrl) {
+  async ensureSeriesNote(dirPath, seriesName, defaultTags, programUrl, seriesFullName) {
     var _a, _b, _c;
     const seriesFileName = sanitizeFileName(seriesName) + " Series.md";
     const seriesPath = (0, import_obsidian16.normalizePath)(dirPath + "/" + seriesFileName);
@@ -13898,9 +14038,13 @@ var CFPService = class {
       "cfp-series: true"
     ];
     if (seriesUrl) fmLines.push("series-url: " + JSON.stringify(seriesUrl));
+    if (seriesFullName == null ? void 0 : seriesFullName.trim()) {
+      const displayName = seriesFullName.includes(":") ? seriesFullName.split(":").slice(1).join(":").trim() : seriesFullName.trim();
+      if (displayName) fmLines.push("series-full-name: " + JSON.stringify(displayName));
+    }
     const fm = fmLines.join("\n");
     const tableQuery = [
-      'TABLE file.link as "Event", acronym as "Acronym", "full-name" as "Full Name", location as "Location", "submission-ddl" as "Deadline", start as "Start", end as "End", cfp-source as "Source", url as "URL"',
+      'TABLE file.link as "Event", acronym as "Acronym", "full-name" as "Full Name", location as "Location", submission_ddl as "Deadline", start as "Start", end as "End", cfp-source as "Source", url as "URL"',
       "FROM [[" + seriesName + " Series]]",
       "SORT file.name DESC"
     ].join("\n");
@@ -13993,7 +14137,7 @@ var CFPService = class {
     for (const entry of entries) {
       const dirPath = (0, import_obsidian16.normalizePath)(basePath + "/" + sanitizeFileName(entry.seriesAcronym));
       await ensureFolder(this.app, dirPath);
-      await this.ensureSeriesNote(dirPath, entry.seriesAcronym, defaultTags, entry.programUrl);
+      await this.ensureSeriesNote(dirPath, entry.seriesAcronym, defaultTags, entry.programUrl, entry.fullName);
       const key = entry.seriesAcronym;
       if (!map2[key] || map2[key].programUrl !== entry.programUrl) {
         map2[key] = { programUrl: entry.programUrl, lastUpdate: (_b = (_a = map2[key]) == null ? void 0 : _a.lastUpdate) != null ? _b : 0 };
@@ -14052,6 +14196,281 @@ var CFPService = class {
     const yaml = frontmatterFromItem(item, defaultTags);
     const content = "---\n" + yaml + "\n---\n\n";
     await createOrOverwriteFile(this.app, path2, content);
+  }
+  /**
+   * Find the best matching CFP event for a given conference metadata snapshot
+   * (from a Zotero literature note), and derive series context.
+   *
+   * Uses a heuristic scoring function over all CFP notes under the CFP folder.
+   */
+  async findBestMatchingCFPForConference(meta) {
+    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n;
+    const settings = this.getSettings();
+    const dir = (settings.cfpNoteDir || "CFP").trim() || "CFP";
+    const dirPath = (0, import_obsidian16.normalizePath)(dir);
+    const prefix = dirPath + "/";
+    const files = this.app.vault.getMarkdownFiles().filter((f) => f.path.startsWith(prefix));
+    if (files.length === 0) {
+      console.log("[CFP] findBestMatchingCFPForConference: no CFP notes found under", dirPath);
+      return { event: null };
+    }
+    const events = [];
+    for (const file of files) {
+      const cache2 = this.app.metadataCache.getFileCache(file);
+      const fm = cache2 == null ? void 0 : cache2.frontmatter;
+      if (!fm || fm["cfp-series"]) continue;
+      const submissionDdl = ((_b = (_a = fm["submission-ddl"]) != null ? _a : fm["submission_ddl"]) != null ? _b : "").toString();
+      const item = {
+        acronym: ((_c = fm["acronym"]) != null ? _c : "").toString(),
+        series: ((_e = (_d = fm["series"]) == null ? void 0 : _d.toString()) == null ? void 0 : _e.replace(/^\[\[|\]\]$/g, "").replace(/\s+Series$/, "")) || void 0,
+        fullName: ((_g = (_f = fm["full-name"]) != null ? _f : fm["title"]) != null ? _g : "").toString(),
+        location: ((_h = fm["location"]) != null ? _h : "").toString(),
+        start: (_i = fm["start"]) == null ? void 0 : _i.toString(),
+        end: (_j = fm["end"]) == null ? void 0 : _j.toString(),
+        submissionDdl,
+        source: (_k = fm["cfp-source"]) != null ? _k : "manual",
+        url: (_l = fm["url"]) == null ? void 0 : _l.toString()
+      };
+      if (!item.acronym) continue;
+      events.push({ item, path: file.path });
+    }
+    if (events.length === 0) {
+      console.log("[CFP] findBestMatchingCFPForConference: no event notes found under", dirPath, "(check CFP folder path in settings)");
+      return { event: null };
+    }
+    const norm = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim().replace(/\s+/g, " ");
+    const noteAcronym = (_m = meta.acronymFromNote) == null ? void 0 : _m.trim();
+    if (noteAcronym) {
+      const noteNorm = norm(noteAcronym);
+      if (noteNorm) {
+        const exactMatches = events.filter((e) => {
+          const a = norm(e.item.acronym);
+          const series = e.item.series ? norm(e.item.series) : "";
+          return a === noteNorm || a.startsWith(noteNorm + " ") || series === noteNorm;
+        });
+        const trySeriesOnlyFallback = () => {
+          const seriesCandidates = [noteAcronym, pureSeriesFromAcronym(noteAcronym)];
+          for (const candidate of seriesCandidates) {
+            const seriesName2 = candidate.trim();
+            if (!seriesName2) continue;
+            const seriesFolder = (0, import_obsidian16.normalizePath)(dirPath + "/" + sanitizeFileName(seriesName2));
+            const seriesNotePath = (0, import_obsidian16.normalizePath)(seriesFolder + "/" + sanitizeFileName(seriesName2) + " Series.md");
+            const file = this.app.vault.getAbstractFileByPath(seriesNotePath);
+            if (file && file instanceof import_obsidian16.TFile) {
+              let latestTs = 0;
+              let latestStr;
+              for (const e of events) {
+                if (!e.item.series && pureSeriesFromAcronym(e.item.acronym) !== seriesName2) continue;
+                if (e.item.series && e.item.series !== seriesName2) continue;
+                const ddl = e.item.submissionDdl;
+                if (!ddl) continue;
+                const d = new Date(ddl);
+                const ts = d.getTime();
+                if (!isNaN(ts) && ts > latestTs) {
+                  latestTs = ts;
+                  latestStr = ddl;
+                }
+              }
+              console.log("[CFP] findBestMatchingCFPForConference: series-only fallback by acronymFromNote", {
+                seriesName: seriesName2,
+                seriesNotePath,
+                latestSeriesDdl: latestStr
+              });
+              return { event: null, seriesNotePath, latestSeriesDdl: latestStr };
+            }
+          }
+          return null;
+        };
+        if (exactMatches.length === 0) {
+          console.log("[CFP] findBestMatchingCFPForConference: acronymFromNote had no exact match", {
+            acronymFromNote: noteAcronym,
+            noteNorm,
+            cfpDir: dirPath,
+            eventCount: events.length,
+            sampleAcronyms: events.slice(0, 8).map((e) => e.item.acronym)
+          });
+          const fallback = trySeriesOnlyFallback();
+          if (fallback) return fallback;
+        } else {
+          if (!meta.year) {
+            const fallback = trySeriesOnlyFallback();
+            if (fallback) return fallback;
+            return { event: null };
+          }
+          const yearStr = String(meta.year);
+          const yearMatches = exactMatches.filter(
+            (e) => e.item.acronym.includes(yearStr) || e.item.start != null && e.item.start.includes(yearStr)
+          );
+          if (yearMatches.length === 0) {
+            const fallback = trySeriesOnlyFallback();
+            if (fallback) return fallback;
+            return { event: null };
+          }
+          const best2 = yearMatches[0];
+          console.log("[CFP] findBestMatchingCFPForConference: exact match by acronymFromNote", { acronymFromNote: noteAcronym, year: meta.year, chosen: best2.item.acronym });
+          const result2 = { event: best2 };
+          const seriesName2 = best2.item.series || pureSeriesFromAcronym(best2.item.acronym);
+          if (seriesName2) {
+            const seriesFolder = (0, import_obsidian16.normalizePath)(dirPath + "/" + sanitizeFileName(seriesName2));
+            result2.seriesNotePath = (0, import_obsidian16.normalizePath)(seriesFolder + "/" + sanitizeFileName(seriesName2) + " Series.md");
+            let latestTs = 0;
+            let latestStr;
+            for (const e of events) {
+              if (!e.item.series && pureSeriesFromAcronym(e.item.acronym) !== seriesName2) continue;
+              if (e.item.series && e.item.series !== seriesName2) continue;
+              const ddl = e.item.submissionDdl;
+              if (!ddl) continue;
+              const d = new Date(ddl);
+              const ts = d.getTime();
+              if (!isNaN(ts) && ts > latestTs) {
+                latestTs = ts;
+                latestStr = ddl;
+              }
+            }
+            if (latestStr) result2.latestSeriesDdl = latestStr;
+          }
+          return result2;
+        }
+      }
+    }
+    const rawName = (meta.conferenceName || meta.proceedingsTitle || "").toString();
+    const place = ((_n = meta.place) == null ? void 0 : _n.toString()) || "";
+    let year = meta.year;
+    if (!year) {
+      const yearMatch = rawName.match(/\b(20\d{2}|19\d{2})\b/);
+      if (yearMatch) {
+        year = parseInt(yearMatch[1], 10);
+      }
+    }
+    let seriesToken = "";
+    if (rawName) {
+      const m = rawName.match(/^[A-Z][A-Z0-9/+-]*/);
+      if (m) {
+        seriesToken = m[0].replace(/\d+$/, "").trim();
+      }
+    }
+    const seriesTokenNorm = norm(seriesToken);
+    const placeNorm = norm(place);
+    const nameNorm = norm(rawName);
+    const STOPWORDS = /* @__PURE__ */ new Set([
+      "proceedings",
+      "the",
+      "and",
+      "on",
+      "in",
+      "of",
+      "to",
+      "for",
+      "conference",
+      "international",
+      "annual",
+      "workshop",
+      "symposium",
+      "region",
+      "pacific",
+      "europe",
+      "asia",
+      "high",
+      "performance",
+      "computing",
+      "abstract",
+      "interpretation",
+      "verification",
+      "model",
+      "checking"
+    ]);
+    const meaningfulNameTokens = nameNorm ? new Set(
+      nameNorm.split(/\s+/).filter((t) => t.length > 1 && !STOPWORDS.has(t))
+    ) : /* @__PURE__ */ new Set();
+    const scoreEvent = (e) => {
+      let score = 0;
+      const item = e.item;
+      const itemSeries = item.series || pureSeriesFromAcronym(item.acronym);
+      const itemSeriesNorm = norm(itemSeries);
+      const acronymNorm = norm(item.acronym);
+      const fullNameNorm = norm(item.fullName);
+      const locationNorm = norm(item.location);
+      if (seriesTokenNorm.length >= 2 && (itemSeriesNorm.includes(seriesTokenNorm) || acronymNorm.startsWith(seriesTokenNorm))) {
+        score += 60;
+      }
+      if (year) {
+        const yearStr = String(year);
+        if (item.acronym.includes(yearStr) || item.start && item.start.includes(yearStr)) {
+          score += 40;
+        }
+      }
+      if (meaningfulNameTokens.size > 0) {
+        const targetTokens = (acronymNorm + " " + fullNameNorm).split(/\s+/).filter(Boolean);
+        let overlap = 0;
+        for (const t of targetTokens) {
+          if (t.length > 1 && !STOPWORDS.has(t) && meaningfulNameTokens.has(t)) overlap++;
+        }
+        if (overlap > 0) score += Math.min(overlap * 5, 25);
+      }
+      if (placeNorm && placeNorm.length >= 3 && locationNorm.includes(placeNorm)) {
+        score += 15;
+      }
+      return score;
+    };
+    let best = null;
+    let bestScore = 0;
+    for (const e of events) {
+      const s = scoreEvent(e);
+      if (s > bestScore) {
+        bestScore = s;
+        best = e;
+      }
+    }
+    if (best && year) {
+      const yearStr = String(year);
+      const eventHasYear = best.item.acronym.includes(yearStr) || best.item.start != null && best.item.start.includes(yearStr);
+      if (!eventHasYear) {
+        best = null;
+        bestScore = 0;
+      }
+    }
+    const MIN_SCORE = 100;
+    if (!best || bestScore < MIN_SCORE) {
+      console.log("[CFP] findBestMatchingCFPForConference: no strong match found", {
+        rawName,
+        place,
+        year,
+        bestScore
+      });
+      return { event: null };
+    }
+    console.log("[CFP] findBestMatchingCFPForConference: match found", {
+      rawName,
+      place,
+      year,
+      bestScore,
+      acronym: best.item.acronym,
+      series: best.item.series
+    });
+    const result = { event: best };
+    const seriesName = best.item.series || pureSeriesFromAcronym(best.item.acronym);
+    if (seriesName) {
+      const seriesFolder = (0, import_obsidian16.normalizePath)(dirPath + "/" + sanitizeFileName(seriesName));
+      result.seriesNotePath = (0, import_obsidian16.normalizePath)(seriesFolder + "/" + sanitizeFileName(seriesName) + " Series.md");
+      let latestTs = 0;
+      let latestStr;
+      for (const e of events) {
+        if (!e.item.series && pureSeriesFromAcronym(e.item.acronym) !== seriesName) continue;
+        if (e.item.series && e.item.series !== seriesName) continue;
+        const ddl = e.item.submissionDdl;
+        if (!ddl) continue;
+        const d = new Date(ddl);
+        const ts = d.getTime();
+        if (!isNaN(ts) && ts > latestTs) {
+          latestTs = ts;
+          latestStr = ddl;
+        }
+      }
+      if (latestStr) {
+        result.latestSeriesDdl = latestStr;
+      }
+    }
+    return result;
   }
   /** Update DataviewJS code in all existing Series notes. */
   async updateAllSeriesNotesDataviewJS() {
@@ -14563,6 +14982,7 @@ var ZoteroGKPlugin = class extends import_obsidian20.Plugin {
     if (typeof this.settings.cfpLastDailyRun !== "number") this.settings.cfpLastDailyRun = DEFAULT_SETTINGS.cfpLastDailyRun;
     if (!Array.isArray(this.settings.cfpSeriesIndexLetters)) this.settings.cfpSeriesIndexLetters = DEFAULT_SETTINGS.cfpSeriesIndexLetters;
     if (typeof this.settings.cfpSeriesDataviewJSCode !== "string") this.settings.cfpSeriesDataviewJSCode = DEFAULT_SETTINGS.cfpSeriesDataviewJSCode;
+    if (typeof this.settings.cfpAcronymKey !== "string") this.settings.cfpAcronymKey = DEFAULT_SETTINGS.cfpAcronymKey;
   }
   async saveSettings() {
     await this.saveData(this.settings);
