@@ -67,7 +67,7 @@
   "cfpEasychairUrls": [],
   "cfpOpenresearchUrls": [],
   "cfpLastFetchTime": 1770163729379,
-  "cfpLastSeriesFetchTime": 1770197558715,
+  "cfpLastSeriesFetchTime": 1770198477188,
   "cfpSeriesMap": {
     "A-MOST": {
       "programUrl": "http://www.wikicfp.com/cfp/program?id=160&s=A-MOST&f=Advances%20in%20Model-Based%20Software%20Testing",
@@ -2807,11 +2807,11 @@
     },
     "HPC": {
       "programUrl": "http://www.wikicfp.com/cfp/program?id=1217&s=HPC&f=High%20Performance%20Computing",
-      "lastUpdate": 0
+      "lastUpdate": 1770198487176
     },
     "HPCA": {
       "programUrl": "http://www.wikicfp.com/cfp/program?id=1220&s=HPCA&f=High-Performance%20Computer%20Architecture",
-      "lastUpdate": 0
+      "lastUpdate": 1770198494719
     },
     "HPCC": {
       "programUrl": "http://www.wikicfp.com/cfp/program?id=1221&s=HPCC&f=High%20Performance%20Computing%20and%20Communications",
@@ -7319,9 +7319,7 @@
     }
   },
   "cfpLastDailyRun": 1770164757947,
-  "cfpSeriesIndexLetters": [
-    "B"
-  ],
+  "cfpSeriesIndexLetters": [],
   "cfpSeriesDataviewJSCode": "const cur = dv.current();\nif (cur && cur[\"series-url\"]) {\n  const programUrl = cur[\"series-url\"];\n  const seriesAcronym = (cur.file?.name || \"\").replace(/\\s+Series(\\.md)?$/i, \"\");\n  const btn = dv.el(\"button\", \"Refresh events\");\n  btn.addEventListener(\"click\", (e) => {\n    e.preventDefault();\n    if (window.__ZoteroAnnotationReviewerCFP)\n      window.__ZoteroAnnotationReviewerCFP.refreshSeries(programUrl, seriesAcronym);\n  });\n}",
   "webhookUrl": "http://www.google.com",
   "webhookHeaders": [

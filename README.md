@@ -79,7 +79,57 @@ Zotero Integration is responsible for pulling data out of Zotero; Zotero Assista
      - In your import format’s **Note Content** template:
        - Add frontmatter fields including `citation-key` and `zotero-image-path`.
        - Add a `zotero-assistant` code block that maps annotation IDs to image paths.
-   - (The exact template can vary; see the `docs/` requirements files in this repo for up-to-date examples.)
+    - **Copy and Paste** the following template into the **Note Content** area
+`````jinja2
+---
+citation-key: {{citekey}}
+zotero-image-path: "{{imageOutputPath}}"
+title: "{{ title | replace('"', '\\"') }}"
+type: literature
+aliases:
+authors:
+{%- set authorList = authors.split(",") -%}
+{%- if authorList.length > 0 %}  
+	{%- for author in authorList -%}  
+		{% set loopIndex = loop.index | string %}  
+   - {{author | trim | replace(" ", "-") | replace(".", "")}}  
+	{%- endfor -%}  
+{%- endif %}
+date: {{date | format("YYYY-MM-DD")}}
+year: {{date | format("YYYY")}}
+publication: "{{publicationTitle or proceedingsTitle or conferenceName}}"
+doi: "{{DOI}}"
+url: "{{url}}"
+tags:
+  - source/📜Zotero
+  - type/source
+icon: {% if itemType == "conferencePaper" -%}
+ LiNewspaper
+{%- elif itemType == "journalArticle" -%}
+ FasBookJournalWhills
+{%- else -%}
+ TiArticle
+{%- endif %}
+---
+
+```zotero-assistant 
+{ 
+{%- set comma = joiner() -%} {%- for annotation in annotations -%} {%- if annotation.imageRelativePath -%} {{ comma() }} "{{annotation.id}}": "{{ annotation.imageRelativePath | replace('\\', '\\\\') }}" {%- endif -%} {%- endfor -%} 
+}
+
+```
+
+## 📰 Abstract
+
+{{abstractNote}}
+
+
+# 🧱 Appendix
+## 🔖 Tags in Zotero
+{%- for t in tags %}
+  - {{t.tag}}
+{%- endfor %}
+`````
 
 2. **Enable Zotero Assistant**
    - Install and enable the plugin.
