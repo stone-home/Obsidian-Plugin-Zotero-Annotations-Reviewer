@@ -83,7 +83,7 @@ function mountCodeMirror(
 // =========================================================================
 export class ZoteroSettingTab extends PluginSettingTab {
 	plugin: ZoteroGKPlugin;
-	activeTab: 'general' | 'zotero' | 'webhook' = 'general';
+	activeTab: 'general' | 'zotero' | 'webhook' | 'cfp' = 'general';
 
 	constructor(app: App, plugin: ZoteroGKPlugin) {
 		super(app, plugin);
@@ -101,6 +101,7 @@ export class ZoteroSettingTab extends PluginSettingTab {
 		this.renderTabItem(tabsEl, 'general', 'General');
 		this.renderTabItem(tabsEl, 'zotero', 'Zotero & Highlights');
 		this.renderTabItem(tabsEl, 'webhook', 'Modular Webhooks');
+		this.renderTabItem(tabsEl, 'cfp', 'CFP');
 
 		// --- 2. Tab Content ---
 		const bodyEl = containerEl.createDiv({ cls: 'zotero-setting-container' });
@@ -108,9 +109,10 @@ export class ZoteroSettingTab extends PluginSettingTab {
 		if (this.activeTab === 'general') this.renderGeneralSettings(bodyEl);
 		else if (this.activeTab === 'zotero') this.renderZoteroSettings(bodyEl);
 		else if (this.activeTab === 'webhook') this.renderWebhookSettings(bodyEl);
+		else if (this.activeTab === 'cfp') this.renderCFPSettings(bodyEl);
 	}
 
-	renderTabItem(container: HTMLElement, id: 'general' | 'zotero' | 'webhook', label: string) {
+	renderTabItem(container: HTMLElement, id: 'general' | 'zotero' | 'webhook' | 'cfp', label: string) {
 		const tab = container.createDiv({ cls: `zotero-tab-item ${this.activeTab === id ? 'active' : ''}` });
 		tab.innerText = label;
 		tab.onclick = () => {
@@ -351,6 +353,393 @@ export class ZoteroSettingTab extends PluginSettingTab {
 					this.display();
 				}).open();
 			});
+	}
+
+	// -------------------------------------------------------------------------
+	// TAB 4: CFP (Call For Paper)
+	// -------------------------------------------------------------------------
+	renderCFPSettings(container: HTMLElement) {
+		container.createDiv({
+			text: "Call For Paper: store CFPs as notes. Add URLs to fetch from WikiCFP, CCFDDL (YAML), EasyChair, or OpenResearch; or use WikiCFP Conf Series (A–Z) as core; or add entries manually.",
+			cls: "setting-item-description",
+			attr: { style: "margin-bottom: 20px; padding: 12px; background: var(--background-primary-alt); border-radius: 6px; border-left: 3px solid var(--interactive-accent);" }
+		});
+
+		// === BASIC SETTINGS CARD ===
+		const basicCard = container.createDiv({ cls: 'zotero-setting-card' });
+		basicCard.createEl("h3", { text: "Basic Settings", cls: "zotero-card-title" });
+
+		new Setting(basicCard)
+			.setName('CFP note folder')
+			.setDesc('Folder where CFP notes are stored (one note per acronym).')
+			.addText(text => text
+				.setValue(this.plugin.settings.cfpNoteDir)
+				.onChange(async (value) => {
+					this.plugin.settings.cfpNoteDir = value || 'CFP';
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(basicCard)
+			.setName('Default tags')
+			.setDesc('Tags applied to CFP notes (one per line or comma-separated).')
+			.addTextArea(text => {
+				text.setValue((this.plugin.settings.cfpDefaultTags || []).join(', '))
+					.setPlaceholder('cfp, conference')
+					.onChange(async (value) => {
+						this.plugin.settings.cfpDefaultTags = value.split(/[,\n]/).map(s => s.trim()).filter(Boolean);
+						await this.plugin.saveSettings();
+					});
+				text.inputEl.rows = 2;
+			});
+
+		new Setting(basicCard)
+			.setName('URL sources refresh (days)')
+			.setDesc('Refresh from WikiCFP URLs, CCFDDL, EasyChair, OpenResearch every N days (default 5). Set 0 to disable.')
+			.addText(text => text
+				.setValue(String(this.plugin.settings.cfpRefreshDays ?? 5))
+				.onChange(async (value) => {
+					const n = parseInt(value, 10);
+					this.plugin.settings.cfpRefreshDays = isNaN(n) ? 5 : Math.max(0, n);
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(basicCard)
+			.setName('Series scan interval (days)')
+			.setDesc('Refresh from WikiCFP Conference Series (A–Z) every N days (default 30). Independent from URL sources. Set 0 to disable auto series scan.')
+			.addText(text => text
+				.setValue(String(this.plugin.settings.cfpSeriesRefreshDays ?? 30))
+				.onChange(async (value) => {
+					const n = parseInt(value, 10);
+					this.plugin.settings.cfpSeriesRefreshDays = isNaN(n) ? 30 : Math.max(0, n);
+					await this.plugin.saveSettings();
+				}));
+
+		// === WIKICFP SERIES CARD ===
+		const seriesCard = container.createDiv({ cls: 'zotero-setting-card' });
+		seriesCard.createEl("h3", { text: "WikiCFP Conference Series", cls: "zotero-card-title" });
+		seriesCard.createDiv({
+			text: "Load conference series from WikiCFP's A–Z index. Select specific letters to reduce crawling risk. Auto-refresh uses all configured sources.",
+			cls: "setting-item-description",
+			attr: { style: "margin-bottom: 16px;" }
+		});
+		
+		// Letters selection area
+		const lettersSection = seriesCard.createDiv({ cls: 'zotero-cfp-letters-section' });
+		lettersSection.createEl("h4", { text: "Index Letters", cls: "zotero-cfp-filter-title" });
+		lettersSection.createDiv({
+			text: "Select letters to load (empty = all A-Z):",
+			cls: "setting-item-description",
+			attr: { style: "margin-bottom: 12px; font-size: 0.85em;" }
+		});
+		
+		const lettersContainer = lettersSection.createDiv({ cls: 'zotero-cfp-letters-container' });
+		const allLetters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+		const selectedLetters = Array.isArray(this.plugin.settings.cfpSeriesIndexLetters)
+			? new Set(this.plugin.settings.cfpSeriesIndexLetters)
+			: new Set<string>();
+		
+		// Store checkboxes for select all/deselect all
+		const checkboxes: HTMLInputElement[] = [];
+		
+		allLetters.forEach(letter => {
+			const letterItem = lettersContainer.createDiv({ cls: 'zotero-cfp-letter-item' });
+			const checkbox = letterItem.createEl('input', { 
+				type: 'checkbox', 
+				attr: { value: letter, id: `cfp-letter-${letter}` },
+				cls: 'zotero-cfp-letter-checkbox'
+			}) as HTMLInputElement;
+			const label = letterItem.createEl('label', { 
+				text: letter,
+				attr: { for: `cfp-letter-${letter}` },
+				cls: 'zotero-cfp-letter-label'
+			});
+			checkbox.checked = selectedLetters.has(letter);
+			checkboxes.push(checkbox);
+			const updateSettings = async () => {
+				const current = Array.isArray(this.plugin.settings.cfpSeriesIndexLetters)
+					? [...this.plugin.settings.cfpSeriesIndexLetters]
+					: [];
+				if (checkbox.checked) {
+					if (!current.includes(letter)) current.push(letter);
+				} else {
+					const idx = current.indexOf(letter);
+					if (idx >= 0) current.splice(idx, 1);
+				}
+				this.plugin.settings.cfpSeriesIndexLetters = current.sort();
+				await this.plugin.saveSettings();
+			};
+			checkbox.onchange = updateSettings;
+			// Make the whole item clickable (but don't double-trigger checkbox)
+			letterItem.onclick = (e) => {
+				if (e.target !== checkbox && e.target !== label) {
+					checkbox.checked = !checkbox.checked;
+					updateSettings();
+				}
+			};
+		});
+		
+		// Action buttons row
+		const actionsRow = seriesCard.createDiv({ cls: 'zotero-cfp-series-actions-row' });
+		new ButtonComponent(actionsRow).setButtonText('Select All').onClick(async () => {
+			checkboxes.forEach(cb => cb.checked = true);
+			this.plugin.settings.cfpSeriesIndexLetters = allLetters.slice();
+			await this.plugin.saveSettings();
+		});
+		new ButtonComponent(actionsRow).setButtonText('Deselect All').onClick(async () => {
+			checkboxes.forEach(cb => cb.checked = false);
+			this.plugin.settings.cfpSeriesIndexLetters = [];
+			await this.plugin.saveSettings();
+		});
+		new ButtonComponent(actionsRow).setButtonText('Refresh Series').setCta().onClick(() => {
+			new Notice('WikiCFP series refresh started. Notices will show progress.');
+			this.plugin.cfpService.refreshWikiCFPSeries((msg) => new Notice(msg))
+				.then(() => new Notice('WikiCFP series refresh done.'))
+				.catch(() => new Notice('WikiCFP series refresh failed. See console.'));
+		});
+
+		// === DATAVIEWJS CODE CARD ===
+		const codeCard = container.createDiv({ cls: 'zotero-setting-card' });
+		codeCard.createEl("h3", { text: "Series Note DataviewJS Code", cls: "zotero-card-title" });
+		codeCard.createDiv({
+			text: "Custom DataviewJS code for the refresh button in Series notes. Changes apply to all existing Series notes immediately. Available: cur (current page), dv, window.__ZoteroAnnotationReviewerCFP.refreshSeries(programUrl, seriesAcronym).",
+			cls: "setting-item-description zotero-desc-tight",
+			attr: { style: "margin-bottom: 12px;" }
+		});
+		const scriptWrapper = codeCard.createDiv({ cls: 'zotero-cfp-script-wrapper' });
+		let codeEditor: EditorView | null = null;
+		mountCodeMirror(
+			scriptWrapper,
+			this.plugin.settings.cfpSeriesDataviewJSCode || '',
+			'javascript',
+			async (val) => {
+				this.plugin.settings.cfpSeriesDataviewJSCode = val;
+				await this.plugin.saveSettings();
+				// Auto-update all existing Series notes
+				const updated = await this.plugin.cfpService.updateAllSeriesNotesDataviewJS();
+				if (updated > 0) {
+					new Notice(`Updated ${updated} Series notes with new code.`);
+				}
+			},
+			{ height: "250px" }
+		);
+		const updateBtnRow = codeCard.createDiv({ cls: 'zotero-cfp-code-actions-row' });
+		new ButtonComponent(updateBtnRow).setButtonText('Update All Series Notes').onClick(async () => {
+			new Notice('Updating all Series notes...');
+			const updated = await this.plugin.cfpService.updateAllSeriesNotesDataviewJS();
+			new Notice(`Updated ${updated} Series notes.`);
+		});
+
+		// === URL SOURCES CARD ===
+		const urlsCard = container.createDiv({ cls: 'zotero-setting-card' });
+		urlsCard.createEl("h3", { text: "URL Sources", cls: "zotero-card-title" });
+		urlsCard.createDiv({
+			text: "Add URLs from different sources to fetch CFP data. Each source type is managed separately.",
+			cls: "setting-item-description",
+			attr: { style: "margin-bottom: 16px;" }
+		});
+
+		// CFP URL sections wrapper so layout stays stable and all three sections visible
+		const cfpUrlsWrapper = urlsCard.createDiv({ cls: 'zotero-cfp-urls-sections' });
+
+		// WikiCFP URLs
+		const wikicfpSection = cfpUrlsWrapper.createDiv({ cls: 'zotero-cfp-url-section' });
+		const wikicfpHeader = wikicfpSection.createDiv({ cls: 'zotero-cfp-url-section-header' });
+		wikicfpHeader.createEl("h4", { text: "WikiCFP URLs", cls: "zotero-cfp-url-section-title" });
+		new ButtonComponent(wikicfpHeader).setButtonText('Refresh').setCta().onClick(() => {
+			this.plugin.cfpService.refreshWikiCFPUrls();
+		});
+		wikicfpSection.createDiv({ 
+			text: "e.g. http://www.wikicfp.com/cfp/call?conference=machine%20learning", 
+			cls: "setting-item-description zotero-cfp-url-desc" 
+		});
+		const wikicfpAddRow = wikicfpSection.createDiv({ cls: 'zotero-setting-block zotero-cfp-add-row' });
+		wikicfpAddRow.style.display = 'flex';
+		wikicfpAddRow.style.gap = '8px';
+		wikicfpAddRow.style.alignItems = 'center';
+		const wikicfpInputWrap = wikicfpAddRow.createDiv();
+		wikicfpInputWrap.style.flex = '1';
+		wikicfpInputWrap.style.minWidth = '0';
+		const wikicfpInput = new TextComponent(wikicfpInputWrap);
+		wikicfpInput.setPlaceholder('https://...');
+		wikicfpInput.inputEl.addClass('zotero-input-wide');
+		wikicfpInput.inputEl.style.width = '100%';
+		new ButtonComponent(wikicfpAddRow).setButtonText('Add URL').onClick(async () => {
+			const val = wikicfpInput.getValue()?.trim();
+			if (!val) return;
+			if (!this.plugin.settings.cfpWikicfpUrls) this.plugin.settings.cfpWikicfpUrls = [];
+			this.plugin.settings.cfpWikicfpUrls.push(val);
+			await this.plugin.saveSettings();
+			wikicfpInput.setValue('');
+			this.display();
+		});
+		const wikicfpList = wikicfpSection.createDiv({ cls: 'zotero-settings-list' });
+		(this.plugin.settings.cfpWikicfpUrls || []).forEach((url, idx) => {
+			const row = wikicfpList.createDiv({ cls: 'zotero-setting-block' });
+			row.style.display = 'flex';
+			row.style.gap = '8px';
+			row.style.alignItems = 'center';
+			const urlSpan = row.createSpan({ text: url || '(empty)', cls: 'zotero-cfp-url-display' });
+			urlSpan.style.flex = '1';
+			new ButtonComponent(row).setIcon('trash').onClick(async () => {
+				this.plugin.settings.cfpWikicfpUrls!.splice(idx, 1);
+				await this.plugin.saveSettings();
+				this.display();
+			});
+		});
+
+		// CCFDDL URLs (YAML)
+		const ccfddlSection = cfpUrlsWrapper.createDiv({ cls: 'zotero-cfp-url-section' });
+		const ccfddlHeader = ccfddlSection.createDiv({ cls: 'zotero-cfp-url-section-header' });
+		ccfddlHeader.createEl("h4", { text: "CCFDDL URLs (YAML)", cls: "zotero-cfp-url-section-title" });
+		new ButtonComponent(ccfddlHeader).setButtonText('Refresh').setCta().onClick(() => {
+			this.plugin.cfpService.refreshCcfddlUrls();
+		});
+		ccfddlSection.createDiv({
+			text: "Single YAML URL with all conferences (not per-conference like WikiCFP). e.g. https://ccfddl.com/conference/allconf.yml",
+			cls: "setting-item-description zotero-cfp-url-desc"
+		});
+		const ccfddlAddRow = ccfddlSection.createDiv({ cls: 'zotero-setting-block zotero-cfp-add-row' });
+		ccfddlAddRow.style.display = 'flex';
+		ccfddlAddRow.style.gap = '8px';
+		ccfddlAddRow.style.alignItems = 'center';
+		const ccfddlInputWrap = ccfddlAddRow.createDiv();
+		ccfddlInputWrap.style.flex = '1';
+		ccfddlInputWrap.style.minWidth = '0';
+		const ccfddlInput = new TextComponent(ccfddlInputWrap);
+		ccfddlInput.setPlaceholder('https://...');
+		ccfddlInput.inputEl.addClass('zotero-input-wide');
+		ccfddlInput.inputEl.style.width = '100%';
+		new ButtonComponent(ccfddlAddRow).setButtonText('Add URL').onClick(async () => {
+			const val = ccfddlInput.getValue()?.trim();
+			if (!val) return;
+			if (!this.plugin.settings.cfpCcfddlUrls) this.plugin.settings.cfpCcfddlUrls = [];
+			this.plugin.settings.cfpCcfddlUrls.push(val);
+			await this.plugin.saveSettings();
+			ccfddlInput.setValue('');
+			this.display();
+		});
+		const ccfddlList = ccfddlSection.createDiv({ cls: 'zotero-settings-list' });
+		(this.plugin.settings.cfpCcfddlUrls || []).forEach((url, idx) => {
+			const row = ccfddlList.createDiv({ cls: 'zotero-setting-block' });
+			row.style.display = 'flex';
+			row.style.gap = '8px';
+			row.style.alignItems = 'center';
+			const urlSpan = row.createSpan({ text: url || '(empty)', cls: 'zotero-cfp-url-display' });
+			urlSpan.style.flex = '1';
+			new ButtonComponent(row).setIcon('trash').onClick(async () => {
+				this.plugin.settings.cfpCcfddlUrls!.splice(idx, 1);
+				await this.plugin.saveSettings();
+				this.display();
+			});
+		});
+
+		// EasyChair URLs
+		const easychairSection = cfpUrlsWrapper.createDiv({ cls: 'zotero-cfp-url-section' });
+		const easychairHeader = easychairSection.createDiv({ cls: 'zotero-cfp-url-section-header' });
+		easychairHeader.createEl("h4", { text: "EasyChair URLs", cls: "zotero-cfp-url-section-title" });
+		new ButtonComponent(easychairHeader).setButtonText('Refresh').setCta().onClick(() => {
+			this.plugin.cfpService.refreshEasychairUrls();
+		});
+		easychairSection.createDiv({ text: "e.g. https://easychair.org/cfp/area.cgi?area=1", cls: "setting-item-description zotero-cfp-url-desc" });
+		const easychairAddRow = easychairSection.createDiv({ cls: 'zotero-setting-block zotero-cfp-add-row' });
+		easychairAddRow.style.display = 'flex';
+		easychairAddRow.style.gap = '8px';
+		easychairAddRow.style.alignItems = 'center';
+		const easychairInputWrap = easychairAddRow.createDiv();
+		easychairInputWrap.style.flex = '1';
+		easychairInputWrap.style.minWidth = '0';
+		const easychairInput = new TextComponent(easychairInputWrap);
+		easychairInput.setPlaceholder('https://...');
+		easychairInput.inputEl.addClass('zotero-input-wide');
+		easychairInput.inputEl.style.width = '100%';
+		new ButtonComponent(easychairAddRow).setButtonText('Add URL').onClick(async () => {
+			const val = easychairInput.getValue()?.trim();
+			if (!val) return;
+			if (!this.plugin.settings.cfpEasychairUrls) this.plugin.settings.cfpEasychairUrls = [];
+			this.plugin.settings.cfpEasychairUrls.push(val);
+			await this.plugin.saveSettings();
+			easychairInput.setValue('');
+			this.display();
+		});
+		const easychairList = easychairSection.createDiv({ cls: 'zotero-settings-list' });
+		(this.plugin.settings.cfpEasychairUrls || []).forEach((url, idx) => {
+			const row = easychairList.createDiv({ cls: 'zotero-setting-block' });
+			row.style.display = 'flex';
+			row.style.gap = '8px';
+			row.style.alignItems = 'center';
+			const urlSpan = row.createSpan({ text: url || '(empty)', cls: 'zotero-cfp-url-display' });
+			urlSpan.style.flex = '1';
+			new ButtonComponent(row).setIcon('trash').onClick(async () => {
+				this.plugin.settings.cfpEasychairUrls!.splice(idx, 1);
+				await this.plugin.saveSettings();
+				this.display();
+			});
+		});
+
+		// OpenResearch URLs
+		const openresearchSection = cfpUrlsWrapper.createDiv({ cls: 'zotero-cfp-url-section' });
+		const openresearchHeader = openresearchSection.createDiv({ cls: 'zotero-cfp-url-section-header' });
+		openresearchHeader.createEl("h4", { text: "OpenResearch URLs", cls: "zotero-cfp-url-section-title" });
+		new ButtonComponent(openresearchHeader).setButtonText('Refresh').setCta().onClick(() => {
+			this.plugin.cfpService.refreshOpenresearchUrls();
+		});
+		openresearchSection.createDiv({ text: "e.g. https://www.openresearch.org/mediawiki/index.php?title=Events&field=Science&type=Science", cls: "setting-item-description zotero-cfp-url-desc" });
+		const openresearchAddRow = openresearchSection.createDiv({ cls: 'zotero-setting-block zotero-cfp-add-row' });
+		openresearchAddRow.style.display = 'flex';
+		openresearchAddRow.style.gap = '8px';
+		openresearchAddRow.style.alignItems = 'center';
+		const openresearchInputWrap = openresearchAddRow.createDiv();
+		openresearchInputWrap.style.flex = '1';
+		openresearchInputWrap.style.minWidth = '0';
+		const openresearchInput = new TextComponent(openresearchInputWrap);
+		openresearchInput.setPlaceholder('https://...');
+		openresearchInput.inputEl.addClass('zotero-input-wide');
+		openresearchInput.inputEl.style.width = '100%';
+		new ButtonComponent(openresearchAddRow).setButtonText('Add URL').onClick(async () => {
+			const val = openresearchInput.getValue()?.trim();
+			if (!val) return;
+			if (!this.plugin.settings.cfpOpenresearchUrls) this.plugin.settings.cfpOpenresearchUrls = [];
+			this.plugin.settings.cfpOpenresearchUrls.push(val);
+			await this.plugin.saveSettings();
+			openresearchInput.setValue('');
+			this.display();
+		});
+		const openresearchList = openresearchSection.createDiv({ cls: 'zotero-settings-list' });
+		(this.plugin.settings.cfpOpenresearchUrls || []).forEach((url, idx) => {
+			const row = openresearchList.createDiv({ cls: 'zotero-setting-block' });
+			row.style.display = 'flex';
+			row.style.gap = '8px';
+			row.style.alignItems = 'center';
+			const urlSpan = row.createSpan({ text: url || '(empty)', cls: 'zotero-cfp-url-display' });
+			urlSpan.style.flex = '1';
+			new ButtonComponent(row).setIcon('trash').onClick(async () => {
+				this.plugin.settings.cfpOpenresearchUrls!.splice(idx, 1);
+				await this.plugin.saveSettings();
+				this.display();
+			});
+		});
+
+		// === ACTIONS CARD ===
+		const actionsCard = container.createDiv({ cls: 'zotero-setting-card' });
+		actionsCard.createEl("h3", { text: "Actions", cls: "zotero-card-title" });
+		actionsCard.createDiv({
+			text: "Manual actions: Add CFP manually or refresh all sources at once. Auto-refresh (based on intervals above) refreshes all sources automatically.",
+			cls: "setting-item-description",
+			attr: { style: "margin-bottom: 12px;" }
+		});
+		const btnRow = actionsCard.createDiv({ cls: "zotero-cfp-actions-row" });
+		new ButtonComponent(btnRow).setButtonText('Refresh All Sources').setCta().onClick(async () => {
+			await this.plugin.cfpService.refresh();
+		});
+		new ButtonComponent(btnRow).setButtonText('Add Manual CFP').setCta().onClick(() => {
+			import('./ui/cfp-manual-modal').then(({ CFPManualModal }) => {
+				new CFPManualModal(this.app, this.plugin.settings.cfpDefaultTags || [], (item) => {
+					this.plugin.cfpService.saveManualCFP(item)
+						.then(() => new Notice('CFP note created.'))
+						.catch(() => new Notice('Failed to create CFP note.'));
+				}).open();
+			});
+		});
 	}
 }
 
