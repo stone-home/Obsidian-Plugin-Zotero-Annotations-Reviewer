@@ -330,6 +330,20 @@ CFP notes and Series notes are designed to work well with Dataview tables and da
    - Ensure Zotero Integration plugin is installed and enabled.
    - Check that Zotero is running and accessible (if using local Zotero connector).
 
+### DOMException: removeChild error
+
+**Symptoms:** Console shows `DOMException: Failed to execute 'removeChild' on 'Node': The node to be removed is no longer a child of this node. Perhaps it was moved in a 'blur' event handler?`
+
+**Explanation:**
+This error originates from **Obsidian's internal property editor** (specifically the link autocomplete feature), not from this plugin. The stack trace shows the error occurs entirely within Obsidian's core code (`app.js`, `enhance.js`) during `setChildrenInPlace`, `setValue`, `onSelectLink`, and `selectSuggestion` operations.
+
+**Impact:** **None.** This error does not affect the functionality of this plugin. All features (annotation review, fleeting notes, webhooks, CFP management, project linking) continue to work correctly. The error is cosmetic and can be safely ignored.
+
+**Why we don't fix it:**
+- The error is triggered by Obsidian's internal DOM manipulation during property editing, which is outside the plugin's control.
+- Attempts to work around it (deferred rendering, safe DOM clearing) do not resolve the issue because the root cause is in Obsidian's core code.
+- This is a known Obsidian behavior that may be addressed in future Obsidian updates.
+
 ### General debugging tips
 
 - **Enable debug mode:** Check plugin settings for debug/logging options.

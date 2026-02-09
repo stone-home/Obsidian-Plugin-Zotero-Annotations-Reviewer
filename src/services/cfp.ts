@@ -806,6 +806,84 @@ export class CFPService {
 		return updated;
 	}
 
+	/** Parse CFPItem from frontmatter. */
+	private parseCFPItemFromFrontmatter(fm: Record<string, unknown>): CFPItem {
+		return {
+			acronym: (fm['acronym'] ?? '').toString(),
+			series: fm['series']?.toString()?.replace(/^\[\[|\]\]$/g, '').replace(/\s+Series$/, '') || undefined,
+			fullName: (fm['full-name'] ?? fm['title'] ?? '').toString(),
+			location: (fm['location'] ?? '').toString(),
+			start: fm['start']?.toString(),
+			end: fm['end']?.toString(),
+			submissionDdl: (fm['submission-ddl'] ?? fm['submission_ddl'] ?? '').toString(),
+			source: (fm['cfp-source'] ?? 'manual') as CFPItem['source'],
+			url: fm['url']?.toString()
+		};
+	}
+
+	/** Get all events under CFP dir (excluding series notes). */
+	private getEventsUnderCfpDir(): { events: CFPItemWithPath[]; dirPath: string } {
+		const dir = (this.getSettings().cfpNoteDir || 'CFP').trim() || 'CFP';
+		const dirPath = normalizePath(dir);
+		const prefix = dirPath + '/';
+		const events: CFPItemWithPath[] = [];
+		for (const file of this.app.vault.getMarkdownFiles()) {
+			if (!file.path.startsWith(prefix)) continue;
+			const fm = this.app.metadataCache.getFileCache(file)?.frontmatter;
+			if (!fm || fm['cfp-series']) continue;
+			const item = this.parseCFPItemFromFrontmatter(fm);
+			if (item.acronym) events.push({ item, path: file.path });
+		}
+		return { events, dirPath };
+	}
+
+	/** Find the latest event in a series (by submission deadline, most recent first). */
+	private findLatestInSeries(events: CFPItemWithPath[], seriesName: string): CFPItemWithPath | undefined {
+		let best: CFPItemWithPath | undefined;
+		let bestTs = -Infinity;
+		for (const e of events) {
+			const inSeries = (e.item.series === seriesName) || (!e.item.series && pureSeriesFromAcronym(e.item.acronym) === seriesName);
+			if (!inSeries || !e.item.submissionDdl) continue;
+			const ts = new Date(e.item.submissionDdl).getTime();
+			if (!isNaN(ts) && ts > bestTs) { bestTs = ts; best = e; }
+		}
+		return best;
+	}
+
+	/** Get series info by acronym (plain string). */
+	getSeriesInfoByAcronym(acronym: string): { seriesNotePath: string; latestEvent?: CFPItemWithPath; seriesName: string } | null {
+		const trimmed = acronym?.trim();
+		if (!trimmed) return null;
+		const { events, dirPath } = this.getEventsUnderCfpDir();
+		for (const seriesName of [trimmed, pureSeriesFromAcronym(trimmed)]) {
+			if (!seriesName?.trim()) continue;
+			const seriesNotePath = normalizePath(`${dirPath}/${sanitizeFileName(seriesName)}/${sanitizeFileName(seriesName)} Series.md`);
+			if (this.app.vault.getAbstractFileByPath(seriesNotePath) instanceof TFile) {
+				return { seriesNotePath, latestEvent: this.findLatestInSeries(events, seriesName), seriesName: seriesName.trim() };
+			}
+		}
+		return null;
+	}
+
+	/** Get CFP note info by file path (for links). */
+	getCFPNoteInfoByPath(filePath: string): { isSeries: true; seriesNotePath: string; latestEvent?: CFPItemWithPath; seriesName: string } | { isSeries: false; latestEvent?: CFPItemWithPath; event: CFPItemWithPath } | null {
+		const dir = (this.getSettings().cfpNoteDir || 'CFP').trim() || 'CFP';
+		const prefix = normalizePath(dir) + '/';
+		if (!filePath.startsWith(prefix)) return null;
+		const file = this.app.vault.getAbstractFileByPath(filePath);
+		if (!(file instanceof TFile)) return null;
+		const fm = this.app.metadataCache.getFileCache(file)?.frontmatter;
+		if (!fm) return null;
+		const { events } = this.getEventsUnderCfpDir();
+		if (fm['cfp-series'] === true) {
+			const seriesName = (file.basename || '').replace(/\s+Series$/i, '').trim();
+			return { isSeries: true, seriesNotePath: file.path, latestEvent: this.findLatestInSeries(events, seriesName), seriesName };
+		}
+		const item = this.parseCFPItemFromFrontmatter(fm);
+		const seriesName = item.series?.trim() || (file.parent?.name !== dir ? file.parent?.name : null) || pureSeriesFromAcronym(item.acronym);
+		return { isSeries: false, latestEvent: seriesName ? this.findLatestInSeries(events, seriesName) : undefined, event: { item, path: file.path } };
+	}
+
 	/** Read all CFP notes from the folder; return upcoming and past, each with item + path for opening. */
 	async getCFPNotesForDisplay(): Promise<{ upcoming: { item: CFPItem; path: string }[]; past: { item: CFPItem; path: string }[] }> {
 		const s = this.getSettings();

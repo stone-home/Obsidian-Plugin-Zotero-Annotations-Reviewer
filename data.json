@@ -66,20 +66,20 @@
   ],
   "cfpEasychairUrls": [],
   "cfpOpenresearchUrls": [],
-  "cfpLastFetchTime": 1770163729379,
+  "cfpLastFetchTime": 1770675204802,
   "cfpLastSeriesFetchTime": 1770203210520,
   "cfpSeriesMap": {
     "A-MOST": {
       "programUrl": "http://www.wikicfp.com/cfp/program?id=160&s=A-MOST&f=Advances%20in%20Model-Based%20Software%20Testing",
-      "lastUpdate": 0
+      "lastUpdate": 1770675204613
     },
     "A2CWiC": {
       "programUrl": "http://www.wikicfp.com/cfp/program?id=1&s=A2CWiC&f=Amrita%20ACM-W%20Celebration%20on%20Women%20in%20Computing%20in%20India",
-      "lastUpdate": 0
+      "lastUpdate": 1770677004323
     },
     "AAA-IDEA": {
       "programUrl": "http://www.wikicfp.com/cfp/program?id=4&s=AAA-IDEA&f=Advanced%20Architectures%20and%20Algorithms%20for%20Internet%20Delivery%20and%20Applications",
-      "lastUpdate": 0
+      "lastUpdate": 1770678804260
     },
     "AAAI": {
       "programUrl": "http://www.wikicfp.com/cfp/program?id=3&s=AAAI&f=National%20Conference%20on%20Artificial%20Intelligence",
@@ -7318,7 +7318,7 @@
       "lastUpdate": 1770195232498
     }
   },
-  "cfpLastDailyRun": 1770164757947,
+  "cfpLastDailyRun": 1770675203839,
   "cfpSeriesIndexLetters": [
     "O"
   ],

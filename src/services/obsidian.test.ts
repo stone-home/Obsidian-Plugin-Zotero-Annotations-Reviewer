@@ -81,9 +81,9 @@ describe('ObsidianService', () => {
 
 			expect(ObsidianNoteFactory.createByType).toHaveBeenCalledWith(
 				expect.anything(),
-				expect.stringContaining('Fleeting/My thought.md'), // Title derived from comment
+				expect.stringContaining('Fleeting/Annotation-author2020-anno1.md'),
 				'fleeting',
-				'My thought'
+				'Annotation-author2020-anno1'
 			);
 
 			expect(mockNoteModel.content.addSection).toHaveBeenCalledWith(
