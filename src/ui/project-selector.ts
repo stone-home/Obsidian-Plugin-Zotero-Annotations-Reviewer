@@ -179,21 +179,37 @@ class ProjectSuggestModal extends SuggestModal<TFile> {
 		this.setPlaceholder("Select a project to add...");
 	}
 
+	/** Only include files at <projectFolder>/<projectDir>/Dashboard.md (one level down). */
+	isProjectDashboard(file: TFile): boolean {
+		const base = this.projectFolder.replace(/\/$/, "") + "/";
+		if (!file.path.startsWith(base)) return false;
+		if (file.extension !== "md" || file.basename !== "Dashboard") return false;
+		const rest = file.path.slice(base.length);
+		const parts = rest.split("/");
+		return parts.length === 2 && parts[1] === "Dashboard.md";
+	}
+
+	getDisplayName(file: TFile): string {
+		const cache = this.app.metadataCache.getFileCache(file);
+		const fm = cache?.frontmatter;
+		const fromFm = (fm?.["project_name"] ?? fm?.["title"])?.toString?.()?.trim();
+		if (fromFm) return fromFm;
+		const parts = file.path.split("/");
+		return parts.length >= 2 ? parts[parts.length - 2] : file.basename;
+	}
+
 	getSuggestions(query: string): TFile[] {
+		const q = query.toLowerCase();
 		const files = this.app.vault.getFiles();
-		return files.filter(file => {
-			return file.path.startsWith(this.projectFolder) &&
-				file.basename.toLowerCase().includes(query.toLowerCase());
+		const dashboards = files.filter(file => this.isProjectDashboard(file));
+		return dashboards.filter(file => {
+			const displayName = this.getDisplayName(file);
+			return displayName.toLowerCase().includes(q) || file.path.toLowerCase().includes(q);
 		});
 	}
 
 	renderSuggestion(file: TFile, el: HTMLElement) {
-		el.createDiv({ text: file.basename });
-		el.createDiv({
-			text: file.path,
-			cls: "zotero-text-muted-italic",
-			attr: { style: "font-size: 0.8em;" }
-		});
+		el.createDiv({ text: this.getDisplayName(file) });
 	}
 
 	onChooseSuggestion(file: TFile, evt: MouseEvent | KeyboardEvent) {
