@@ -1,7 +1,7 @@
 {
 	"id": "zotero-annotation-reviewer",
 	"name": "Zotero Annotation Reviewer",
-	"version": "1.5.0",
+	"version": "1.6.0",
 	"minAppVersion": "0.15.0",
 	"description": "Review, organize, and send Zotero annotations from Obsidian. Features include highlight dashboards, atomic notes, project linking, webhooks, and CFP management.",
 	"author": "Stone",
