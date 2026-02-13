@@ -76,8 +76,9 @@ export class ProjectSelectorView extends MarkdownRenderChild {
 				// Handle navigation
 				link.onclick = (e) => {
 					e.preventDefault();
-					// Open the project note
-					this.plugin.app.workspace.openLinkText(proj, file.path);
+					const inner = proj.replace(/^\[\[|\]\]$/g, "");
+					const linkPath = inner.split("|")[0];
+					this.plugin.app.workspace.openLinkText(linkPath, file.path);
 				};
 
 				// --- REMOVE BUTTON ---

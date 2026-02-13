@@ -87,19 +87,19 @@
     },
     "AAIM": {
       "programUrl": "http://www.wikicfp.com/cfp/program?id=8&s=AAIM&f=Algorithmic%20Applications%20in%20Management",
-      "lastUpdate": 0
+      "lastUpdate": 1770766334512
     },
     "AAIP": {
       "programUrl": "http://www.wikicfp.com/cfp/program?id=9&s=AAIP&f=Approaches%20and%20Applications%20of%20Inductive%20Programming",
-      "lastUpdate": 0
+      "lastUpdate": 1770768134197
     },
     "AAMAS": {
       "programUrl": "http://www.wikicfp.com/cfp/program?id=10&s=AAMAS&f=Adaptive%20Agents%20and%20Multi-Agents%20Systems",
-      "lastUpdate": 0
+      "lastUpdate": 1771021109562
     },
     "AB": {
       "programUrl": "http://www.wikicfp.com/cfp/program?id=11&s=AB&f=Algebraic%20Biology",
-      "lastUpdate": 0
+      "lastUpdate": 1771022909092
     },
     "ABZ": {
       "programUrl": "http://www.wikicfp.com/cfp/program?id=13&s=ABZ&f=Abstract%20State%20Machines%2C%20Alloy%2C%20B%20and%20Z",
@@ -7318,7 +7318,7 @@
       "lastUpdate": 1770195232498
     }
   },
-  "cfpLastDailyRun": 1770675203839,
+  "cfpLastDailyRun": 1771021108771,
   "cfpSeriesIndexLetters": [
     "O"
   ],

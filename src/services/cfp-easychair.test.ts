@@ -52,4 +52,20 @@ describe('cfp-easychair', () => {
 
 		expect(results).toHaveLength(0);
 	});
+
+	it('calls delay between multiple URLs', async () => {
+		jest.useFakeTimers();
+		const html = '<table><tr><td>A</td><td>B</td><td>C</td><td>Jan 1, 2026</td></tr></table>';
+		(requestUrl as jest.Mock)
+			.mockResolvedValueOnce({ status: 200, text: html })
+			.mockResolvedValueOnce({ status: 200, text: html });
+
+		const promise = fetchEasychair(['https://easychair.org/cfp/a', 'https://easychair.org/cfp/b']);
+		await jest.runAllTimersAsync();
+		const results = await promise;
+
+		expect(requestUrl).toHaveBeenCalledTimes(2);
+		expect(results.length).toBeGreaterThanOrEqual(2);
+		jest.useRealTimers();
+	});
 });

@@ -69,5 +69,41 @@ describe('fetchCcfddl', () => {
 		// Only one non-empty URL should be requested
 		expect(requestUrl).toHaveBeenCalledTimes(1);
 	});
+
+	it('calls delay between multiple URLs and covers deadlineFromTimeline N/A', async () => {
+		jest.useFakeTimers();
+		(yaml as any).load
+			.mockReturnValueOnce([
+				{
+					title: 'CONF',
+					description: 'Desc',
+					confs: [{ year: 2027, link: 'https://a.org', timeline: [{ deadline: 'TBD' }, { abstract_deadline: 'TBD' }] }]
+				}
+			])
+			.mockReturnValueOnce([]);
+		(requestUrl as jest.Mock)
+			.mockResolvedValueOnce({ status: 200, text: 'yaml1' })
+			.mockResolvedValueOnce({ status: 200, text: 'yaml2' });
+
+		const promise = fetchCcfddl(['https://u1.org', 'https://u2.org']);
+		await jest.runAllTimersAsync();
+		const items = await promise;
+
+		expect(requestUrl).toHaveBeenCalledTimes(2);
+		expect(items).toHaveLength(1);
+		expect(items[0].submissionDdl).toBe('N/A');
+		jest.useRealTimers();
+	});
+
+	it('returns empty list when yaml.load throws', async () => {
+		(yaml as any).load.mockImplementation(() => {
+			throw new Error('invalid yaml');
+		});
+		(requestUrl as jest.Mock).mockResolvedValue({ status: 200, text: 'bad' });
+
+		const items = await fetchCcfddl(['https://ccfddl.com/allconf.yml']);
+
+		expect(items).toHaveLength(0);
+	});
 });
 

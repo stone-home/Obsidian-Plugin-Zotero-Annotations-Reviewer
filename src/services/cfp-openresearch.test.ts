@@ -49,4 +49,21 @@ describe('cfp-openresearch', () => {
 
 		expect(results).toHaveLength(0);
 	});
+
+	it('calls delay between multiple URLs', async () => {
+		jest.useFakeTimers();
+		const row = '<tr><td>SPRA 2026</td><td>Osaka</td><td>Japan</td><td>6th Symposium</td><td>19 March 2026</td><td>21 March 2026</td><td>5 February 2026</td></tr>';
+		const html = `<table><tr><th>Acronym</th><th>City</th></tr>${row}${row}</table>`;
+		(requestUrl as jest.Mock)
+			.mockResolvedValueOnce({ status: 200, text: html })
+			.mockResolvedValueOnce({ status: 200, text: html });
+
+		const promise = fetchOpenresearch(['https://openresearch.org/a', 'https://openresearch.org/b']);
+		await jest.runAllTimersAsync();
+		const results = await promise;
+
+		expect(requestUrl).toHaveBeenCalledTimes(2);
+		expect(results.length).toBeGreaterThanOrEqual(2);
+		jest.useRealTimers();
+	});
 });
