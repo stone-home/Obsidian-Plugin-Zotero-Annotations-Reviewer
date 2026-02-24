@@ -290,6 +290,41 @@ export class ZoteroSettingTab extends PluginSettingTab {
 					this.plugin.updateWebhookRibbonIcon();
 				}));
 
+		const debugWarningEl = container.createDiv({
+			cls: 'setting-item-description',
+			attr: {
+				style: 'margin-bottom: 8px; padding: 10px; background: var(--background-modifier-error); color: var(--text-on-accent); border-radius: 6px; font-weight: 500;'
+			}
+		});
+		debugWarningEl.createSpan({ text: '⚠️ ' });
+		debugWarningEl.createSpan({
+			text: 'Debug mode logs full request headers and body to the console. API keys, tokens, and other secrets may be exposed. Only enable when debugging and turn off afterwards.'
+		});
+
+		new Setting(container)
+			.setName('Debug mode')
+			.setDesc('When enabled, webhook request headers and body are logged to the developer console (Ctrl/Cmd+Shift+I) when you trigger a webhook. A confirmation is required when turning on.')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.webhookDebugMode)
+				.onChange(async (value) => {
+					if (value) {
+						new WebhookDebugConfirmModal(
+							this.app,
+							async () => {
+								this.plugin.settings.webhookDebugMode = true;
+								await this.plugin.saveSettings();
+							},
+							() => {
+								this.plugin.settings.webhookDebugMode = false;
+								toggle.setValue(false);
+							}
+						).open();
+					} else {
+						this.plugin.settings.webhookDebugMode = false;
+						await this.plugin.saveSettings();
+					}
+				}));
+
 		const webhookList = container.createDiv({ cls: 'zotero-settings-list' });
 
 		this.plugin.settings.webhooks.forEach((hook, idx) => {
@@ -784,6 +819,65 @@ export class IconSuggestModal extends FuzzySuggestModal<string> {
 
 	onChooseItem(icon: string, evt: MouseEvent | KeyboardEvent) {
 		this.callback(icon);
+	}
+}
+
+
+class WebhookDebugConfirmModal extends Modal {
+	onConfirm: () => void | Promise<void>;
+	onCancel: () => void;
+
+	constructor(app: App, onConfirm: () => void | Promise<void>, onCancel: () => void) {
+		super(app);
+		this.onConfirm = onConfirm;
+		this.onCancel = onCancel;
+	}
+
+	onOpen() {
+		const { contentEl } = this;
+		contentEl.empty();
+		contentEl.addClass('zotero-webhook-debug-confirm-modal');
+
+		contentEl.createEl('h2', { text: '⚠️ Enable Webhook Debug Mode?' });
+
+		const warning = contentEl.createDiv({ cls: 'zotero-debug-confirm-warning' });
+		warning.style.padding = '12px';
+		warning.style.marginBottom = '16px';
+		warning.style.background = 'var(--background-modifier-error)';
+		warning.style.color = 'var(--text-on-accent)';
+		warning.style.borderRadius = '6px';
+		warning.style.fontWeight = '500';
+		warning.createEl('p', { text: 'Debug mode logs full request headers and body to the developer console. This may expose:' });
+		const list = warning.createEl('ul');
+		list.createEl('li', { text: 'API keys and authentication tokens' });
+		list.createEl('li', { text: 'Secret header values' });
+		list.createEl('li', { text: 'Sensitive data in the request body' });
+		warning.createEl('p', { text: 'Only enable when debugging. Turn it off when done. Do not share console output or screenshots.' });
+
+		const footer = contentEl.createDiv({ cls: 'zotero-debug-confirm-footer' });
+		footer.style.display = 'flex';
+		footer.style.gap = '8px';
+		footer.style.justifyContent = 'flex-end';
+		footer.style.marginTop = '16px';
+
+		new ButtonComponent(footer)
+			.setButtonText('Cancel')
+			.onClick(() => {
+				this.onCancel();
+				this.close();
+			});
+
+		new ButtonComponent(footer)
+			.setButtonText('Enable anyway')
+			.setWarning()
+			.onClick(async () => {
+				await this.onConfirm();
+				this.close();
+			});
+	}
+
+	onClose() {
+		this.contentEl.empty();
 	}
 }
 

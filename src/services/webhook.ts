@@ -8,7 +8,7 @@ export class WebhookService {
 		this.app = app;
 	}
 
-	async triggerWebhook(profile: WebhookProfile, file: TFile, extraVariables?: Record<string, string>) {
+	async triggerWebhook(profile: WebhookProfile, file: TFile, extraVariables?: Record<string, string>, debugMode?: boolean) {
 		if (!profile.url) {
 			new Notice(`❌ Webhook "${profile.name}" has no URL.`);
 			return;
@@ -95,7 +95,18 @@ export class WebhookService {
 				headers[h.key] = finalValue;
 			}
 
-			// 5. Send Request
+			// 5. Debug: log headers and body when debug mode is on
+			if (debugMode) {
+				console.group(`[Webhook Debug] ${profile.name}`);
+				console.log('URL:', profile.url.trim());
+				console.log('Method:', profile.method);
+				console.log('Headers:', headers);
+				console.log('Body:', body ?? '(none)');
+				console.groupEnd();
+				new Notice(`🔍 Webhook debug: check console for request details.`);
+			}
+
+			// 6. Send Request
 			const response = await requestUrl({
 				url: profile.url.trim(),
 				method: profile.method,

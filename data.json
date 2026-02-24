@@ -33,7 +33,7 @@
     {
       "id": "1770138587010",
       "name": "New Webhook",
-      "url": "",
+      "url": "https://throbbing-bush-856c.still-pot3850.workers.dev",
       "method": "POST",
       "icon": "plane",
       "headers": [],
@@ -54,6 +54,7 @@
   "projectFrontmatterKey": "projects",
   "projectIdKey": "project_id",
   "webhookShowInRibbon": true,
+  "webhookDebugMode": false,
   "cfpNoteDir": "CFP",
   "cfpDefaultTags": [
     "type/cfp"
@@ -66,7 +67,7 @@
   ],
   "cfpEasychairUrls": [],
   "cfpOpenresearchUrls": [],
-  "cfpLastFetchTime": 1770675204802,
+  "cfpLastFetchTime": 1771970513614,
   "cfpLastSeriesFetchTime": 1770203210520,
   "cfpSeriesMap": {
     "A-MOST": {
@@ -107,11 +108,11 @@
     },
     "AC": {
       "programUrl": "http://www.wikicfp.com/cfp/program?id=15&s=AC&f=Agent%20Communication",
-      "lastUpdate": 0
+      "lastUpdate": 1771026509368
     },
     "ACAL": {
       "programUrl": "http://www.wikicfp.com/cfp/program?id=19&s=ACAL&f=Australian%20Conference%20on%20Artificial%20Life",
-      "lastUpdate": 0
+      "lastUpdate": 1771970513461
     },
     "ACC": {
       "programUrl": "http://www.wikicfp.com/cfp/program?id=20&s=ACC&f=Advances%20in%20Computing%20and%20Communications",
@@ -7318,7 +7319,7 @@
       "lastUpdate": 1770195232498
     }
   },
-  "cfpLastDailyRun": 1771021108771,
+  "cfpLastDailyRun": 1771970512937,
   "cfpSeriesIndexLetters": [
     "O"
   ],

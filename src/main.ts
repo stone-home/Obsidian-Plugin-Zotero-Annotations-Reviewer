@@ -63,7 +63,7 @@ export default class ZoteroGKPlugin extends Plugin {
 				if (!file) return false;
 				if (!checking) {
 					new WebhookSelectionModal(this.app, this.settings.webhooks, (hook, extraVariables) => {
-						this.webhookService.triggerWebhook(hook, file, extraVariables);
+						this.webhookService.triggerWebhook(hook, file, extraVariables, this.settings.webhookDebugMode);
 					}).open();
 				}
 				return true;
@@ -182,7 +182,7 @@ export default class ZoteroGKPlugin extends Plugin {
 					return;
 				}
 				new WebhookSelectionModal(this.app, this.settings.webhooks, (hook, extraVariables) => {
-					this.webhookService.triggerWebhook(hook, file, extraVariables);
+					this.webhookService.triggerWebhook(hook, file, extraVariables, this.settings.webhookDebugMode);
 				}).open();
 			});
 		}

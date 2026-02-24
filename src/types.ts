@@ -115,6 +115,8 @@ export interface MyPluginSettings {
 	projectIdKey: string;
 	/** When true, show a webhook icon in the left sidebar to trigger webhooks. */
 	webhookShowInRibbon: boolean;
+	/** When true, log webhook request headers and body to the console for debugging. */
+	webhookDebugMode: boolean;
 	// --- CFP ---
 	cfpNoteDir: string;
 	cfpDefaultTags: string[];
@@ -165,6 +167,7 @@ export const DEFAULT_SETTINGS: MyPluginSettings = {
 	projectFrontmatterKey: 'projects', // Default YAML key
 	projectIdKey: 'project_id', // Default YAML key
 	webhookShowInRibbon: false,
+	webhookDebugMode: false,
 	// CFP defaults
 	cfpNoteDir: 'CFP',
 	cfpDefaultTags: ['cfp'],

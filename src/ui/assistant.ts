@@ -70,7 +70,7 @@ export class AssistantView extends MarkdownRenderChild {
 					.setButtonText(hook.name)
 					.setIcon(hook.icon || "plane")
 					.onClick(async () => {
-						await this.plugin.webhookService.triggerWebhook(hook, file);
+						await this.plugin.webhookService.triggerWebhook(hook, file, undefined, this.plugin.settings.webhookDebugMode);
 					});
 				btn.buttonEl.addClass("zotero-btn-fancy", "zotero-btn-secondary");
 			});
