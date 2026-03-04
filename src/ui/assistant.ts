@@ -1,8 +1,9 @@
-import { MarkdownPostProcessorContext, MarkdownRenderChild, TFile, ButtonComponent, Notice, normalizePath } from 'obsidian';
+import { MarkdownPostProcessorContext, MarkdownRenderChild, TFile, ButtonComponent, Notice } from 'obsidian';
 import ZoteroGKPlugin from '../main';
 import { HighlightModal } from './highlights';
 import { parseImageMap } from '../utils/parser';
 import { ZoteroConnectorService} from "../services/zotero-connector";
+import { normalizePath } from '../utils/paths';
 
 export class AssistantView extends MarkdownRenderChild {
 	plugin: ZoteroGKPlugin;
@@ -250,6 +251,24 @@ export class AssistantView extends MarkdownRenderChild {
 		titleEl.createSpan({ text: ' — Series overview', cls: 'zotero-cfp-fullname' });
 
 		const metaList = container.createEl('ul', { cls: 'zotero-cfp-meta' });
+
+		// Rank line (from Series note frontmatter)
+		const seriesFile = this.plugin.app.vault.getAbstractFileByPath(seriesNotePath);
+		if (seriesFile instanceof TFile) {
+			const cache = this.plugin.app.metadataCache.getFileCache(seriesFile);
+			const fm = cache?.frontmatter;
+			if (fm) {
+				const core = (fm['rank_core'] ?? '').toString().trim();
+				const ccf = (fm['rank_ccf'] ?? '').toString().trim();
+				const parts: string[] = [];
+				if (core) parts.push(`CORE: ${core}`);
+				if (ccf) parts.push(`CCF: ${ccf}`);
+				if (parts.length > 0) {
+					metaList.createEl('li').createSpan({ text: parts.join(' | ') });
+				}
+			}
+		}
+
 		const seriesLi = metaList.createEl('li');
 		seriesLi.createSpan({ text: 'Series note: ' });
 		this.createFileLink(seriesLi, `${seriesName} Series`, seriesNotePath);
@@ -275,6 +294,34 @@ export class AssistantView extends MarkdownRenderChild {
 		}
 
 		const metaList = container.createEl('ul', { cls: 'zotero-cfp-meta' });
+
+		// Rank line: derive Series note from event path and read its frontmatter (if available).
+		const dir = this.plugin.settings.cfpNoteDir || 'CFP';
+		const prefix = normalizePath(dir) + '/';
+		if (event.path.startsWith(prefix)) {
+			const rel = event.path.slice(prefix.length);
+			const parts = rel.split('/');
+			if (parts.length === 2) {
+				const seriesDirName = parts[0];
+				const seriesNotePath = normalizePath(prefix + seriesDirName + '/' + seriesDirName + ' Series.md');
+				const seriesFile = this.plugin.app.vault.getAbstractFileByPath(seriesNotePath);
+				if (seriesFile instanceof TFile) {
+					const cache = this.plugin.app.metadataCache.getFileCache(seriesFile);
+					const fm = cache?.frontmatter;
+					if (fm) {
+						const core = (fm['rank_core'] ?? '').toString().trim();
+						const ccf = (fm['rank_ccf'] ?? '').toString().trim();
+						const partsText: string[] = [];
+						if (core) partsText.push(`CORE: ${core}`);
+						if (ccf) partsText.push(`CCF: ${ccf}`);
+						if (partsText.length > 0) {
+							metaList.createEl('li').createSpan({ text: partsText.join(' | ') });
+						}
+					}
+				}
+			}
+		}
+
 		const dateText = event.item.start && event.item.end ? `${event.item.start} → ${event.item.end}` : (event.item.start || event.item.end || 'N/A');
 		metaList.createEl('li').createSpan({ text: `Dates: ${dateText}` });
 		if (event.item.location) metaList.createEl('li').createSpan({ text: `Location: ${event.item.location}` });

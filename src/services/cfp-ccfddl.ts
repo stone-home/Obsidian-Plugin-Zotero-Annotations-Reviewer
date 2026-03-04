@@ -1,11 +1,23 @@
 import { requestUrl } from 'obsidian';
 import yaml from 'js-yaml';
-import { CFPItem } from '../types';
+import { CFPItem, CFPRank } from '../types';
 
 const DELAY_MS = 1500;
 
 function delay(ms: number): Promise<void> {
 	return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+export interface CcfRankInfo {
+	ccf?: string;
+	thcpl?: string;
+	sub?: string;
+}
+
+let lastCcfRankMap: Record<string, CcfRankInfo> = {};
+
+export function getCcfRankForSeriesTitle(title: string): CcfRankInfo | undefined {
+	return lastCcfRankMap[title] || undefined;
 }
 
 /**
@@ -54,7 +66,7 @@ function deadlineFromTimeline(timeline: CcfddlTimelineEntry[]): string {
 	return 'N/A';
 }
 
-function parseCcfddlYaml(text: string): CFPItem[] {
+export function parseCcfddlYaml(text: string): CFPItem[] {
 	const items: CFPItem[] = [];
 	let data: CcfddlEntry[];
 	try {
@@ -64,10 +76,27 @@ function parseCcfddlYaml(text: string): CFPItem[] {
 	}
 	if (!Array.isArray(data)) return items;
 
+	// Rebuild rank map on each parse so helpers can be used elsewhere.
+	lastCcfRankMap = {};
+
 	for (const entry of data) {
 		const title = (entry.title ?? '').toString().trim();
 		const fullName = (entry.description ?? title).toString().trim();
 		if (!title) continue;
+
+		// Capture series-level CCF rank metadata.
+		const rankObj = (entry.rank ?? {}) as CFPRank['sources'] & { ccf?: unknown; thcpl?: unknown };
+		const ccf = (rankObj as any)?.ccf?.toString()?.trim();
+		const thcpl = (rankObj as any)?.thcpl?.toString()?.trim();
+		const sub = entry.sub?.toString()?.trim();
+		if (ccf || thcpl || sub) {
+			lastCcfRankMap[title] = {
+				ccf: ccf || undefined,
+				thcpl: thcpl || undefined,
+				sub: sub || undefined
+			};
+		}
+
 		const confs = entry.confs ?? [];
 		for (const conf of confs) {
 			const year = conf.year;

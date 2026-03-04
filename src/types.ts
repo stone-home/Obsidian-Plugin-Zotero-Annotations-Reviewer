@@ -77,6 +77,13 @@ export interface CFPItem {
 	acronym: string;
 	/** Pure series name without year/edition (e.g. "AOSD"); used for folder and series note link. */
 	series?: string;
+	/**
+	 * Optional ranking metadata for this conference series/event.
+	 * At the storage level we only persist ranking on Series notes'
+	 * frontmatter, but this structure can be used when enriching items
+	 * before writing or when deriving rank from external sources.
+	 */
+	rank?: CFPRank;
 	fullName: string;
 	location: string;
 	start?: string;
@@ -90,6 +97,40 @@ export interface CFPItem {
 export interface CFPItemWithPath {
 	item: CFPItem;
 	path: string;
+}
+
+/**
+ * Normalised ranking information combining multiple sources.
+ *
+ * - CORE ranks are taken exclusively from a local CORE.csv file.
+ * - CCF-related ranks are taken from allconf.yml (either remote or local copy).
+ *
+ * Only the data that is also present in Series note frontmatter is used for UI.
+ */
+export interface CFPRank {
+	/** CCF rank (A/B/C/…); comes from allconf.yml. */
+	ccf?: string;
+	/** THCPL rank if present in CCF data. */
+	thcpl?: string;
+	/** CCF subject area (e.g. AI/DB/SE). */
+	sub?: string;
+	/**
+	 * CORE rank letter (A*, A, B, C). This is the only field that should be
+	 * interpreted as the official CORE rank; derived strictly from CORE.csv.
+	 */
+	coreLetter?: 'A*' | 'A' | 'B' | 'C';
+	/**
+	 * Raw CORE status string when it is not a simple A*, A, B, or C letter
+	 * (e.g. "Unranked", "journal published", "National: USA").
+	 */
+	coreStatus?: string;
+	/** Optional provenance information for debugging / diagnostics. */
+	sources?: {
+		ccfTitle?: string;
+		coreAcronym?: string;
+		coreName?: string;
+		coreCollection?: string;
+	};
 }
 
 /** Result of matching a Zotero conference-like note to CFP data. */
@@ -140,6 +181,10 @@ export interface MyPluginSettings {
 	cfpSeriesDataviewJSCode: string;
 	/** Frontmatter key to read conference acronym for direct CFP match (e.g. conference-acronym). If set and non-empty, exact match is tried first. */
 	cfpAcronymKey: string;
+	/** Vault-relative path to a local CORE.csv file used as the authoritative CORE ranking source. */
+	cfpCoreCsvPath: string;
+	/** Vault-relative path to a local allconf.yml used as a fallback when CCFDDL network fetch is unavailable. */
+	cfpCcfddlLocalPath: string;
 }
 
 // --- NEW: DEFAULT DATAVIEW SCRIPT ---
@@ -183,6 +228,8 @@ export const DEFAULT_SETTINGS: MyPluginSettings = {
 	cfpLastDailyRun: 0,
 	cfpSeriesIndexLetters: [],
 	cfpAcronymKey: 'conference-acronym',
+	cfpCoreCsvPath: '',
+	cfpCcfddlLocalPath: '',
 	cfpSeriesDataviewJSCode: `const cur = dv.current();
 if (cur && cur["series-url"]) {
   const programUrl = cur["series-url"];

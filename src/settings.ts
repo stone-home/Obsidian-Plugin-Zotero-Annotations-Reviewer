@@ -23,6 +23,7 @@ import { json } from "@codemirror/lang-json";
 import { oneDark } from "@codemirror/theme-one-dark";
 import ZoteroGKPlugin from './main';
 import { WebhookProfile, WebhookInputVariable } from './types';
+import { normalizePath } from './utils/paths';
 
 // =========================================================================
 // HELPER: Mount CodeMirror Editor
@@ -765,6 +766,37 @@ export class ZoteroSettingTab extends PluginSettingTab {
 			});
 		});
 
+		// === RANKING SOURCES CARD ===
+		const rankCard = container.createDiv({ cls: 'zotero-setting-card' });
+		rankCard.createEl("h3", { text: "Ranking Sources", cls: "zotero-card-title" });
+		rankCard.createDiv({
+			text: "Configure local files for ranking metadata. CORE rankings are loaded from a local CSV; CCF rankings are loaded from allconf.yml (remote URLs above, with an optional local fallback below).",
+			cls: "setting-item-description",
+			attr: { style: "margin-bottom: 12px;" }
+		});
+
+		new Setting(rankCard)
+			.setName('CORE CSV path')
+			.setDesc('Vault-relative path to CORE.csv. When set, this is the only source used for CORE ranks (A*, A, B, C).')
+			.addText(text => text
+				.setPlaceholder('e.g. CFP/CORE/CORE-ICORE2026.csv')
+				.setValue(this.plugin.settings.cfpCoreCsvPath || '')
+				.onChange(async (value) => {
+					this.plugin.settings.cfpCoreCsvPath = value.trim();
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(rankCard)
+			.setName('Local allconf.yml path')
+			.setDesc('Optional vault-relative path to a local copy of allconf.yml. Used as a fallback when CCFDDL URLs are unreachable, and for deriving CCF ranks for Series notes.')
+			.addText(text => text
+				.setPlaceholder('e.g. CFP/CCF/allconf.yml')
+				.setValue(this.plugin.settings.cfpCcfddlLocalPath || '')
+				.onChange(async (value) => {
+					this.plugin.settings.cfpCcfddlLocalPath = value.trim();
+					await this.plugin.saveSettings();
+				}));
+
 		// === ACTIONS CARD ===
 		const actionsCard = container.createDiv({ cls: 'zotero-setting-card' });
 		actionsCard.createEl("h3", { text: "Actions", cls: "zotero-card-title" });
@@ -786,6 +818,36 @@ export class ZoteroSettingTab extends PluginSettingTab {
 				}).open();
 			});
 		});
+
+		const diagRow = actionsCard.createDiv({ cls: "zotero-cfp-actions-row" });
+		new ButtonComponent(diagRow)
+			.setButtonText('Check ranking sources')
+			.onClick(async () => {
+				const s = this.plugin.settings;
+				const corePath = (s.cfpCoreCsvPath || '').trim();
+				const ccfLocal = (s.cfpCcfddlLocalPath || '').trim();
+				const messages: string[] = [];
+
+				if (corePath) {
+					const normalized = normalizePath(corePath);
+					const file = this.app.vault.getAbstractFileByPath(normalized);
+					if (file) messages.push(`CORE CSV: found at ${normalized}`);
+					else messages.push(`CORE CSV: not found at ${normalized}`);
+				} else {
+					messages.push('CORE CSV: path not set.');
+				}
+
+				if (ccfLocal) {
+					const normalized = normalizePath(ccfLocal);
+					const file = this.app.vault.getAbstractFileByPath(normalized);
+					if (file) messages.push(`Local allconf.yml: found at ${normalized}`);
+					else messages.push(`Local allconf.yml: not found at ${normalized}`);
+				} else {
+					messages.push('Local allconf.yml: path not set.');
+				}
+
+				new Notice(messages.join('\n'));
+			});
 	}
 }
 

@@ -1,7 +1,7 @@
-import { App, normalizePath, Notice, TFile } from 'obsidian';
+import { App, Notice, TFile } from 'obsidian';
 import { CFPItem, MyPluginSettings, CFPItemWithPath, CFPConferenceMatch } from '../types';
 import { fetchWikiCFP } from './cfp-wikicfp';
-import { fetchCcfddl } from './cfp-ccfddl';
+import { fetchCcfddl, parseCcfddlYaml, getCcfRankForSeriesTitle, CcfRankInfo } from './cfp-ccfddl';
 import {
 	fetchWikiCFPSeriesIndex,
 	fetchSeriesEvents,
@@ -11,6 +11,8 @@ import {
 import { fetchEasychair } from './cfp-easychair';
 import { fetchOpenresearch } from './cfp-openresearch';
 import { pureSeriesFromAcronym } from '../utils/series';
+import { CoreRankIndex, parseCoreCsv, getCoreRankForSeries as getCoreRankForSeriesFromIndex, CoreRankForSeries } from './cfp-core';
+import { normalizePath } from '../utils/paths';
 
 function sanitizeFileName(name: string): string {
 	return name
@@ -123,8 +125,72 @@ export class CFPService {
 		private saveSettings: () => Promise<void>
 	) {}
 
+	private coreIndex: CoreRankIndex | null = null;
+	private coreIndexPath: string | null = null;
+
 	getLastFetchTime(): number {
 		return this.getSettings().cfpLastFetchTime ?? 0;
+	}
+
+	/** Load and cache CORE.csv index based on current settings. */
+	private async getOrLoadCoreIndex(): Promise<CoreRankIndex | null> {
+		const pathSetting = (this.getSettings().cfpCoreCsvPath || '').trim();
+		if (!pathSetting) return null;
+
+		const normalized = normalizePath(pathSetting);
+		if (this.coreIndex && this.coreIndexPath === normalized) {
+			return this.coreIndex;
+		}
+
+		const file = this.app.vault.getAbstractFileByPath(normalized);
+		if (!file || !(file instanceof TFile)) {
+			console.warn('[CFP] CORE CSV file not found at path:', normalized);
+			return null;
+		}
+
+		try {
+			const text = await this.app.vault.read(file);
+			const index = parseCoreCsv(text);
+			this.coreIndex = index;
+			this.coreIndexPath = normalized;
+			return index;
+		} catch (e) {
+			console.warn('[CFP] failed to read/parse CORE CSV at', normalized, e);
+			this.coreIndex = null;
+			this.coreIndexPath = null;
+			return null;
+		}
+	}
+
+	/** Convenience wrapper: derive CORE rank for a given series name. */
+	private async getCoreRankForSeries(seriesName: string): Promise<CoreRankForSeries | null> {
+		const index = await this.getOrLoadCoreIndex();
+		if (!index) return null;
+		return getCoreRankForSeriesFromIndex(index, seriesName);
+	}
+
+	/** Try to find CCF rank info for a given series title, with optional local YAML fallback. */
+	private async getCcfRankForSeries(seriesTitle: string): Promise<CcfRankInfo | null> {
+		const direct = getCcfRankForSeriesTitle(seriesTitle);
+		if (direct) return direct;
+
+		// If we have not yet parsed any YAML, try local allconf.yml once.
+		const s = this.getSettings();
+		const localPath = (s.cfpCcfddlLocalPath || '').trim();
+		if (!localPath) return null;
+
+		try {
+			const normalized = normalizePath(localPath);
+			const file = this.app.vault.getAbstractFileByPath(normalized);
+			if (!file || !(file instanceof TFile)) return null;
+			const text = await this.app.vault.read(file);
+			// This call will rebuild lastCcfRankMap internally.
+			parseCcfddlYaml(text);
+			return getCcfRankForSeriesTitle(seriesTitle) ?? null;
+		} catch (e) {
+			console.warn('[CFP] failed to load local allconf.yml for CCF rank at', localPath, e);
+			return null;
+		}
 	}
 
 	async setLastFetchTime(t: number): Promise<void> {
@@ -184,7 +250,7 @@ export class CFPService {
 		const s = this.getSettings();
 		// Priority: WikiCFP > CCFDDL > EasyChair > OpenResearch (first occurrence wins)
 		const wikicfp = s.cfpWikicfpUrls?.length ? await fetchWikiCFP(s.cfpWikicfpUrls) : [];
-		const ccfddl = s.cfpCcfddlUrls?.length ? await fetchCcfddl(s.cfpCcfddlUrls) : [];
+		const ccfddl = await this.fetchCcfddlWithFallback();
 		const easychair = s.cfpEasychairUrls?.length ? await fetchEasychair(s.cfpEasychairUrls) : [];
 		const openresearch = s.cfpOpenresearchUrls?.length ? await fetchOpenresearch(s.cfpOpenresearchUrls) : [];
 		const combined = [...wikicfp, ...ccfddl, ...easychair, ...openresearch];
@@ -266,6 +332,13 @@ export class CFPService {
 			const existingUrl = cache?.frontmatter?.['series-url']?.toString?.();
 			if (existingUrl) seriesUrl = existingUrl;
 		}
+
+		// Compute ranking metadata (CCF + CORE) for this series.
+		const [ccfRank, coreRank] = await Promise.all([
+			this.getCcfRankForSeries(seriesName),
+			this.getCoreRankForSeries(seriesName)
+		]);
+
 		const fmLines = [
 			'title: ' + JSON.stringify(title),
 			'tags: ' + JSON.stringify(defaultTags),
@@ -279,6 +352,15 @@ export class CFPService {
 				: seriesFullName.trim();
 			if (displayName) fmLines.push('series-full-name: ' + JSON.stringify(displayName));
 		}
+
+		// Persist ranking only on Series notes.
+		if (ccfRank?.ccf) fmLines.push('rank_ccf: ' + JSON.stringify(ccfRank.ccf));
+		if (ccfRank?.thcpl) fmLines.push('rank_thcpl: ' + JSON.stringify(ccfRank.thcpl));
+		if (ccfRank?.sub) fmLines.push('rank_sub: ' + JSON.stringify(ccfRank.sub));
+		if (coreRank?.coreLetter) fmLines.push('rank_core: ' + JSON.stringify(coreRank.coreLetter));
+		if (coreRank?.coreStatus) fmLines.push('rank_core_status: ' + JSON.stringify(coreRank.coreStatus));
+		if (coreRank?.collection) fmLines.push('rank_core_collection: ' + JSON.stringify(coreRank.collection));
+
 		const fm = fmLines.join('\n');
 		const tableQuery = [
 			'TABLE file.link as "Event", acronym as "Acronym", "full-name" as "Full Name", location as "Location", submission_ddl as "Deadline", start as "Start", end as "End", cfp-source as "Source", url as "URL"',
@@ -321,8 +403,7 @@ export class CFPService {
 	async refreshCcfddlUrls(): Promise<void> {
 		new Notice('Refreshing CCFDDL URLs...');
 		try {
-			const s = this.getSettings();
-			const items = s.cfpCcfddlUrls?.length ? await fetchCcfddl(s.cfpCcfddlUrls) : [];
+			const items = await this.fetchCcfddlWithFallback();
 			const synced = await this.syncToNotes(items);
 			new Notice(`CCFDDL URLs refreshed. ${synced} items synced.`);
 		} catch (e) {
@@ -355,6 +436,81 @@ export class CFPService {
 			console.error('[CFP] OpenResearch URLs refresh failed', e);
 			new Notice('OpenResearch URLs refresh failed. See console.');
 		}
+	}
+
+	/** Fetch CFP items from CCFDDL URLs with optional local allconf.yml fallback. */
+	private async fetchCcfddlWithFallback(): Promise<CFPItem[]> {
+		const s = this.getSettings();
+		const urls = s.cfpCcfddlUrls ?? [];
+		let items: CFPItem[] = [];
+
+		if (urls.length > 0) {
+			try {
+				items = await fetchCcfddl(urls);
+			} catch (e) {
+				console.warn('[CFP] CCFDDL URL fetch failed, will try local fallback if configured.', e);
+			}
+		}
+
+		// If we got nothing from URLs and a local path is configured, try local YAML.
+		if (items.length === 0 && s.cfpCcfddlLocalPath) {
+			try {
+				const localPath = normalizePath(s.cfpCcfddlLocalPath);
+				const file = this.app.vault.getAbstractFileByPath(localPath);
+				if (file && file instanceof TFile) {
+					const text = await this.app.vault.read(file);
+					items = parseCcfddlYaml(text);
+				} else {
+					console.warn('[CFP] Local allconf.yml not found at', localPath);
+				}
+			} catch (e) {
+				console.warn('[CFP] Failed to read/parse local allconf.yml fallback at', s.cfpCcfddlLocalPath, e);
+			}
+		}
+
+		return items;
+	}
+
+	/**
+	 * Update ranking fields on a single Series note (frontmatter only),
+	 * keeping the note body and other metadata intact.
+	 */
+	private async updateSeriesNoteRank(seriesName: string): Promise<void> {
+		const s = this.getSettings();
+		const baseDir = (s.cfpNoteDir || 'CFP').trim() || 'CFP';
+		const seriesFolder = normalizePath(baseDir + '/' + sanitizeFileName(seriesName));
+		const seriesPath = normalizePath(seriesFolder + '/' + sanitizeFileName(seriesName) + ' Series.md');
+		const file = this.app.vault.getAbstractFileByPath(seriesPath);
+		if (!file || !(file instanceof TFile)) return;
+
+		const [ccfRank, coreRank] = await Promise.all([
+			this.getCcfRankForSeries(seriesName),
+			this.getCoreRankForSeries(seriesName)
+		]);
+
+		const content = await this.app.vault.read(file);
+		const match = content.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
+		if (!match) return;
+
+		const yamlPart = match[1];
+		const body = match[2] ?? '';
+
+		const lines = yamlPart.split('\n');
+		const cleaned = lines.filter(line => {
+			const trimmed = line.trim();
+			return !/^(rank_ccf|rank_thcpl|rank_sub|rank_core|rank_core_status|rank_core_collection)\s*:/.test(trimmed);
+		});
+
+		if (ccfRank?.ccf) cleaned.push('rank_ccf: ' + JSON.stringify(ccfRank.ccf));
+		if (ccfRank?.thcpl) cleaned.push('rank_thcpl: ' + JSON.stringify(ccfRank.thcpl));
+		if (ccfRank?.sub) cleaned.push('rank_sub: ' + JSON.stringify(ccfRank.sub));
+		if (coreRank?.coreLetter) cleaned.push('rank_core: ' + JSON.stringify(coreRank.coreLetter));
+		if (coreRank?.coreStatus) cleaned.push('rank_core_status: ' + JSON.stringify(coreRank.coreStatus));
+		if (coreRank?.collection) cleaned.push('rank_core_collection: ' + JSON.stringify(coreRank.collection));
+
+		const newYaml = cleaned.join('\n');
+		const newContent = `---\n${newYaml}\n---\n${body}`;
+		await this.app.vault.modify(file, newContent);
 	}
 
 	/**
@@ -402,6 +558,12 @@ export class CFPService {
 		const map = this.getSeriesMap();
 		map[seriesAcronym] = { programUrl, lastUpdate: Date.now() };
 		await this.saveSeriesMap(map);
+		// After events are synced, refresh ranking metadata on the Series note.
+		try {
+			await this.updateSeriesNoteRank(seriesAcronym);
+		} catch (e) {
+			console.warn('[CFP] failed to update Series rank after refreshSeriesByUrl for', seriesAcronym, e);
+		}
 		onProgress?.(`Synced ${synced} events.`);
 	}
 
@@ -924,5 +1086,31 @@ export class CFPService {
 		const upcoming = withPathAndTs.filter(x => x.ts >= now).sort((a, b) => a.ts - b.ts).map(({ item, path }) => ({ item, path }));
 		const past = withPathAndTs.filter(x => x.ts > 0 && x.ts < now).sort((a, b) => b.ts - a.ts).map(({ item, path }) => ({ item, path }));
 		return { upcoming, past };
+	}
+
+	/** Recompute and persist ranks for all existing Series notes. */
+	async updateAllSeriesNotesRank(): Promise<number> {
+		const s = this.getSettings();
+		const dir = (s.cfpNoteDir || 'CFP').trim() || 'CFP';
+		const dirPath = normalizePath(dir);
+		const prefix = dirPath + '/';
+		const files = this.app.vault.getMarkdownFiles().filter(f => {
+			if (!f.path.startsWith(prefix)) return false;
+			const cache = this.app.metadataCache.getFileCache(f);
+			return cache?.frontmatter?.['cfp-series'] === true;
+		});
+
+		let updated = 0;
+		for (const file of files) {
+			const base = file.basename.replace(/\s+Series$/i, '').trim();
+			if (!base) continue;
+			try {
+				await this.updateSeriesNoteRank(base);
+				updated++;
+			} catch (e) {
+				console.warn('[CFP] failed to update Series rank for', file.path, e);
+			}
+		}
+		return updated;
 	}
 }

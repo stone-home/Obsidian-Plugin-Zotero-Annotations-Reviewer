@@ -220,6 +220,8 @@ export default class ZoteroGKPlugin extends Plugin {
 		if (!Array.isArray(this.settings.cfpSeriesIndexLetters)) this.settings.cfpSeriesIndexLetters = DEFAULT_SETTINGS.cfpSeriesIndexLetters;
 		if (typeof this.settings.cfpSeriesDataviewJSCode !== 'string') this.settings.cfpSeriesDataviewJSCode = DEFAULT_SETTINGS.cfpSeriesDataviewJSCode;
 		if (typeof this.settings.cfpAcronymKey !== 'string') this.settings.cfpAcronymKey = DEFAULT_SETTINGS.cfpAcronymKey;
+		if (typeof this.settings.cfpCoreCsvPath !== 'string') this.settings.cfpCoreCsvPath = DEFAULT_SETTINGS.cfpCoreCsvPath;
+		if (typeof this.settings.cfpCcfddlLocalPath !== 'string') this.settings.cfpCcfddlLocalPath = DEFAULT_SETTINGS.cfpCcfddlLocalPath;
 	}
 
 	async saveSettings() {
