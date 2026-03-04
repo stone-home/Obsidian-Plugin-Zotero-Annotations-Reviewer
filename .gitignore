@@ -151,3 +151,6 @@ coverage/
 .vscode/
 *.swp
 .DS_Store
+
+# Obsidian
+data.json
