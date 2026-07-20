@@ -1,0 +1,103 @@
+---
+description: "PlantUML in Markdown fenced code blocks (```plantuml). Syntax, structure, and style for diagrams embedded in docs. Use when editing Markdown docs with PlantUML blocks, generating module/paper documentation with diagrams, or when the user asks for PlantUML in docs. Standalone .puml files and CLI text export are secondary."
+globs:
+  - "docs/**/*.md"
+  - "**/*.puml"
+  - "**/*.plantuml"
+  - "**/*.iuml"
+alwaysApply: false
+---
+
+<!-- AUTO-GENERATED from .claude/skills/code-diagram-plantuml/SKILL.md by scripts/sync_rules.py — DO NOT EDIT. Edit the SKILL.md, then run `python scripts/sync_rules.py`. -->
+
+# PlantUML (Markdown-first)
+
+**Primary workflow:** PlantUML lives in **Markdown fenced code blocks** with the `plantuml` language tag. When generating or editing diagrams, produce or update the **Markdown document** and place complete PlantUML inside ` ```plantuml ` … ` ``` `.
+
+Standalone `.puml` / `.plantuml` / `.iuml` files and CLI text export are **secondary**—use only when the user explicitly asks or when a build step already expects separate sources.
+
+## Markdown output format
+
+When creating or extending a doc that needs a diagram:
+
+1. Write normal Markdown (headings, prose, lists) around the diagram.
+2. Insert a fenced block with language **`plantuml`** (not `puml`, `uml`, or bare ` ``` `).
+3. Put **complete, valid** PlantUML inside the fence, including `@startuml` … `@enduml`.
+
+```markdown
+### Section title
+
+Brief prose explaining what the diagram shows.
+
+```plantuml
+@startuml example-sequence
+Alice -> Bob : Request
+Bob --> Alice : Response
+@enduml
+```
+```
+
+- Do **not** output bare PlantUML without the Markdown fence unless the user asked for a standalone `.puml` file.
+- Do **not** mix Mermaid, Graphviz, or other diagram languages in the same block unless the user explicitly asks.
+- Prefer **one main story per block**; add another fenced `plantuml` block (with its own `@startuml` title) rather than cramming unrelated diagrams into one block.
+
+## Structure
+
+- Wrap every diagram in `@startuml` … `@enduml` (or `@startmindmap`, `@startditaa`, etc. for the matching diagram type).
+- Give each diagram a **stable title** after the start tag (e.g. `@startuml module-trainer-classes`) when a doc holds more than one block or you reference it from elsewhere.
+- Prefer `!include` / `!includeurl` for shared styles only when the project's doc toolchain already supports includes in embedded blocks—do not assume includes work in every Markdown preview.
+
+## Readability
+
+- Split very large diagrams into multiple blocks or use `package` / `rectangle` / `boundary` groupings within one block.
+- Use **consistent direction** (`left to right direction`, `top to bottom direction`) once per diagram where it helps layout.
+- Prefer **short, English** labels (project convention); avoid ambiguous abbreviations without a legend.
+- GitHub's native Markdown preview does **not** render PlantUML; assume Obsidian, a PlantUML-capable preview, or exported SVG/PNG when the user needs inline rendering.
+
+## Style
+
+- Repeat `skinparam` / `!theme` inline in the block when docs are self-contained; centralise in an included preamble only when the build already shares one across diagrams.
+- Use standard libraries (e.g. AWS, C4, Kubernetes) only when already a project dependency or when the user asked for that notation—do not introduce new macro dependencies silently.
+
+## Syntax hygiene
+
+- Escape or quote labels that contain `]` `|` or special arrow fragments; prefer `<b>` / `\n` for line breaks in labels when needed.
+- Prefer explicit `alias` for nodes that are referenced often in sequences or deployments.
+- After edits, mentally verify: every `participant` / `component` / `package` that should connect actually has a valid link; no orphan `endif` / `end` / `fork` pairing mistakes.
+
+## Agent workflow
+
+1. Identify or create the target **Markdown file** (e.g. under `docs/notes/`, `docs/papers/`).
+2. Add or edit prose and a ` ```plantuml ` block with valid `@startuml` … `@enduml` content.
+3. Return the **Markdown** (or patch the open `.md` file)—not a detached snippet unless the user only wanted the inner PlantUML.
+
+Extract to a standalone `.puml` file only when the diagram is reused across many docs, exceeds comfortable inline size, or the user requests it.
+
+## Optional: standalone files and text export
+
+Use when explicitly needed (CI, local preview, terminal-friendly output):
+
+| Goal | Command / format | Notes |
+|------|------------------|-------|
+| Docs / preview | SVG, PNG (`plantuml`) | Export from a `.puml` scratch file or extracted block |
+| Terminal / plain text | `plantuml -utxt` → `*.utxt` | Unicode box-drawing; usually the best text mode |
+| Strict ASCII only | `plantuml -txt` → `*.atxt` | No Unicode box-drawing glyphs |
+
+```bash
+plantuml -utxt diagram.puml          # -> diagram.utxt
+plantuml -txt diagram.puml           # -> diagram.atxt
+```
+
+For text export: write or extract PlantUML to a `.puml` file, run `plantuml -utxt` (or `-txt`), then paste the result if the user asked for terminal-friendly output. Keep diagrams **simple** in text mode—dense graphs align poorly.
+
+## Install (optional CLI)
+
+- **macOS:** `brew install plantuml`
+- **Debian/Ubuntu:** `sudo apt-get install plantuml`
+- **JAR:** [PlantUML releases](https://github.com/plantuml/plantuml/releases) → `java -jar plantuml.jar …`
+
+## Troubleshooting
+
+- **Block not rendering:** confirm fence language is exactly `plantuml` and the block includes `@startuml` / `@enduml`.
+- **Garbled Unicode (text export):** UTF-8 terminal and a font with box-drawing glyphs.
+- **`plantuml` not found:** package install or `java -jar plantuml.jar`.

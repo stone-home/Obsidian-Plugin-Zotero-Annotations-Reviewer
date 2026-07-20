@@ -1,0 +1,180 @@
+---
+description: "Zettelkasten Atomic and Protocol note generation under the flat docs/notes/ hub as SHL - Note - ….md (same folder as SHL - Module - … guides; not academic staging). Deduplicate against existing notes and link with [[Wiki-Links]]. Use when asked to generate an Atomic or Protocol note."
+globs:
+  - "docs/notes/**.md"
+alwaysApply: false
+---
+
+<!-- AUTO-GENERATED from .claude/skills/docs-notes-zettelkasten/SKILL.md by scripts/sync_rules.py — DO NOT EDIT. Edit the SKILL.md, then run `python scripts/sync_rules.py`. -->
+
+# Zettelkasten Knowledge Management
+
+**Trigger:** When asked to generate an "Atomic" or "Protocol" note.
+**Context Boundaries:** Strictly limit context to project code and current Agent history prior to the command.
+**Deduplication:** Check `docs/notes/` for existing content. Merge if identical/overlapping; use `[[Wiki-Links]]` if related.
+
+## Note Types & Naming
+
+- **Directory (locked, flat):** `docs/notes/` — shared hub with module guides; **no subfolders**. Type is in the filename.
+- **Not academic staging:** never write under `docs/papers/pkm/` or `docs/papers/eval/`.
+- **Atomic (Concepts/Theories):** `SHL - Note - <Broad Category>-<Sub Category>-<Subjective Thesis>.md`
+- **Protocol (Procedures/How-tos):** `SHL - Note - <Broad Category>-<Sub Category>-<Specific Task>.md`
+- **Module guides (same folder, other skill):** `SHL - Module - <name>.md` — written by **docs-module-guide**, not this skill.
+
+## Title Construction (Strict Hierarchy)
+
+Applies to Atomic notes (and Protocol notes with the same category/sub-category rules; Protocol replaces Subjective Thesis with Specific Task).
+
+- **H1 format:** `# Atomic - <Broad Category> - <Sub Category> - <Subjective Thesis>`
+- **Filename:** derive from the H1 by replacing spaces with ASCII hyphens, then prefix `SHL - Note - ` (no other punctuation).
+
+### Broad Category
+
+MUST be chosen from this fixed list (never invent new ones or synonyms):
+
+`[ML-Sys, GPU, PyTorch, Distributed, Math, Algorithm, Writing, Ansible, Kubernetes, GitOps, DevOps, Infrastructure, Linux, Docker, Databases, Tooling, Documentation]`
+
+Extend this list manually when needed; ask the user if none fits.
+
+### Sub Category
+
+- A 1–2 word noun phrase.
+- Reuse verbatim from existing notes' sub-categories whenever possible (scan `docs/notes/` before inventing a new one).
+
+### Subjective Thesis
+
+- MAX 8 words. Not a full sentence with filler.
+- MUST start with the core term/entity (keyword-first), e.g. "ZeRO-3 trades comms for memory", never "How memory is saved by...".
+- Template B (terminology / factual notes): MUST contain the term's canonical name verbatim (plus acronym if any).
+- Banned openers: "How", "Why", "About", "An overview of", "Understanding".
+
+### Filename safety
+
+No colons, slashes, quotes, or parentheses in the title; ASCII hyphens only.
+
+### Tag / title alignment
+
+The first two tags in YAML front matter MUST equal `<Sub Category>` and the core term, so tag search and title search always agree.
+
+## Content Quality Rules (per section)
+
+### Definition
+
+- Exactly ONE sentence, genus–differentia form.
+- The term's canonical name (and acronym) MUST appear verbatim.
+- No circular definitions.
+
+### Synthesis
+
+- A falsifiable claim, not a restatement of the Definition.
+- Preferred shape: "<X> achieves <Y> because <mechanism>, at the cost of <Z>."
+- Banned: "is important", "plays a key role", "is widely used".
+
+### Key Arguments / Characteristics
+
+- The bolded lead-in MUST be a searchable keyword or short phrase (never "Argument 1").
+- Each bullet self-contained, max 2 sentences; keep all concrete numbers and units.
+
+### Source preservation
+
+- Strip system citation tags, but CONVERT them to plain-text attributions, e.g. `(Rajbhandari et al., SC'20)`.
+- Never drop the source entirely.
+
+### Detailed Explanation (Template B)
+
+Fixed order:
+
+1. Problem it solves
+2. Mechanism step by step
+3. Limitations / when it does NOT apply
+
+### Related Concepts
+
+- Relationship must be typed: `is-a` / `contrasts-with` / `prerequisite-of` / `supersedes`.
+- Use canonical term names only.
+
+### Thoughts
+
+- Only genuine reflections or research gaps; if none, write `TODO: revisit`.
+- No generic filler.
+
+### Language & searchability
+
+- Technical terms always in English (original form).
+- Expand any acronym once in the body.
+- Whole note readable in ~1 min.
+
+## Atomic Note Template
+
+```markdown
+---
+tags: [<Sub Category>, <core term>, ...]
+note_id: <unique lowercase alphanumeric ID>
+date: YYYY-MM-DD
+---
+
+# Atomic - <Broad Category> - <Sub Category> - <Subjective Thesis>
+
+## **📖 Definition**
+*(Include only for concept/term definitions)*
+- <ONE genus–differentia sentence; canonical name + acronym verbatim.>
+
+## **📑 Detailed Explanation**
+*(Template B / Terminology or Factual notes only; fixed order)*
+1. **Problem:** <what it solves>
+2. **Mechanism:** <step by step>
+3. **Limits:** <when it does NOT apply>
+
+## **🔢 Mathematical Formula**
+*(Include only for mathematical concepts)*
+- <Use LaTeX, e.g., $E=mc^2$>
+
+## **💎 Synthesis (The "One Truth")**
+<Falsifiable claim: X achieves Y because mechanism, at the cost of Z.>
+
+## **🧠 Key Arguments & Evidence**
+- **<searchable keyword>**: <Explanation/Evidence; max 2 sentences; keep numbers/units>
+- **<searchable keyword>**: <Explanation/Evidence>
+
+## **🔗 Related Concepts**
+- **is-a** / **contrasts-with** / **prerequisite-of** / **supersedes**: [[Canonical Term]]
+
+## **💭 Thoughts & Implications**
+- <Genuine reflection or research gap; else TODO: revisit>
+```
+
+## Protocol Note Template
+
+```markdown
+---
+tags: [<Sub Category>, <core term>, empirical, technical]
+note_id: <unique lowercase alphanumeric ID>
+date: YYYY-MM-DD
+---
+
+# Protocol - <Broad Category> - <Sub Category> - <Specific Task>
+
+# 1. Quick Snippet
+## [Scenario]
+\`\`\`<language>
+(code)
+\`\`\`
+
+# 2. Environment Setup
+- (Prerequisites/dependencies)
+
+# 3. Troubleshooting
+- (Problem statement)
+    - **[Technical Concept]**: (Explanation)
+    - **[Solution]**: (Details)
+
+# 4. Extra Information
+(References; plain-text attributions only)
+```
+
+## Execution Protocol (CRITICAL)
+
+1. **Analyze:** Determine note type and category from the fixed Broad Category list; extract Sub Category and Subjective Thesis under Title Construction rules; concepts come only from the allowed context.
+2. **Prepare:** Generate all content, tags (first two = Sub Category + core term), and IDs in memory; apply Content Quality Rules to every section.
+3. **Preview:** Present the complete, fully formatted note preview to the user.
+4. **Gate:** Run **global-prose-readability-gate** on Synthesis, Key Arguments, and Thoughts prose before write or final preview.

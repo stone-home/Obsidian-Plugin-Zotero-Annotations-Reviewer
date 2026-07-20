@@ -1,0 +1,59 @@
+---
+description: "Mandatory readability/readiness gate to run on substantive prose before delivering it — papers, module docs, Zettelkasten notes, eval reports, reviews, plans. Embedded by the academic/docs writing skills; runs the academic-review-readability audit and enforces a pass bar (score, sentence load, term hygiene, zero inflated-word hits) before the file is written or returned. Use before shipping multi-sentence prose unless the user opts out."
+alwaysApply: false
+---
+
+<!-- AUTO-GENERATED from .claude/skills/global-prose-readability-gate/SKILL.md by scripts/sync_rules.py — DO NOT EDIT. Edit the SKILL.md, then run `python scripts/sync_rules.py`. -->
+
+# Prose readability gate
+
+**Role:** Final quality check before any guide returns user-facing prose.
+
+**When to run:** After drafting, **before** writing the file or returning the deliverable to the user.
+Any guide that produces papers, module docs, Zettelkasten notes, eval reports, reviews,
+plans, or other multi-sentence prose MUST invoke this gate — unless the user explicitly
+says to skip it.
+
+**Audit procedure:** Follow **academic-review-readability** in full (Part B first, then Part A,
+machine report format, `[DECISION: …]` routing signal, rewrite directives for gaps). Caller =
+agent pipeline (embedded).
+
+**What to audit:** Prose paragraphs only. Skip code fences, JSON/YAML blocks, numeric tables,
+PlantUML, frontmatter, and checkbox lists.
+
+---
+
+## Default pass bar
+
+Ship only when **all** hold:
+
+- **`[DECISION: PASS]`** per academic-review-readability decision threshold
+- Readiness score **≥ 75/100** (Good band or better)
+- **No ⚠️ Partial or ❌ Missing** on any content unit in Part B
+- **Sentence load** ≥ 4/5
+- **Term hygiene** ≥ 4/5 — acronyms expanded on first use in each major section
+- **Zero** hits on academic-writing-paper §7 inflated-word list in audited prose
+
+## Guide-specific overrides
+
+| Guide | Extra bar |
+|------|-----------|
+| `docs-module-guide` | Score **≥ 80/100**; no information-density flags in Overview and per-component Role paragraphs |
+| `academic-writing-paper` | Mandatory every delivery (no prose-size exemption); every section/subsection opens with §4 big picture before formalism; split any sentence flagged for **Sentence load** per §2 |
+
+---
+
+## Revision loop
+
+1. Run the audit on the current draft.
+2. If any pass-bar item fails → revise per audit feedback (fix highest reader-cost items first).
+3. Re-audit the revised prose.
+4. **Cap at 3 rounds.** If still failing, stop and give the user the remaining gaps — do not ship silently.
+5. Report briefly: rounds taken, final score, top fixes applied.
+
+## Exemptions (skip gate)
+
+- One-line or single-paragraph answers
+- Commit messages, PR titles, pure code edits
+- `global-comm-english-tutor` correction block at the start of a response
+- User explicitly requests no readability audit

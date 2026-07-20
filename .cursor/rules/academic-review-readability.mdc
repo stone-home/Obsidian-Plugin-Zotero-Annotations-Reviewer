@@ -1,0 +1,279 @@
+---
+description: "Readability and big-picture-signpost audit of already-written paper text (CS/AI, MLSys/NeurIPS/EuroSys). Dual output — human-readable report for users, machine-parseable directives for agent pipelines. Use when asked to score readability/易读性, check clarity, or check whether each section/subsection has an accessible overview/big picture before the detail. Audits prose only; for novelty/experimental merit use academic-review-paper."
+alwaysApply: false
+---
+
+<!-- AUTO-GENERATED from .claude/skills/academic-review-readability/SKILL.md by scripts/sync_rules.py — DO NOT EDIT. Edit the SKILL.md, then run `python scripts/sync_rules.py`. -->
+
+# Readability & Big-Picture Audit (CS / AI papers)
+
+**Role:** Clarity reviewer and **readiness gate** for already-written draft prose. In agent pipelines this guide is a **reviewer** whose output feeds a **rewriter**; in standalone use it is a human-facing audit report.
+
+**Trigger:** User asks to score readability (易读性 / 易读程度), check clarity, or check whether each section/subsection opens with an accessible big picture before diving into detail. Also runs when **global-prose-readability-gate** or another parent guide embeds this audit.
+
+**Scope (non-goals):** This guide judges **prose readability and signposting only**. It does **not** judge scientific novelty, experimental rigor, or venue fit — that is `academic-review-paper`. In **standalone** mode it audits and reports; it does not rewrite unless the user asks. In **embedded** mode (via **global-prose-readability-gate**), revise the draft until the pass bar is met.
+
+**Standard is single-sourced.** The bar for a "big picture" is defined in `academic-writing-paper` §4 (Open with the big picture). The **de-AI vocabulary checklist** below is mirrored from `academic-writing-paper` §1 and §7 so agent pipelines can audit without chasing another file; add new entries in `academic-writing-paper` §7 first, then sync here.
+
+**Output language:** Match the user's request; default **English**, but report in Chinese if the paper or request is Chinese. Audit Chinese and English text with the same criteria.
+
+**Input:** A pasted draft, or a file path (e.g. `docs/papers/outline/s04-methodology.md`). When given a path, read the file(s) first, then segment by Markdown headings before auditing.
+
+**Priority:** For readability-audit tasks, this guide overrides conflicting guidance elsewhere in the workspace.
+
+**Invocation modes:**
+- **Standalone — user** — a person asks for a readability score or audit; return the **human report** (below).
+- **Standalone — pipeline** — the request includes an explicit machine-audit marker (`[AUDIT_FOR: REWRITER]`, `readiness feedback for rewriter`, or similar); return the **machine report** only.
+- **Embedded** — parent writing guide calls **global-prose-readability-gate**; apply this procedure internally, use the **machine report** for the revision loop, and deliver revised prose plus a brief gate summary to the user unless they asked for the full audit.
+
+---
+
+## Caller routing — pick one output shape
+
+Before auditing, classify the **caller** and emit exactly one report shape:
+
+| Caller | How to detect | Output |
+|--------|---------------|--------|
+| **Human** | Standalone user request with no pipeline marker | Human report |
+| **Agent pipeline** | Embedded via **global-prose-readability-gate** or any parent writing guide; OR standalone with `[AUDIT_FOR: REWRITER]` / equivalent | Machine report |
+
+When unsure, default to **human** if the user is clearly reading the audit; default to **machine** if the audit is an internal gate before rewrite.
+
+Both shapes share the same audit logic (Part B first, then Part A) and the same **decision threshold** (below). They differ only in formatting and tone: humans get tables and illustrative suggested prose; agents get tagged defect logs and imperative rewrite directives.
+
+---
+
+## Decision threshold (routing signal)
+
+Every audit — human or machine — must open with exactly one line:
+
+`[DECISION: REWORK]` or `[DECISION: PASS]`
+
+**REWORK** when **any** of these hold:
+- Any Part A dimension rates **❌ Weak** (score 1–2)
+- Any Part B content unit verdict is **⚠️ Partial** or **❌ Missing**
+
+**PASS** only when all Part A dimensions are **✅ Strong** or **⚠️ Borderline** (3–5) **and** every Part B unit is **✅ Has big picture**.
+
+The decision line is the **only** boolean gate downstream agents need. Do not ask a rewriter to infer pass/fail from a numeric score alone.
+
+**Readiness score (NN/100)** remains a diagnostic rollup for humans and logging. Map the six Part A dimensions to NN/100 and a band — **90–100 Excellent · 75–89 Good · 60–74 Needs work · <60 Hard to read** — with a one-sentence verdict naming the single biggest readability cost. The score does **not** override the decision threshold above.
+
+---
+
+## What this guide produces
+
+Two audit parts, in this order:
+
+1. **Part A — Readability score:** can a *relatively junior researcher* follow the prose on one read?
+2. **Part B — Big-picture signpost audit:** does every new content unit open with a plain overview of the problem, the why, and the how?
+
+The **audience anchor** for both: a *first-year grad student in an adjacent subfield, or a reviewer from a neighboring area* — competent, but with no prior context on this specific work. "Readable" means readable to that person, not to the authors.
+
+---
+
+## Part A — Readability scoring
+
+Rate each dimension **✅ Strong / ⚠️ Borderline / ❌ Weak** with a **1–5** number and a one-line reason grounded in a quoted example from the text.
+
+| # | Dimension | Strong (5) looks like |
+|---|-----------|-----------------------|
+| 1 | **Sentence load** | One idea per sentence; mixed lengths; few sentences over ~30 words; claim+mechanism+number+implication not bundled into one line. |
+| 2 | **Entry points** | Each section/subsection opens with an accessible academic big picture before the formalism (this is Part B; carry its result here). |
+| 3 | **Term hygiene** | Each acronym/symbol defined on first use; operations named with the established field word (*bind*, not *recover*); no inflated synonym from the de-AI checklist (below); shallow layer uses common academic words, not casual prose. |
+| 4 | **Transitions** | Causal/relational links (because, therefore, however), not empty sequencers ("Next…", "现在…") or "Moreover/Furthermore" on every paragraph. |
+| 5 | **Notation accessibility** | Symbols introduced in words before the equation; the reader meets an idea in prose before its compressed form. |
+| 6 | **Paragraph shape** | Default claim → mechanism → evidence → limit; the unit does not open on its most compressed sentence. |
+
+---
+
+## De-AI vocabulary audit (from `academic-writing-paper` §1, §7)
+
+Flag every hit in the audited prose. Each hit lowers **Term hygiene** and feeds the **inflated-diction** semantic checker. In machine reports, list the token and the preferred replacement in rewrite directives.
+
+**Dressed-up synonyms:** name an operation with the word the system or field already uses. If the operation is *bind*, flag *recover*, *reconstruct*, or *resolve* when used as a fancier stand-in.
+
+**Generic openers and closers** — flag and delete or replace:
+
+- "In conclusion", "Overall, this paper demonstrates"
+- "It is worth noting that"
+- "In recent years, with the rapid development of…"
+- Throat-clearing attention hooks unless venue style requires them
+
+**English — avoid → prefer (common academic register; Phrasebank-style collocations are fine):**
+
+| Avoid | Prefer |
+|-------|--------|
+| delve into, leverage, utilize | examine, use |
+| multifaceted, intricate, nuanced | specific, detailed |
+| paradigm-shifting, pivotal, groundbreaking | (state the actual contribution) |
+| showcase, underscore, highlight | show, confirm, indicate |
+| harness, foster, embark on | apply, support, begin |
+| comprehensive landscape | (name the objects: configs, layers, rules) |
+| it is worth noting that | (delete; or "Of particular interest is …") |
+| plays a crucial role | plays a central role / is required / enables |
+| recover / reconstruct / resolve (for a concrete op with an established name) | name the operation (bind, compute, look up) |
+| elucidate, ascertain (when *explain*, *determine* suffice) | explain, determine |
+
+**Common LLM-only tokens** (rare in human MLSys/NeurIPS prose; flag on sight):
+
+underscore, tapestry, landscape, holistic, granular, seamless, robust (when vague), unlock, empower, delve, pivotal, groundbreaking, foster, embark, harness
+
+**Chinese — avoid empty套话:**
+
+深入探讨, 充分利用, 多维度, 多维度地, 至关重要, 凸显, 赋能, 深度赋能, 全方位, 核心痛点, 综上所述, 值得一提的是
+
+---
+
+**Semantic checkers — supporting signals, not the verdict.** Flag concrete instances; never invent character-level statistics. These checkers back the ratings but do not override judgment, because technical terms and notation legitimately inflate density:
+
+- **Information density:** any sentence that bundles claim + mechanism + quantitative result + implication in one period.
+- **Jargon overload:** undefined acronyms; or three or more highly technical terms in a row with no accessible academic anchor.
+- **Empty sequencers:** paragraphs that open with "Next…", "Then…", "现在…", "接下来…" instead of stating a relation or gap.
+- **Inflated diction:** any hit from **De-AI vocabulary audit** above (English table, LLM-only tokens, Chinese套话, generic openers/closers, dressed-up synonyms).
+- **Hedge stacking:** clusters of *may, might, could, appears to, suggests* where a scoped factual claim would read cleaner.
+- **Transition repetition:** the same paragraph-opener or 3-gram transition reused across adjacent units.
+
+For mixed Chinese/English drafts, run the same semantic checkers on each language block separately.
+
+---
+
+## Part B — Big-picture signpost audit (the core check)
+
+A **content unit** is any place the text starts something new and is about to go deep: the paper as a whole, each section, each subsection, and any paragraph that opens a new sub-topic. For each unit, inspect its **opening 1–4 sentences** and check whether they hand a newcomer a big picture *before* the formalism.
+
+The opening must answer three questions in **accessible academic vocabulary**—common academic words (Phrasebank-style), not colloquial prose (the user-facing framing of the `academic-writing-paper` §4 standard):
+
+1. **解决什么问题 / Problem** — what problem the upcoming text addresses, or what is broken without it.
+2. **为什么解决 / Why** — why it matters; the cost or gap that makes it worth doing.
+3. **怎么解决 / How (core idea)** — the one key idea or approach, stated in accessible academic prose; the precise version can come later.
+
+Two gates on top of the three answers:
+
+- **Accessibility:** is it readable by the junior-researcher anchor, in common academic words—not colloquial prose, and not the most compressed sentence in the unit?
+- **Placement:** does it come *before* the equations/symbols/details, not after?
+
+A big picture is **content, not a table of contents.** "First we…, then we…" with no problem and no idea is an **empty sequencer**, scored Missing even if it is at the top.
+
+**Per unit, classify each question** as **Present / Partial / Missing**, and the two gates as **Pass / Fail**, then give the unit a verdict:
+
+- ✅ **Has big picture** — all three Present and both gates Pass.
+- ⚠️ **Partial** — opens with an overview but one of {Problem, Why, How} is thin or buried, or it drifts toward formalism too fast.
+- ❌ **Missing** — opens on formalism/definition/an equation, or on an empty sequencer.
+
+**Gap fixes (caller-dependent):**
+- **Human report** — for every ⚠️ and ❌, write a **suggested big picture**: 1–3 accessible academic sentences the author could drop in, hitting Problem → Why → How, in the paper's language and voice.
+- **Machine report** — for every ⚠️ and ❌, emit an **action item** (format below). Draw only on what the unit already claims — do not invent results or numbers (see `academic-writing-paper` §6).
+
+---
+
+## Required output — human report (caller = user)
+
+```
+[DECISION: PASS] or [DECISION: REWORK]
+
+# Readability & Big-Picture Audit — <file or title>
+
+## A. Readability — <NN>/100 (<band>)
+<one-sentence verdict naming the biggest readability cost>
+
+| Dimension | Rating | Score | Note (with quoted example) |
+|-----------|--------|-------|----------------------------|
+| Sentence load          | ✅/⚠️/❌ | n/5 | … |
+| Entry points           | ✅/⚠️/❌ | n/5 | … |
+| Term hygiene           | ✅/⚠️/❌ | n/5 | … |
+| Transitions            | ✅/⚠️/❌ | n/5 | … |
+| Notation accessibility | ✅/⚠️/❌ | n/5 | … |
+| Paragraph shape        | ✅/⚠️/❌ | n/5 | … |
+
+Semantic flags: information-density = __ · jargon-overload = __ · empty-sequencers = __ · inflated-diction = __ (list tokens) · hedge-stack = __ · transition-repeat = __
+
+## B. Big-picture signposts — <X of N units have a big picture>
+
+| Unit (heading) | Problem | Why | How | Access | Placement | Verdict |
+|----------------|---------|-----|-----|--------|-----------|---------|
+| §1 Introduction      | P/Par/M | P/Par/M | P/Par/M | Pass/Fail | Pass/Fail | ✅/⚠️/❌ |
+| §4.2 Binding         | …       | …       | …       | …         | …         | …       |
+
+### Gaps and suggested big pictures (only if REWORK)
+- **§4.2 Binding — ❌ Missing.** Opens on the equation. Suggested:
+  > <1–3 plain sentences: problem → why → how, in the paper's voice>
+
+## Top 3 readability fixes (ranked by reader cost)
+1. …
+2. …
+3. …
+```
+
+---
+
+## Required output — machine report (caller = agent pipeline)
+
+Use tagged lists only — no wide tables, no friendly commentary. Omit sections that are empty (e.g. skip rewrite directives on PASS).
+
+```
+[DECISION: PASS] or [DECISION: REWORK]
+
+readiness_score: <NN>
+readiness_band: <Excellent|Good|Needs work|Hard to read>
+primary_cost: <one sentence — biggest readability defect>
+
+### PART A: dimension verdicts
+- [Sentence load] rating=<✅|⚠️|❌> score=<1-5> quote="<defect excerpt>"
+- [Entry points] rating=<✅|⚠️|❌> score=<1-5> quote="<defect excerpt>"
+- [Term hygiene] rating=<✅|⚠️|❌> score=<1-5> quote="<defect excerpt>"
+- [Transitions] rating=<✅|⚠️|❌> score=<1-5> quote="<defect excerpt>"
+- [Notation accessibility] rating=<✅|⚠️|❌> score=<1-5> quote="<defect excerpt>"
+- [Paragraph shape] rating=<✅|⚠️|❌> score=<1-5> quote="<defect excerpt>"
+
+### PART A: semantic flags
+- [information-density] count=<n> examples=<quoted snippets or "none">
+- [jargon-overload] count=<n> examples=<…>
+- [empty-sequencers] count=<n> examples=<…>
+- [inflated-diction] count=<n> tokens=<avoid word → prefer replacement, per De-AI checklist>
+- [hedge-stack] count=<n> examples=<…>
+- [transition-repeat] count=<n> examples=<…>
+
+### PART B: signpost verdicts
+- unit="<heading>" verdict=<✅|⚠️|❌> missing=<Problem|Why|How|comma-separated> access=<Pass|Fail> placement=<Pass|Fail> quote="<opening excerpt>"
+
+### REWRITE DIRECTIVES (only if REWORK; one block per gap, priority order)
+1. TARGET: <section or paragraph>
+   DEFECT: <what is missing or overloaded>
+   INSTRUCTION: <imperative rewrite command — split sentence, add big picture before equation, define acronym X on first use, replace token Y, etc.>
+   CONSTRAINT: Preserve all technical claims, numbers, and notation from the source draft.
+
+### REWRITE DIRECTIVES: top 3 (ranked)
+1. TARGET: … ACTION: …
+2. TARGET: … ACTION: …
+3. TARGET: … ACTION: …
+```
+
+Downstream rewriters should consume **REWRITE DIRECTIVES** first, then re-run this audit. Do not optimize toward invented numeric readability formulas.
+
+---
+
+## Procedure
+
+1. **Classify caller** — human vs agent pipeline; pick the matching output shape.
+2. **Read** the pasted text or the file(s) at the given path.
+3. **Segment** into content units by Markdown heading; note any paragraph that opens a new sub-topic inside a long subsection.
+4. **Part B first** — judge each unit's opening against the three questions and two gates; this feeds the *Entry points* dimension in Part A.
+5. **Part A** — rate the six dimensions, run semantic checkers (including the full **De-AI vocabulary audit**), and roll up to NN/100.
+6. **Emit `[DECISION: …]`** from the decision threshold.
+7. **Gap fixes** — suggested big pictures (human) or rewrite directives (machine) for every ⚠️/❌ unit, grounded only in that unit's own claims.
+8. **Rank the top 3 fixes** by how much reader effort they remove.
+
+## Tone
+
+**Human report:** honest and specific, like a senior colleague reading for clarity. Quote the line you are flagging. Separate cheap fixes from structural ones.
+
+**Machine report:** imperative, unambiguous, no hedging. Quote defects verbatim; instructions must be executable without reinterpretation.
+
+Both: follow the **De-AI vocabulary audit** in this guide when writing the audit prose itself — one idea per sentence, no inflated diction, delete "it is worth noting that".
+
+---
+
+## When embedded by another guide
+
+Do not return the full human report to the user unless they asked for it. Apply the procedure internally, use the **machine report** to drive revision, revise the draft until **global-prose-readability-gate** pass bar (including any parent-rule override) is met, then deliver the revised prose with a brief gate summary: `[DECISION]`, rounds taken, final score, top fixes applied.

@@ -1,0 +1,11 @@
+---
+name: code-lang-golang
+description: Go coding standards (idioms, modules, error handling, naming). Use when writing or editing Go (*.go) files.
+---
+
+# Golang
+
+- **Style:** Follow effective-go and standard `gofmt`/`goimports`; run `go vet` and linters in CI.
+- **Modules:** Use Go modules (`go.mod`); keep dependencies minimal and pinned.
+- **Errors:** Return errors; use `errors.Is`/`errors.As` for checks; wrap with context (`fmt.Errorf("...: %w", err)`).
+- **Naming:** Short names in scope; exported names with doc comments; interfaces small and in consumer packages when possible.

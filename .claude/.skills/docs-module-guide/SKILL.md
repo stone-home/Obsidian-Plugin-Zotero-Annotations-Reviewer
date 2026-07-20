@@ -1,0 +1,128 @@
+---
+name: docs-module-guide
+description: Deep module-documentation workflow under the flat docs/notes/ hub as SHL - Module - ….md (same folder as SHL - Note - … Zettelkasten; not academic staging). Logical-component mapping, PlantUML class diagram, per-component walkthrough with code citations, open-issues TODO, readability gate, and Zettelkasten extraction. Use when asked to document/explain a module under src/, or when editing docs/notes/SHL - Module - *.md.
+---
+
+# Module deep-dive documentation workflow
+
+**Trigger:** User asks to document, explain, or write a module guide for code under
+`src/`, or edits `docs/notes/SHL - Module - *.md`.
+
+**Output:** `docs/notes/SHL - Module - <logical-name>.md` (English body).
+
+**Do not** touch `test/` in the same task (global-workflow-testcase-separation).
+
+**Companion guides:** `code-diagram-plantuml`, `docs-notes-zettelkasten`,
+`academic-writing-paper` (§4 big picture, §7 de-AI list),
+`global-prose-readability-gate` (Phase 5).
+
+---
+
+## Naming & frontmatter
+
+- **Directory (locked, flat):** `docs/notes/` — shared hub with Zettelkasten notes; **no subfolders**. Type is in the filename.
+- **File name:** `SHL - Module - <module-name>.md` (project abbrev `SHL` + NoteType `Module`; `<module-name>` lowercase, hyphens for spaces)
+  - e.g. `SHL - Module - ir-byte-binder.md`
+- **Not academic staging:** never write under `docs/papers/pkm/` or `docs/papers/eval/`.
+- **Constraint:** Document by logical functionality, not by source file list.
+
+```markdown
+---
+title: Module - <ModuleName>
+last_updated: YYYY-MM-DD
+status: stable | experimental | deprecated
+tags: [module, <tech-stack>]
+---
+```
+
+---
+
+## Phase 0 — Map the logical module
+
+1. Identify **logical boundaries** across `src/` (not file-by-file).
+2. Search `docs/notes/` for existing `SHL - Module - …` / related `SHL - Note - …` coverage; plan merge vs new.
+3. Read source until you can name entry points, data stages, and 3–7 logical **components**.
+
+Deliverable before writing: a component list for the class diagram.
+
+---
+
+## Phase 1 — Overview (blog-level big picture)
+
+Write `## 1. Overview`. Before any diagram or API table, answer (academic-writing-paper §4):
+
+1. **Problem** — what breaks or what question this module answers.
+2. **Why** — one concrete cost or gap in this project.
+3. **How** — the core idea in plain words.
+
+**Voice:** technical blog — short sentences (12–22 words), one idea each; no AI-fluff (§7).
+A **Design goals** table (Goal | Mechanism) may follow the three answers, not replace them.
+
+Link existing `[[SHL - Note - …]]`; do not create notes yet.
+
+---
+
+## Phase 2 — Class diagram (PlantUML, clean layout)
+
+Write `## 2. Architecture` with one primary class/component diagram (`code-diagram-plantuml`).
+
+- Title: `@startuml module-<name>-classes`
+- Show logical components and labeled dependency arrows (calls / owns / reads / writes).
+- Attach **rough I/O** per major node via PlantUML `note` (truncated valid JSON field names from code).
+- Prefer `left to right direction` or `top to bottom direction`; second diagram only if >12 nodes.
+
+**Self-check (mandatory):** no orphan nodes; JSON matches source types; ≤2 crossing edges
+(or regroup); stable `@startuml` title; fence language `plantuml`. Redraw if any fail.
+
+---
+
+## Phase 3 — Per-component walkthrough
+
+For each component (data-flow order), add `### 3.<n> <ComponentName>`.
+
+**Forbidden:** multi-paragraph prose without code or data.
+
+**Required per component:**
+
+| Block | Content |
+|-------|---------|
+| **Role** | ≤ 3 sentences |
+| **Input** | Schema + minimal `json`/`python` example from code (no fabricated numbers) |
+| **Processing steps** | Numbered; each step cites code (`startLine:endLine:path`) or snippet ≤15 lines |
+| **Output** | Schema + example |
+| **Links** | `[[SHL - Note - …]]` only if note already exists |
+
+`## 4. Public API` and `## 5. Maintenance` — thin tables only; no Phase 3 duplication.
+
+---
+
+## Phase 4 — Open issues & TODO
+
+`## 6. Open issues & TODO` — `[ ]` bullets naming file/symbol and failure mode; no vague items.
+
+---
+
+## Phase 5 — Readability gate
+
+Run **global-prose-readability-gate** (blog override: ≥ 80/100, avg ≤ 22 words in Overview
+and Role paragraphs). Revise and re-audit until pass or 3-round cap.
+
+---
+
+## Phase 6 — Zettelkasten extraction
+
+After Phase 5 passes (`docs-notes-zettelkasten`):
+
+1. Search `docs/notes/` for related notes.
+2. Extract non-obvious trade-offs, invariants, tricks only.
+3. **Merge** into existing notes (rewrite coherently; preserve Note ID; bump Date) or create new Atomic/Protocol notes.
+4. Wikilink module doc ↔ notes.
+
+---
+
+## Target outline
+
+`## 1. Overview` → `## 2. Architecture` → `## 3. Component walkthroughs` →
+`## 4. Public API` → `## 5. Maintenance` → `## 6. Open issues & TODO`
+
+**Order:** Phase 0 → 1 → 2 → 3 → 4 → 5 → 6 → update `last_updated` → pointer in `src/<module>/README.md` if present.

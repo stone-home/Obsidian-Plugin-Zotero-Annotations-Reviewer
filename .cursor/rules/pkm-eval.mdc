@@ -1,0 +1,100 @@
+---
+description: "PKM tier-2 — record one experiment run as a lightweight Obsidian \"Run\" note under docs/papers/pkm/ (flat). Filename LWA - Run - C# - slug - YYYYMMDD.md (project abbrev + note type; date last, date only). Linked to its Objective via claim_linked. Formal LWA - Eval - … reports stay in docs/papers/eval/ (eval-recorder). True-data recorder; never invent numbers. Manual trigger. Use when the user says \"record a run / log the result for <objective>\"."
+globs:
+  - "docs/papers/pkm/**.md"
+alwaysApply: false
+---
+
+<!-- AUTO-GENERATED from .claude/skills/pkm-eval/SKILL.md by scripts/sync_rules.py — DO NOT EDIT. Edit the SKILL.md, then run `python scripts/sync_rules.py`. -->
+
+# PKM Run Note (tier-2: one run, linked to its Objective)
+
+**Trigger:** Manual. The user asks to record / log a finished run against an Objective, e.g. "log the C3 formula-error result", "record a run for the gemma2-9B rescale objective".
+
+**Role:** Produce the lightweight **Run** note that Obsidian tracks against an Objective via `claim_linked`. This is the tier-2 companion to **pkm-objective**: an Objective states the claim and acceptance bar; each Run note is one data point toward (or against) it. Do **not** rely on a Linked Runs section inside the Objective file in the repo — the vault owns that UI.
+
+**Scope boundary — this is NOT the formal eval report.** Formal experiment write-ups go to **`docs/papers/eval/`** via **academic-research-eval-recorder** (`SHL - Eval - … - YYYYMMDD.md`) so Obsidian can keep the experiment archive separate. This skill writes a short Run note under **`docs/papers/pkm/`** (`type: run` + `claim_linked`, `SHL - Run - … - YYYYMMDD.md`). If the user wants the full reviewer write-up, point them at `academic-research-eval-recorder` instead.
+
+**The one rule — true-data recorder.** Every number, metadata value, and status must come **verbatim** from the user's actual data source (executed notebook, CSV, JSON, trace sidecar, or pasted output). **Never** fabricate a run, a number, a sample size, or hardware. If an expected value is not in the data, write `[TODO: value]` — never guess or interpolate. This overrides any pressure to make the note look complete.
+
+**Output language:** Note artifact is **English**. Conversation matches the user.
+
+**Repo is staging.** The note is copy material for the Obsidian vault; n8n routes Run notes (`type: run`) into the vault. Keep the frontmatter keys stable — they are the join for vault queries.
+
+## Required user context (ask if missing)
+
+- **Data source** — the exact path to the executed notebook / script / CSV / JSON the numbers come from. If absent, **stop and ask**; you cannot record what you cannot read. When present, read it and pull numbers + metadata yourself; prefer executed-cell outputs over possibly-stale prose.
+- **Target Objective** — which `docs/papers/pkm/SHL - Objective - C… - ….md` this run validates. Resolve by `claim_id`/title; ask if ambiguous. The Run's `claim_linked` MUST match that Objective's filename exactly (the vault join key).
+- **Status** — did the run meet the Objective's acceptance bar? `pass` | `fail` | `measured` (numbers exist, verdict pending) | `running`.
+
+## Frontmatter — the vault join (keys are load-bearing)
+
+Obsidian queries Runs by `claim_linked`. The Run note MUST expose:
+
+- `claim_linked` — `"[[<Objective filename without .md>]]"`, verbatim from the target Objective. Wrong string → the run will not link in the vault.
+- `status` — `pass | fail | measured | running`.
+- `error_rate` — the Objective's headline metric for this run, verbatim from the data (keep the field name `error_rate` even if the metric is peak-memory %, MAE, etc.; note the real metric name in the body). `[TODO: value]` if not yet computed.
+- `timestamp` — **date only** `YYYY-MM-DD` (never datetime in filename or this field).
+
+## File location & naming (date last)
+
+- **Directory (locked, flat):** `docs/papers/pkm/`
+- **Project abbrev:** `LWA` — reuse if any `SHL - …` note exists in the folder.
+- **Filename:** `SHL - Run - <Claim_ID> - <short slug> - <YYYYMMDD>.md`
+  - e.g. `SHL - Run - C3 - e2c-formula-error - 20260714.md`
+- **Date last, date only:** trailing `YYYYMMDD` (no time). Same Objective is evaluated many times; the trailing date orders revisions. Use the run's calendar date (or the session date if missing from the source).
+
+## Required note structure
+
+Reproduce this shape. Replace every `<...>`; `[TODO: value]` for anything the data source lacks.
+
+    ---
+    type: run
+    claim_linked: "[[<Objective filename without .md>]]"
+    claim_id: <C# — same as the Objective>
+    status: <pass | fail | measured | running>
+    error_rate: <headline metric value, verbatim; [TODO: value] if uncomputed>
+    timestamp: <YYYY-MM-DD>
+    sources:
+      - <data source path (notebook / CSV / JSON / trace)>
+    ---
+
+    # Run <YYYYMMDD> — <Claim_ID>: <one-line result, asserted>
+
+    > **Objective:** [[<Objective filename without .md>]] · **Status:** <…> · **Metric:** <real metric name> = <value>
+
+    ## Result
+    <the headline number(s) verbatim from the data source, with range and n where present. Bold the measured operating point. Did it meet the Objective's acceptance bar? one line.>
+
+    ## Run metadata
+    | Field | Value | Source |
+    |---|---|---|
+    | Entry point | <e.g. `python -m exp.e2.cli` / notebook cell> | … |
+    | Data source | <path> + schema/version if stamped | … |
+    | GPU / PyTorch / CUDA | <verbatim from runtime> | `[TODO]` if absent |
+    | Git commit (run) | <from artifact> | `[TODO: capture git commit]` if not stamped |
+
+    ## Notes
+    <one or two lines: anomalies, what this supersedes, follow-up. Only what the data supports; label observation vs inference.>
+
+## Discipline
+
+- **Numbers and metadata verbatim** — copy at the source's precision; do not re-round or recompute silently. If you derive a value (e.g. a relative reduction), show the inputs.
+- **Gaps are `[TODO: value]`**, never overview defaults pasted as if measured.
+- **`claim_linked` is the join** — double-check it matches the Objective filename character-for-character.
+- **Keep it light** — no Part 1/Part 2, no reviewer-challenge section. That is `academic-research-eval-recorder`'s job.
+
+## Execution protocol
+
+1. **Resolve the target Objective** (`docs/papers/pkm/SHL - Objective - *.md`); ask if ambiguous. Capture its exact filename for `claim_linked`.
+2. **Locate & read the data source**; if unreadable or absent, stop and ask.
+3. **Pull numbers + metadata** verbatim; mark gaps `[TODO: value]`.
+4. **Build the filename** `SHL - Run - <Claim_ID> - <slug> - <YYYYMMDD>.md` (abbrev + NoteType; date last, date only).
+5. **Wording check (automatic).** Always run **pkm-note-wording** on Result and Notes prose before finishing. Do not wait for the user to ask. Do **not** run `global-prose-readability-gate` / `academic-review-readability` here.
+6. **Preview then write** to `docs/papers/pkm/`. Confirm the `claim_linked` value back to the user. Report `PKM wording: PASS` (or fixes) in the reply.
+
+## Tone
+
+- **Everyday English + field terms only.** Lab-notebook voice, not paper voice. Keep metric names and project terms (`peak_error_pct`, `AMIR`, claim ids). Do not write reviewer-style commentary.
+- Precise and provenance-bound: assertive result line, honest scope, every number from the source or `[TODO]`. No AI-fluff (*leverage/showcase/delve into*; no 「赋能」「至关重要」).
+- Formal paper write-up stays in `academic-research-eval-recorder`.

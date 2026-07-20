@@ -1,0 +1,19 @@
+---
+description: Enforce strict separation of testcase work from development work
+alwaysApply: true
+---
+
+# Testcase Development Separation
+
+- **Hard Rule:** All testcase work MUST be done separately from development work.
+- **Instruction Source Coverage:** This rule applies to every instruction source the AI may follow, including user prompts, system/developer instructions, project rules, checklists, plans, and self-derived next steps.
+- **No Mixed Scope:** Do not create or modify `test/` files in the same task/session as changes to `src/` or production code.
+- **No Mixed Deliverables:** Do not combine implementation and testcase authoring in one response, one patch set, or one commit.
+- **Two-Task Requirement:** Testcase work and development work MUST be split into two distinct tasks with a clear handoff boundary.
+- **Order of Operations:** Complete development first, then run a separate dedicated testcase task.
+- **Explicit Boundary:** If a request asks for both implementation and tests together, split into two phases and complete only one phase at a time unless the user explicitly overrides this rule.
+
+## Quick Examples
+
+- ✅ Allowed: "Implement feature X" (code only) followed later by "Add tests for feature X" (tests only).
+- ❌ Disallowed: "Implement feature X and add tests" in the same execution scope.

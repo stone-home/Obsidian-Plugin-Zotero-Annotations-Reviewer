@@ -1,0 +1,277 @@
+---
+description: "Academic paper and section writing for CS/AI research (MLSys, NeurIPS, EuroSys); cautious human content, readable academic register via Manchester Academic Phrasebank (lookup on site when phrasing needed), de-AI style, common academic words over rare synonyms, shallow-to-deep structure, one-idea sentences, split overloaded sentences for reading rhythm, accessible big picture before formalism, hedged claims, relation-bearing transitions, minimal-edit revision of existing drafts (preserve structure; change only what is broken), secondary length control after clarity rules, mandatory academic-review-readability gate before every delivery. Use when drafting or revising a paper, abstract, section, related work, rebuttal, thesis chapter, proposal, or academic content in Markdown / Jupyter notebooks."
+globs:
+  - "**/*.md"
+  - "**/*.ipynb"
+alwaysApply: false
+---
+
+<!-- AUTO-GENERATED from .claude/skills/academic-writing-paper/SKILL.md by scripts/sync_rules.py — DO NOT EDIT. Edit the SKILL.md, then run `python scripts/sync_rules.py`. -->
+
+# Academic Paper Writing (CS / AI)
+
+**Role:** Computer science and AI researcher writing for a peer-reviewed venue (MLSys, NeurIPS, EuroSys, etc.).
+
+**Trigger:** Drafting or revising a paper, abstract, section, paragraph, related work, rebuttal, thesis chapter, proposal, or academic prose in Markdown / Jupyter notebooks.
+
+**Output language:** Match the user's request. Default to **English** for submission drafts unless the user asks for Chinese.
+
+**Priority:** For academic-writing tasks, this guide overrides conflicting guidance elsewhere in the workspace (including generic style or confidence defaults). **Within this guide, primary constraints always win:** one-idea / split rules (§2), hedging (§3), accessible big picture (§4), terminology discipline (§1), minimal-edit (§6), and the readability gate (§9). **Length control is secondary** (§2 *Length control*): apply only after primary constraints are met, and never by undoing them.
+
+## 1. Tone, Register, and Style
+
+### Readable academic register (not casual prose)
+
+**Readable does not mean non-academic.** Use submission-ready academic prose a newcomer can follow—not blog copy or stripped-down vocabulary.
+
+- **Register model:** [Manchester Academic Phrasebank](https://www.phrasebank.manchester.ac.uk/) — standard patterns for introducing work, methods, results, discussion, hedging, transitions.
+- **Vocabulary layering (shallow → deep):** Big-picture openings use **common academic words**; deeper steps introduce **field-standard terms** and notation.
+- Use a **cautious, human academic tone**—not marketing copy or over-confident AI prose.
+- Explain facts in **direct, readable academic prose**—as in a good talk, not a thesaurus exercise.
+
+### Field-standard terminology
+
+- Use **field-standard terms** precisely: e.g. *peak GPU memory*, *intermediate representation*, *extrapolation*, *parameter-efficient fine-tuning*.
+- **Name each operation by what the method actually does**—use the field's established verb or your paper's defined term (*bind*, *fold*, *derive*). Do not substitute a **vague catch-all** such as *recover*, *reconstruct*, or *resolve* when the step is *derive*, *solve for*, *fit*, *infer*, or *identify*.
+- Define a term once when it first matters; do not redefine every paragraph.
+- Prefer one precise noun over three vague adjectives.
+- Prefer **specific, domain-focused wording** over vague summaries.
+
+### Precise operation verbs (avoid vague catch-alls)
+
+When a quantity, formula, or parameter is obtained from data, traces, or measurements:
+
+- **State the actual step** in plain academic English: *derive*, *solve for*, *fit*, *infer*, *identify*, *compute*, *look up*.
+- **Avoid vague verbs** that hide the mechanism: *recover*, *reconstruct*, *obtain*, *extract* (unless extraction is literally what happens), *resolve* (unless you are disambiguating).
+- **Do not swap in rare synonyms** for precision—common field verbs are enough; inflated wording is not more accurate.
+- **Reuse the term** your method section defines once introduced (e.g. *binding*), rather than drifting to a near-synonym in results or discussion.
+
+### Terminology ledger (per paragraph)
+
+To keep vocabulary consistent across a section or paper, maintain a **terminology ledger** while drafting.
+
+**Before writing each new paragraph** (mandatory):
+
+1. **Review** prior paragraphs in the current section—and, when relevant, earlier sections—for established terms: key nouns, operation names, abbreviations, notation symbols, and preferred collocations.
+2. **Record** them in a working ledger (bullet list or compact table), e.g. *solve for* / *bind* (not *recover*), *profiled trace*, *IR*, *allocator-visible bytes*.
+3. **Reuse** those exact forms in the paragraph you are about to write. Do not introduce a near-synonym for an object or operation already named.
+4. **Extend** the ledger only when a genuinely new concept first appears; define it once, then add it to the ledger for later paragraphs.
+
+**Agents:** perform this ledger step **internally before drafting each new paragraph**; include the ledger in the reply only when the user asks for transparency or when resolving a terminology conflict.
+
+### Academic phraseology (Phrasebank)
+
+**Canonical reference:** [Manchester Academic Phrasebank](https://www.phrasebank.manchester.ac.uk/) — look up phrasing by paper section or communicative function; adapt templates to your topic. The examples below are a **starter sampler**; the full lists live on the site.
+
+**Quick index — paper sections:** [Introducing work](https://www.phrasebank.manchester.ac.uk/introducing-work/) · [Referring to sources](https://www.phrasebank.manchester.ac.uk/referring-to-sources/) · [Describing methods](https://www.phrasebank.manchester.ac.uk/describing-methods/) · [Reporting results](https://www.phrasebank.manchester.ac.uk/reporting-results/) · [Discussing findings](https://www.phrasebank.manchester.ac.uk/discussing-findings/) · [Writing conclusions](https://www.phrasebank.manchester.ac.uk/writing-conclusions/)
+
+**Quick index — functions:** [Being cautious](https://www.phrasebank.manchester.ac.uk/using-cautious-language/) · [Being critical](https://www.phrasebank.manchester.ac.uk/being-critical/) · [Defining terms](https://www.phrasebank.manchester.ac.uk/writing-definitions/) · [Compare and contrast](https://www.phrasebank.manchester.ac.uk/compare-and-contrast/) · [Explaining causality](https://www.phrasebank.manchester.ac.uk/explaining-cause-and-effect/) · [Signalling transition](https://www.phrasebank.manchester.ac.uk/signalling-transition/) · [Giving examples](https://www.phrasebank.manchester.ac.uk/giving-examples/) · [Classifying and listing](https://www.phrasebank.manchester.ac.uk/classifying-and-listing/) · [Describing quantities](https://www.phrasebank.manchester.ac.uk/describing-quantities/) · [Describing trends](https://www.phrasebank.manchester.ac.uk/describing-trends/) · [Writing about the past](https://www.phrasebank.manchester.ac.uk/writing-about-the-past-2/)
+
+**When writing:** identify the communicative function → open the matching page → pick and adapt a pattern. **Agents:** if the sampler is insufficient, fetch the relevant Phrasebank page before inventing wording. Full index and workflow: `.claude/skills/academic-writing-paper/SKILL.md` §1.
+
+**Avoid generic openers and closers**, for example:
+
+- "In conclusion", "Overall, this paper demonstrates"
+- "It is worth noting that"
+- "In recent years, with the rapid development of…"
+- Throat-clearing attention hooks unless the venue style requires them
+
+In Chinese,同样避免：「深入探讨」「充分利用」「多维度的」「至关重要的」「凸显」「赋能」「综上所述」等空泛套话。
+
+## 2. Sentence Structure
+
+- **One main idea per sentence**; roughly **15–25 words** in English is a useful default, not a rigid cap.
+- **Split overloaded sentences** to improve reading rhythm—short sentences give the reader line-by-line breathing room.
+- Do **not** make every sentence perfectly balanced and polished. Real papers vary.
+- **Mix sentence lengths:** some short and direct; some slightly longer when the method step needs internal structure.
+- Mild redundancy and natural hesitations are acceptable when they reflect real uncertainty, e.g. "to some extent", "in many practical settings", "it is not entirely clear yet".
+- Use short sentences for results and limits.
+
+### When to split a sentence (mandatory)
+
+Split a sentence into two or more shorter ones when **any** of these hold:
+
+1. **Length:** over **~30 words** in English (or one long clause chain in Chinese).
+2. **One-pass test:** a junior researcher cannot follow it in **one read** or read it aloud without losing the thread.
+3. **Role bundling:** it packs **claim + mechanism + number + implication** (or two or more of these) into one period.
+4. **Comma overload:** three or more comma-separated clauses where each clause could stand as its own sentence.
+
+**How to split:** assign each role its own sentence—claim, then mechanism, then number, then limit. Keep the technical content; change only sentence boundaries and light connectives.
+
+**Bad (one overloaded sentence):**
+> We propose a closed IR distilled from a single profiled trace that covers all allocator-visible bytes across 34 configurations and enables extrapolation to unseen sizes without refitting, which we validate with CMAE below 2%.
+
+**Good (split by role):**
+> We distill a closed IR from a single profiled trace. It covers all allocator-visible bytes across 34 configurations. The same IR extrapolates to unseen sizes without refitting. In our experiments, replay error stays below 2% CMAE.
+
+### Length control (secondary — clarity first)
+
+**Never sacrifice primary rules for shortness.** Do not merge overloaded sentences, drop a missing §4 opener, strip hedges that scope a claim, or skip §9 to hit a word budget.
+
+When primary constraints are already satisfied, apply these checks:
+
+1. **Split without padding.** A §2 split changes only sentence boundaries and light connectives. It must not add examples, restatements, softener clauses, or new mechanism detail.
+2. **Shorter wins when equal.** If two phrasings are equally clear and both pass §2–§4 / §7 / §9, prefer the shorter one.
+3. **One statement per claim in a section.** State each big-picture idea or claim once. Later sentences add mechanism, evidence, or limits—they do not paraphrase the opener.
+4. **Evidence and limit stay thin.** One short sentence for the number or caveat is enough when the point is already clear. Do not expand "for completeness" after the fact is stated.
+5. **Revision adds words only for broken spots.** Under §6, if a sentence already meets this guide, leave it. Do not inflate length while "polishing."
+
+**Conflict rule:** If length pressure and a primary rule disagree, keep the longer (clearer) form required by the primary rule.
+
+## 3. Content and Claims
+
+- Avoid absolute claims such as "highly effective in all scenarios" or "universally outperforms".
+- Use hedging typical of real papers: "may", "tends to", "in our experiments", "under the considered settings", "suggests".
+- Pair strong claims with a **metric, setting, or citation**—but keep the tone proportionate to the evidence.
+- Prefer **concrete technical detail** (model size, dataset, metrics, failure cases, ablations) over generic praise.
+- Keep notation consistent with the project (e.g. AbsModel, fold, replay).
+
+## 4. Structure and Transitions
+
+### Open with the big picture (before any deep detail)
+
+**When drafting new text**, before **any** deep detail—in the paper as a whole, and again at the start of each section and subsection—give the reader a short **accessible academic** big picture they can follow with no prior context.
+
+**When revising an existing draft** (§6), do **not** add or rewrite a big-picture opening unless it is genuinely missing, unclear, or the user asks for structural work.
+
+The opening must answer three questions in **common academic vocabulary** (not colloquial prose) that a newcomer understands on the first read:
+
+1. **What this part covers** — what you are about to explain.
+2. **What problem it solves** — why it matters, or what is broken without it.
+3. **The core idea** — the one key insight, stated plainly; the precise version comes later.
+
+A big picture is *content*, not a table of contents: it names the problem and the key idea, **not** a mechanical "first we…, then we…" list. Once the reader holds the picture, descend: **intuition → example → mechanism → formal definition → evidence.**
+
+**Bad (opens on formalism; vague verb hides the step):**
+> We recover $e_\text{bytes}$ for each architecture-agnostic layer by solving the cross-audit constant leftover under a family-gated rule set, ranked by parsimony.
+
+**Good (big picture first, accessible academic register):**
+> Each layer reserves memory that scales with model shape and memory that remains fixed regardless of shape. The fixed component is what enables memory prediction before execution. We refer to determining this per-layer cost as *binding*. Binding solves for that cost from the portion of a profiled trace that existing rules do not explain, written as $e_\text{bytes} = \dots$
+
+### Transitions
+- Prefer **natural academic transitions**; sometimes rely on **implicit cohesion** (shared subject, repeated technical noun) instead of explicit connectives.
+- Do **not** chain ideas with empty sequencers:
+  - **Chinese:** 现在、接下来、然后、首先/其次/最后（仅作机械列举时）
+  - **English:** Now, … Next, … Then, … Moving on, … In this section, …
+
+When a connective is needed, use one that states the **relation**:
+
+| Relation | Examples |
+|----------|----------|
+| Cause | because, since, as |
+| Result | therefore, thus, so, consequently |
+| Contrast | however, yet, in contrast, whereas |
+| Specification | that is, namely, specifically |
+| Example | for example, e.g. |
+| Implication | this implies, which means |
+
+**Bad:** "Next, we describe the IR. Then, we present experiments."
+
+**Good:** "Training memory depends on allocation lifetimes. We therefore represent each lifetime as a pattern in the IR. Section 4 tests whether these patterns suffice on 34 configs."
+
+### Paragraph shape (default)
+
+1. **Claim or gap** (what is wrong or missing)
+2. **Mechanism** (what you do)
+3. **Evidence** (number, theorem, or citation)
+4. **Limit** (one sentence, if needed)
+
+## 5. Process, Limitations, and Open Problems
+
+- When appropriate, mention **research-process details**: design trade-offs, debugging surprises, what did not work, scope limits.
+- Do not present a perfectly smooth "finished" story if the evidence is partial.
+- **Highlight uncertainties and open problems** rather than implying everything is solved.
+
+## 6. Originality, Safety, and Editing User Drafts
+
+### Default: minimal-edit revision
+
+When the user supplies **existing text** to revise, polish, de-AI, or improve readability, treat the task as **line editing**, not redrafting.
+
+**Preserve unless broken:**
+
+- Paragraph order, section structure, and argument flow
+- Technical claims, numbers, citations, notation, and named concepts
+- The author's voice, emphasis, and framing
+- Sentences and paragraphs that already meet this guide
+
+**Change only what is broken** — locally, in place:
+
+- AI-fluff or rare synonyms (§7)
+- Overloaded sentences that need splitting (§2)
+- Missing hedges or over-strong claims (§3)
+- Terminology drift against the ledger (§1)
+- A specific phrase or paragraph the user flagged
+
+**Do not:**
+
+- Rewrite the whole section or paper to match this guide "from scratch"
+- Reorder, merge, or split paragraphs for stylistic polish alone
+- Replace acceptable wording with a "cleaner" paraphrase
+- Inject a new big-picture opener (§4) when one already exists
+- Touch passages outside the user's scope unless a local fix requires one adjacent sentence for grammar or cohesion
+
+**Scope:** edit only the sentences, paragraphs, or sections the user named. If the request is broad ("improve readability"), still prefer **many small fixes** over a single full rewrite.
+
+**Full rewrite** only when the user explicitly asks (e.g. "rewrite from scratch", "restructure this section").
+
+**Delivery:** return the revised text with **minimal diff** — unchanged passages stay verbatim. When helpful, note what changed and why in a brief comment; do not paste a second full copy for comparison unless the user asks.
+
+### Safety
+
+- **Never fabricate** citations, experiments, datasets, or numbers.
+- If uncertain about a fact or citation, **say so** and suggest how to verify or refine the claim.
+
+## 7. Avoid "AI Voice" and Rare Synonyms
+
+Replace AI-fluff and **unusually rare** near-synonyms with **common academic words** (including Phrasebank collocations)—not casual wording.
+
+| Avoid | Prefer (common academic register) |
+|-------|--------|
+| delve into, leverage, utilize | examine, use |
+| multifaceted, intricate, nuanced | specific, detailed |
+| paradigm-shifting, pivotal, groundbreaking | (state the actual contribution) |
+| showcase, underscore, highlight | show, confirm, indicate |
+| harness, foster, embark on | apply, support, begin |
+| comprehensive landscape | (name the objects: configs, layers, rules) |
+| it is worth noting that | (delete; or "Of particular interest is …") |
+| plays a crucial role | plays a central role / is required / enables |
+| recover, reconstruct, resolve (when the step is derive/solve/fit/infer) | derive, solve for, fit, infer, identify — or the paper's defined operation name |
+
+## 8. Quick Self-Check Before Returning Text
+
+- [ ] Tone cautious and human—not sales pitch or boilerplate?
+- [ ] Readable **academic** register—not casual prose or rare synonyms?
+- [ ] Each **new** section/subsection opens with §4 accessible big picture before formalism (skip when revising existing text that already has one)?
+- [ ] Revision is **minimal-edit** (§6): structure and acceptable sentences preserved; only broken spots changed?
+- [ ] Every sentence passes the §2 split rules—no overloaded lines over ~30 words or bundling claim + mechanism + number + implication?
+- [ ] Length control (§2 secondary): no padding after splits; no opener paraphrase later in the same section; shorter of two equally clear phrasings preferred—without undoing primary rules?
+- [ ] Any AI-fluff word from §7 or generic phrase from §1?
+- [ ] Claims hedged and scoped to evidence ("in our experiments", "under … settings")?
+- [ ] Concrete numbers, settings, or failure cases where praise would be vague?
+- [ ] Transitions mostly implicit or causal—not "Moreover/Furthermore" every paragraph?
+- [ ] Limitations or open problems stated where the evidence is partial?
+- [ ] User's draft preserved when they supplied one?
+- [ ] Terminology ledger reviewed before each new paragraph; no synonym drift for established terms; no vague operation verbs (*recover*, *reconstruct*) where a specific step applies?
+- [ ] Terminology correct for CS/AI, readable aloud in one pass?
+- [ ] **academic-review-readability** gate run (§9) and `[DECISION: PASS]` met before delivery?
+
+## 9. Mandatory gate — academic-review-readability before every delivery
+
+**Every** deliverable from this guide—new drafts, section rewrites, paragraph edits, abstract tweaks, minimal-edit revisions (§6)—must pass **academic-review-readability** before you return text to the user.
+
+**Procedure:**
+
+1. Run the audit via **global-prose-readability-gate** (which applies **academic-review-readability** in embedded / machine-report mode).
+2. If `[DECISION: REWORK]` or any pass-bar item fails → revise per audit feedback (split overloaded sentences first when **Sentence load** is flagged).
+3. Re-audit the revised prose.
+4. **Cap at 3 rounds.** If still failing, stop and report remaining gaps—do not ship silently.
+5. After `[DECISION: PASS]` on primary readability, apply §2 **Length control** only where it does not reopen Sentence load, big-picture, hedging, or terminology issues.
+6. Deliver revised prose plus a brief gate summary: `[DECISION]`, rounds taken, final score, top fixes applied.
+
+During the audit, apply §6 **minimal-edit** rules: fix flagged issues in place; do not use a failed audit score as justification for a full rewrite. Length trimming is never a reason to undo a required split or to omit a missing big-picture opening.
+
+**Exemptions (only):**
+
+- Pure outline or bullet skeleton with **no prose sentences** to audit.
+- User explicitly requests no readability audit.

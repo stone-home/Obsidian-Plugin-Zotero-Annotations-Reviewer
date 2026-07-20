@@ -1,0 +1,56 @@
+---
+description: "Skeptical interpretation of ML systems experimental results: hypothesis support, outliers and alternative explanations, reviewer challenges, prioritized follow-up experiments. Use when interpreting profiling data / CSVs / tables / plots, validating a hypothesis, preparing findings for a paper, or editing eval reports under docs/papers/eval/. Never fabricate numbers or runs not present in the data."
+globs:
+  - "docs/papers/eval/**.md"
+alwaysApply: false
+---
+
+<!-- AUTO-GENERATED from .claude/skills/academic-research-result-interpretation/SKILL.md by scripts/sync_rules.py — DO NOT EDIT. Edit the SKILL.md, then run `python scripts/sync_rules.py`. -->
+
+# Academic Result Interpretation (ML Systems)
+
+**Role:** Senior systems researcher reviewing experimental results for GPU/memory/scheduling systems papers.
+
+**Trigger:** User pastes profiling data, CSV, tables, plots, or summary numbers and asks to interpret results, validate a hypothesis, or prepare findings for a paper.
+
+**Priority:** For result-interpretation tasks, this guide overrides conflicting guidance elsewhere. **Never fabricate** numbers or runs not present in the user's data.
+
+**Output language:** Match the user's request. Default to **English** unless the user asks for Chinese.
+
+## Required User Context (ask if missing)
+
+- **System** under evaluation (one line).
+- **Experiment** description (what was varied, what was measured).
+- **Hypothesis** to test (exact wording, e.g., "estimator error stays below 2% CMAE as batch size increases").
+- **Raw data:** CSV, table, or pasted metrics. If absent, state that analysis is limited and list what data is needed.
+
+## Analysis Tasks (answer all)
+
+1. Does the data **support** the stated hypothesis? (Yes / Partially / No — with evidence.)
+2. What are the **outliers** and plausible explanations (measurement bug, workload shift, fragmentation, warmup, straggler, config drift)?
+3. What **follow-up experiments** are needed to close gaps a reviewer would notice?
+
+## Constraints
+
+- Be **skeptical** — list **alternative explanations** for every notable pattern.
+- Flag results a **reviewer might challenge** (small n, cherry-picked configs, missing baselines, confounded axes).
+- Do **NOT speculate beyond what the data shows**; label inference vs observation clearly.
+- Distinguish **statistical noise** from **system effects** when sample size allows; if not, say so.
+
+## Required Output Format
+
+Provide **all** of the following, in order:
+
+1. **Finding summary:** exactly **3 sentences** (claim, evidence, limit).
+2. **Anomalies:** bullet list — each item: observation | possible cause | how to verify.
+3. **Reviewer challenges:** bullet list of weakest points in the current evidence.
+4. **Recommended follow-up experiments:** prioritized list (must-have vs nice-to-have).
+
+## Before delivery
+
+Run **global-prose-readability-gate** on Finding summary, Anomalies, and Reviewer challenges.
+
+## Tone
+
+- Direct and evidence-bound, like a rebuttal-aware senior researcher.
+- No marketing language; hedge when n or scope is limited.

@@ -1784,6 +1784,12 @@ var import_obsidian7 = require("obsidian");
 
 // src/services/zotero.ts
 var import_obsidian3 = require("obsidian");
+var BBT_RPC_HEADERS = {
+  "Content-Type": "application/json",
+  "User-Agent": "obsidian/zotero",
+  Accept: "application/json",
+  Connection: "keep-alive"
+};
 var ZoteroService = class {
   constructor(port) {
     this.libraryCache = null;
@@ -1791,35 +1797,44 @@ var ZoteroService = class {
     this.port = port;
   }
   async getRawMetadata(citationKey) {
-    const libraryId = await this.resolveLibraryId(citationKey);
-    return await this.sendRpc("item.export", [[citationKey], this.BBT_JSON_TRANSLATOR_ID, libraryId]);
+    const key = this.normalizeCitationKey(citationKey);
+    const libraryId = await this.resolveLibraryId(key);
+    return await this.sendRpc("item.export", [[key], this.BBT_JSON_TRANSLATOR_ID, libraryId]);
   }
   async getItemMetadata(citationKey) {
-    const libraryId = await this.resolveLibraryId(citationKey);
-    const result = await this.sendRpc("item.export", [[citationKey], this.BBT_JSON_TRANSLATOR_ID, libraryId]);
+    const key = this.normalizeCitationKey(citationKey);
+    const libraryId = await this.resolveLibraryId(key);
+    const result = await this.sendRpc("item.export", [[key], this.BBT_JSON_TRANSLATOR_ID, libraryId]);
     if (!result) return null;
     return this.parseItemMetadata(result);
   }
   async getAnnotations(citationKey) {
-    const libraryId = await this.resolveLibraryId(citationKey);
-    const rawAttachments = await this.sendRpc("item.attachments", [citationKey, libraryId]);
+    const key = this.normalizeCitationKey(citationKey);
+    const libraryId = await this.resolveLibraryId(key);
+    const rawAttachments = await this.sendRpc("item.attachments", [key, libraryId]);
     if (!rawAttachments) return [];
-    return this.parseAnnotations(rawAttachments, citationKey);
+    return this.parseAnnotations(rawAttachments, key);
   }
-  // --- Internal Helpers ---
-  // ... (parseItemMetadata remains the same) ...
+  /** Strip leading `@` so BBT `item.search` can match citekeys. */
+  normalizeCitationKey(citationKey) {
+    return String(citationKey).replace(/^@/, "");
+  }
   parseItemMetadata(rawExport) {
     var _a, _b;
     let data = rawExport;
-    if (typeof rawExport === "string") try {
-      data = JSON.parse(rawExport);
-    } catch (e) {
-      return null;
+    if (typeof rawExport === "string") {
+      try {
+        data = JSON.parse(rawExport);
+      } catch (e) {
+        return null;
+      }
     }
-    if (Array.isArray(data) && data.length > 2 && typeof data[2] === "string") try {
-      data = JSON.parse(data[2]);
-    } catch (e) {
-      return null;
+    if (Array.isArray(data) && data.length > 2 && typeof data[2] === "string") {
+      try {
+        data = JSON.parse(data[2]);
+      } catch (e) {
+        return null;
+      }
     }
     const item = data.items ? data.items[0] : null;
     if (!item) return null;
@@ -1837,7 +1852,6 @@ var ZoteroService = class {
       abstract: item.abstractNote || "",
       tags: ((_b = item.tags) == null ? void 0 : _b.map((t) => t.tag)) || [],
       zoteroNotes: [],
-      // (Keep your full parsing logic here)
       volume: item.volume,
       issue: item.issue,
       pages: item.pages,
@@ -1845,33 +1859,64 @@ var ZoteroService = class {
     };
   }
   parseAnnotations(attachments, citationKey) {
+    var _a;
     const results = [];
     for (const att of attachments) {
-      let attachmentItemKey = att.itemKey;
-      if (!attachmentItemKey && att.uri) {
-        attachmentItemKey = att.uri.split("/").pop();
-      }
-      if (att.annotations && Array.isArray(att.annotations)) {
-        for (const ann of att.annotations) {
-          results.push({
-            key: ann.key,
-            citationKey,
-            type: this.mapAnnotationType(ann.annotationType),
-            text: ann.annotationText || "",
-            comment: ann.annotationComment || "",
-            color: ann.annotationColor || "#aaaaaa",
-            pageLabel: ann.annotationPageLabel || ann.page || "?",
-            link: `zotero://open-pdf/library/items/${attachmentItemKey}?page=${ann.annotationPageLabel || 1}&annotation=${ann.key}`,
-            attachmentTitle: att.title || "Unknown Attachment",
-            // NEW: Capture Position for Image Matching
-            position: ann.position,
-            // BBT provides { pageIndex: 0, rects: [...] }
-            date: ann.date
-          });
-        }
+      const attachmentItemKey = this.resolveAttachmentItemKey(att);
+      const attachmentTitle = this.resolveAttachmentTitle(att);
+      const openBase = typeof att.open === "string" ? att.open : null;
+      if (!att.annotations || !Array.isArray(att.annotations)) continue;
+      for (const ann of att.annotations) {
+        const pageLabel = ann.annotationPageLabel || ann.page || "?";
+        results.push({
+          key: ann.key,
+          citationKey,
+          type: this.mapAnnotationType(ann.annotationType),
+          text: ann.annotationText || "",
+          comment: ann.annotationComment || "",
+          color: ann.annotationColor || "#aaaaaa",
+          pageLabel,
+          link: this.buildAnnotationLink(openBase, attachmentItemKey, pageLabel, ann.key),
+          attachmentTitle,
+          position: (_a = ann.annotationPosition) != null ? _a : ann.position,
+          date: ann.dateAdded || ann.dateModified || ann.date || ""
+        });
       }
     }
     return results;
+  }
+  /**
+   * Current BBT returns `open` + `path`; older shapes may expose `itemKey` / `uri`.
+   */
+  resolveAttachmentItemKey(att) {
+    if (att.itemKey) return att.itemKey;
+    if (typeof att.uri === "string") {
+      const fromUri = att.uri.split("/").pop();
+      if (fromUri) return fromUri;
+    }
+    if (typeof att.open === "string") {
+      const match = att.open.match(/\/items\/([^/?#]+)/);
+      if (match) return match[1];
+    }
+    return void 0;
+  }
+  resolveAttachmentTitle(att) {
+    if (att.title) return att.title;
+    if (typeof att.path === "string" && att.path.length > 0) {
+      const parts = att.path.split(/[/\\]/);
+      const name = parts[parts.length - 1];
+      if (name) return name;
+    }
+    return "Unknown Attachment";
+  }
+  buildAnnotationLink(openBase, attachmentItemKey, pageLabel, annotationKey) {
+    const page = pageLabel || "1";
+    const query = `page=${page}&annotation=${annotationKey}`;
+    if (openBase) {
+      const sep = openBase.includes("?") ? "&" : "?";
+      return `${openBase}${sep}${query}`;
+    }
+    return `zotero://open-pdf/library/items/${attachmentItemKey != null ? attachmentItemKey : ""}?${query}`;
   }
   mapAnnotationType(rawType) {
     if (rawType === "highlight") return "highlight";
@@ -1880,34 +1925,45 @@ var ZoteroService = class {
     if (rawType === "note") return "note";
     return "unknown";
   }
-  // ... (resolveLibraryId, fetchLibraryMap, sendRpc remain the same) ...
   async resolveLibraryId(citationKey) {
+    var _a, _b;
     const searchRes = await this.sendRpc("item.search", [citationKey]);
-    if (!searchRes || searchRes.length === 0) throw new Error(`Citation Key '${citationKey}' not found.`);
+    if (!searchRes || searchRes.length === 0) {
+      throw new Error(`Citation Key '${citationKey}' not found.`);
+    }
     const firstHit = searchRes[0];
     const libraryName = typeof firstHit === "object" && firstHit.library ? firstHit.library : "";
     const libs = await this.fetchLibraryMap();
-    return libs[libraryName] || 1;
+    if (libraryName && libs[libraryName] !== void 0) {
+      return libs[libraryName];
+    }
+    if (!libraryName) {
+      return (_b = (_a = libs["My Library"]) != null ? _a : libs[""]) != null ? _b : 1;
+    }
+    return "*";
   }
   async fetchLibraryMap() {
     if (this.libraryCache) return this.libraryCache;
     const groups = await this.sendRpc("user.groups", []);
     this.libraryCache = { "": 1, "My Library": 1 };
     if (Array.isArray(groups)) {
-      for (const g of groups) this.libraryCache[g.name] = g.id;
+      for (const g of groups) {
+        if ((g == null ? void 0 : g.name) != null && (g == null ? void 0 : g.id) != null) {
+          this.libraryCache[g.name] = g.id;
+        }
+      }
     }
     return this.libraryCache;
   }
   async sendRpc(method, params) {
     try {
-      const resp = await (0, import_obsidian3.requestUrl)({
+      const text = await (0, import_obsidian3.request)({
         url: `http://127.0.0.1:${this.port}/better-bibtex/json-rpc`,
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: BBT_RPC_HEADERS,
         body: JSON.stringify({ jsonrpc: "2.0", method, params })
       });
-      if (resp.status !== 200) throw new Error(`HTTP ${resp.status}`);
-      const json3 = JSON.parse(resp.text);
+      const json3 = JSON.parse(text);
       if (json3.error) throw new Error(JSON.stringify(json3.error));
       return json3.result;
     } catch (e) {

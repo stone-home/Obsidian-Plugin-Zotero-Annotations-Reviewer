@@ -1,0 +1,70 @@
+---
+name: docs-planning-feature-requirements
+description: Feature backlog and formal requirement docs. Use when asked to "generate a plan" (draft → docs/feature backlog/) or "generate a feature requirement" (formal → docs/requirements/). Enforces file naming and the required YAML frontmatter + PR/commit template.
+---
+
+# Feature Planning & Requirements
+
+**Context:** Manage agent plans and feature requirements based on user commands.
+
+## File Naming Convention
+- All generated planning or requirement documents MUST follow this naming convention:
+  `<type> - <summarization of note, max 50 characters>.md`
+- **Allowed Types:** `feat`, `fix`, `chore`, `refactor`, `docs`, `style`, `test`, `perf`, `ci`, `build`, `revert`.
+- **Example:** `feat - implement user authentication.md` or `refactor - update argocd layout.md`
+
+## Draft Plans (Feature Backlog)
+
+- **Trigger:** When asked to "generate a plan".
+- **Action:** Document the agent's plan and requirements. Save to `docs/feature backlog/`.
+- **Naming:** Must adhere to the File Naming Convention above.
+
+## Formal Feature Requirements
+
+- **Trigger:** ONLY when explicitly asked to "generate a feature requirement".
+- **Action:** Move the draft note to (or create a new one in) `docs/requirements/`.
+- **Naming:** Must adhere to the File Naming Convention above.
+
+## Required Document Structure
+
+Every planning or requirement document MUST start with the following exact YAML frontmatter, followed by the PR and Commit templates:
+
+```markdown
+---
+title: <type> - <summarization of note, max 50 characters>
+id: <generate_unique_alphanumeric_id>
+create: YYYY-MM-DD
+tags:
+  - type/code-requirement
+aliases: []
+sources: []
+type: permanent
+url:
+cssclasses: []
+project: ""
+status: done
+priority: medium
+release: v0.0.0
+---
+# Commit Message
+`<type>: <short description>`
+
+# PR Description
+**Title:** `<type>: <short description>`
+**Summary:** (Brief explanation of the changes, context, and requirements addressed)
+
+---
+# <Feature/Plan Title>
+
+## 1. Requirements & Context
+- (List of needs, user stories, or agent context)
+
+## 2. Execution Plan
+- [ ] Step 1: ...
+- [ ] Step 2: ...
+```
+
+## Before delivery
+
+Run **global-prose-readability-gate** on Requirements, Execution Plan, and Summary prose
+before saving or returning the document.
