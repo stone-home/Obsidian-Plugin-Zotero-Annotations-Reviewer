@@ -32,7 +32,7 @@ Two capture-specific reminders on top of that skill:
    - A one-line tag: likely **section** (Intro / Method / Results / Limitations / Related Work) and the **evidence** it rests on (file path, number, or "needs citation").
    Follow the default paragraph shape when an item is paragraph-sized: claim/gap → mechanism → evidence → limit.
 
-4. **Save the capture.** Append to `docs/papers/pkm/SHL - Captures.md` (create it if absent) under a dated `## YYYY-MM-DD — <topic>` heading (date only in the heading). Each entry: the content block, then an italic provenance line (`_Source: <file/conversation>; Section: <X>; Evidence: <Y>_`). This file is a running pool of vetted snippets in the flat PKM hub; newest-first is fine. Show the user the content in chat too, so they can copy it immediately. Do **not** write under the obsolete `docs/papers-c/` path.
+4. **Save the capture.** Append to `docs/papers/pkm/ZAR - Captures.md` (create it if absent) under a dated `## YYYY-MM-DD — <topic>` heading (date only in the heading). Each entry: the content block, then an italic provenance line (`_Source: <file/conversation>; Section: <X>; Evidence: <Y>_`). This file is a running pool of vetted snippets in the flat PKM hub; newest-first is fine. Show the user the content in chat too, so they can copy it immediately. Do **not** write under the obsolete `docs/papers-c/` path.
 
 ## Output contract
 

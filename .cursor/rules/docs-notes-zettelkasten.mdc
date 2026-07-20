@@ -1,5 +1,5 @@
 ---
-description: "Zettelkasten Atomic and Protocol note generation under the flat docs/notes/ hub as SHL - Note - ….md (same folder as SHL - Module - … guides; not academic staging). Deduplicate against existing notes and link with [[Wiki-Links]]. Use when asked to generate an Atomic or Protocol note."
+description: "Zettelkasten Atomic and Protocol note generation under the flat docs/notes/ hub as ZAR - Note - ….md (same folder as ZAR - Module - … guides; not academic staging). Deduplicate against existing notes and link with [[Wiki-Links]]. Use when asked to generate an Atomic or Protocol note."
 globs:
   - "docs/notes/**.md"
 alwaysApply: false
@@ -17,16 +17,16 @@ alwaysApply: false
 
 - **Directory (locked, flat):** `docs/notes/` — shared hub with module guides; **no subfolders**. Type is in the filename.
 - **Not academic staging:** never write under `docs/papers/pkm/` or `docs/papers/eval/`.
-- **Atomic (Concepts/Theories):** `SHL - Note - <Broad Category>-<Sub Category>-<Subjective Thesis>.md`
-- **Protocol (Procedures/How-tos):** `SHL - Note - <Broad Category>-<Sub Category>-<Specific Task>.md`
-- **Module guides (same folder, other skill):** `SHL - Module - <name>.md` — written by **docs-module-guide**, not this skill.
+- **Atomic (Concepts/Theories):** `ZAR - Note - <Broad Category>-<Sub Category>-<Subjective Thesis>.md`
+- **Protocol (Procedures/How-tos):** `ZAR - Note - <Broad Category>-<Sub Category>-<Specific Task>.md`
+- **Module guides (same folder, other skill):** `ZAR - Module - <name>.md` — written by **docs-module-guide**, not this skill.
 
 ## Title Construction (Strict Hierarchy)
 
 Applies to Atomic notes (and Protocol notes with the same category/sub-category rules; Protocol replaces Subjective Thesis with Specific Task).
 
 - **H1 format:** `# Atomic - <Broad Category> - <Sub Category> - <Subjective Thesis>`
-- **Filename:** derive from the H1 by replacing spaces with ASCII hyphens, then prefix `SHL - Note - ` (no other punctuation).
+- **Filename:** derive from the H1 by replacing spaces with ASCII hyphens, then prefix `ZAR - Note - ` (no other punctuation).
 
 ### Broad Category
 

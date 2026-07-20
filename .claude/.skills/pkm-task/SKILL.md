@@ -23,7 +23,7 @@ A single line appended to the target Objective note's `## 3. Active Todos` secti
 
 ## Target resolution (never guess the Objective)
 
-1. List `docs/papers/pkm/SHL - Objective - *.md`. Match the user's cue to a note by `claim_id` (e.g. "C3") and/or title keywords.
+1. List `docs/papers/pkm/ZAR - Objective - *.md`. Match the user's cue to a note by `claim_id` (e.g. "C3") and/or title keywords.
 2. **Exactly one match** → append there.
 3. **Ambiguous or zero matches** → ask the user which Objective (show the candidate filenames). Do not invent an Objective and do not create one here — if none exists, tell the user to run **pkm-objective** first.
 4. If the user names the Objective explicitly, trust that over fuzzy matching.

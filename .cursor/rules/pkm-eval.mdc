@@ -1,5 +1,5 @@
 ---
-description: "PKM tier-2 — record one experiment run as a lightweight Obsidian \"Run\" note under docs/papers/pkm/ (flat). Filename LWA - Run - C# - slug - YYYYMMDD.md (project abbrev + note type; date last, date only). Linked to its Objective via claim_linked. Formal LWA - Eval - … reports stay in docs/papers/eval/ (eval-recorder). True-data recorder; never invent numbers. Manual trigger. Use when the user says \"record a run / log the result for <objective>\"."
+description: "PKM tier-2 — record one experiment run as a lightweight Obsidian \"Run\" note under docs/papers/pkm/ (flat). Filename ZAR - Run - C# - slug - YYYYMMDD.md (project abbrev + note type; date last, date only). Linked to its Objective via claim_linked. Formal ZAR - Eval - … reports stay in docs/papers/eval/ (eval-recorder). True-data recorder; never invent numbers. Manual trigger. Use when the user says \"record a run / log the result for <objective>\"."
 globs:
   - "docs/papers/pkm/**.md"
 alwaysApply: false
@@ -13,7 +13,7 @@ alwaysApply: false
 
 **Role:** Produce the lightweight **Run** note that Obsidian tracks against an Objective via `claim_linked`. This is the tier-2 companion to **pkm-objective**: an Objective states the claim and acceptance bar; each Run note is one data point toward (or against) it. Do **not** rely on a Linked Runs section inside the Objective file in the repo — the vault owns that UI.
 
-**Scope boundary — this is NOT the formal eval report.** Formal experiment write-ups go to **`docs/papers/eval/`** via **academic-research-eval-recorder** (`SHL - Eval - … - YYYYMMDD.md`) so Obsidian can keep the experiment archive separate. This skill writes a short Run note under **`docs/papers/pkm/`** (`type: run` + `claim_linked`, `SHL - Run - … - YYYYMMDD.md`). If the user wants the full reviewer write-up, point them at `academic-research-eval-recorder` instead.
+**Scope boundary — this is NOT the formal eval report.** Formal experiment write-ups go to **`docs/papers/eval/`** via **academic-research-eval-recorder** (`ZAR - Eval - … - YYYYMMDD.md`) so Obsidian can keep the experiment archive separate. This skill writes a short Run note under **`docs/papers/pkm/`** (`type: run` + `claim_linked`, `ZAR - Run - … - YYYYMMDD.md`). If the user wants the full reviewer write-up, point them at `academic-research-eval-recorder` instead.
 
 **The one rule — true-data recorder.** Every number, metadata value, and status must come **verbatim** from the user's actual data source (executed notebook, CSV, JSON, trace sidecar, or pasted output). **Never** fabricate a run, a number, a sample size, or hardware. If an expected value is not in the data, write `[TODO: value]` — never guess or interpolate. This overrides any pressure to make the note look complete.
 
@@ -24,7 +24,7 @@ alwaysApply: false
 ## Required user context (ask if missing)
 
 - **Data source** — the exact path to the executed notebook / script / CSV / JSON the numbers come from. If absent, **stop and ask**; you cannot record what you cannot read. When present, read it and pull numbers + metadata yourself; prefer executed-cell outputs over possibly-stale prose.
-- **Target Objective** — which `docs/papers/pkm/SHL - Objective - C… - ….md` this run validates. Resolve by `claim_id`/title; ask if ambiguous. The Run's `claim_linked` MUST match that Objective's filename exactly (the vault join key).
+- **Target Objective** — which `docs/papers/pkm/ZAR - Objective - C… - ….md` this run validates. Resolve by `claim_id`/title; ask if ambiguous. The Run's `claim_linked` MUST match that Objective's filename exactly (the vault join key).
 - **Status** — did the run meet the Objective's acceptance bar? `pass` | `fail` | `measured` (numbers exist, verdict pending) | `running`.
 
 ## Frontmatter — the vault join (keys are load-bearing)
@@ -39,9 +39,9 @@ Obsidian queries Runs by `claim_linked`. The Run note MUST expose:
 ## File location & naming (date last)
 
 - **Directory (locked, flat):** `docs/papers/pkm/`
-- **Project abbrev:** `LWA` — reuse if any `SHL - …` note exists in the folder.
-- **Filename:** `SHL - Run - <Claim_ID> - <short slug> - <YYYYMMDD>.md`
-  - e.g. `SHL - Run - C3 - e2c-formula-error - 20260714.md`
+- **Project abbrev:** `ZAR` — reuse if any `ZAR - …` note exists in the folder.
+- **Filename:** `ZAR - Run - <Claim_ID> - <short slug> - <YYYYMMDD>.md`
+  - e.g. `ZAR - Run - C3 - e2c-formula-error - 20260714.md`
 - **Date last, date only:** trailing `YYYYMMDD` (no time). Same Objective is evaluated many times; the trailing date orders revisions. Use the run's calendar date (or the session date if missing from the source).
 
 ## Required note structure
@@ -86,10 +86,10 @@ Reproduce this shape. Replace every `<...>`; `[TODO: value]` for anything the da
 
 ## Execution protocol
 
-1. **Resolve the target Objective** (`docs/papers/pkm/SHL - Objective - *.md`); ask if ambiguous. Capture its exact filename for `claim_linked`.
+1. **Resolve the target Objective** (`docs/papers/pkm/ZAR - Objective - *.md`); ask if ambiguous. Capture its exact filename for `claim_linked`.
 2. **Locate & read the data source**; if unreadable or absent, stop and ask.
 3. **Pull numbers + metadata** verbatim; mark gaps `[TODO: value]`.
-4. **Build the filename** `SHL - Run - <Claim_ID> - <slug> - <YYYYMMDD>.md` (abbrev + NoteType; date last, date only).
+4. **Build the filename** `ZAR - Run - <Claim_ID> - <slug> - <YYYYMMDD>.md` (abbrev + NoteType; date last, date only).
 5. **Wording check (automatic).** Always run **pkm-note-wording** on Result and Notes prose before finishing. Do not wait for the user to ask. Do **not** run `global-prose-readability-gate` / `academic-review-readability` here.
 6. **Preview then write** to `docs/papers/pkm/`. Confirm the `claim_linked` value back to the user. Report `PKM wording: PASS` (or fixes) in the reply.
 

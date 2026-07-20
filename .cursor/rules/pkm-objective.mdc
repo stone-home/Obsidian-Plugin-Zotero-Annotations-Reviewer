@@ -1,5 +1,5 @@
 ---
-description: "PKM tier-1 — turn a discussed experiment idea into a structured Obsidian \"Objective\" note under docs/papers/pkm/ (flat; filename-managed). One Objective = one experiment = one paper claim. Folds in ML-systems experiment-design rigor (>=3 baselines, micro + e2e, one independent variable, controlled confounders) as the success criteria. Reads the claim registry (docs/papers/README.md + docs/papers/eval/SHL - Eval - 00 - captures.md) for claim_id/target_section; never invents claim numbers. Manual trigger only. Use when the user says \"create/write an objective\" after a scope has been discussed."
+description: "PKM tier-1 — turn a discussed experiment idea into a structured Obsidian \"Objective\" note under docs/papers/pkm/ (flat; filename-managed). One Objective = one experiment = one paper claim. Folds in ML-systems experiment-design rigor (>=3 baselines, micro + e2e, one independent variable, controlled confounders) as the success criteria. Reads the claim registry (docs/papers/README.md + docs/papers/eval/ZAR - Eval - 00 - captures.md) for claim_id/target_section; never invents claim numbers. Manual trigger only. Use when the user says \"create/write an objective\" after a scope has been discussed."
 globs:
   - "docs/papers/pkm/**.md"
 alwaysApply: false
@@ -23,10 +23,10 @@ alwaysApply: false
 
 `claim_id` and `target_section` are **not** yours to invent. Before writing:
 
-1. Read `docs/papers/README.md` (the claim register: `C1 — Closure (§…)`, `C2 — Self-consistency`, …) and `docs/papers/eval/SHL - Eval - 00 - captures.md` (claim → experiment-folder map).
+1. Read `docs/papers/README.md` (the claim register: `C1 — Closure (§…)`, `C2 — Self-consistency`, …) and `docs/papers/eval/ZAR - Eval - 00 - captures.md` (claim → experiment-folder map).
 2. Match the discussed scope to an existing `C<n>` and its `§` section. Use those verbatim.
 3. If nothing matches, this may be a **new** claim. Stop and ask the user whether to register a new `C<n>`. Only after the user confirms, append the new row to `docs/papers/README.md`'s claim register — do not silently edit the paper's claim list.
-4. Deduplicate: scan `docs/papers/pkm/SHL - Objective - *.md` for an existing note with the same `claim_id`. If one exists, offer to extend it instead of creating a second file.
+4. Deduplicate: scan `docs/papers/pkm/ZAR - Objective - *.md` for an existing note with the same `claim_id`. If one exists, offer to extend it instead of creating a second file.
 
 ## Experiment-design rigor (the success criteria must be real)
 
@@ -48,10 +48,10 @@ If the full matrix is large, also name the **minimum viable subset** (the 3–5 
 ## File location & naming
 
 - **Directory (locked, flat):** `docs/papers/pkm/` — no type/component subfolders.
-- **Project abbrev:** `LWA` (Layer-wise-analysis). If any `SHL - …` note already exists in `pkm/`, reuse that abbrev — never invent a second one.
-- **Filename:** `SHL - Objective - <Claim_ID> - <concise English title>.md`
-  - e.g. `SHL - Objective - C1 - Lifetime Vocabulary Closure.md`
-- Design companions in the same folder: `SHL - Design - <Claim_ID> - <title>.md` (link from §2).
+- **Project abbrev:** `ZAR` (Zotero Annotation Reviewer). If any `ZAR - …` note already exists in `pkm/`, reuse that abbrev — never invent a second one.
+- **Filename:** `ZAR - Objective - <Claim_ID> - <concise English title>.md`
+  - e.g. `ZAR - Objective - C1 - Lifetime Vocabulary Closure.md`
+- Design companions in the same folder: `ZAR - Design - <Claim_ID> - <title>.md` (link from §2).
 - No date suffix on Objective / Design (dates are only for Eval / Run result logs).
 - Title: keyword-first, no colons/slashes/quotes, ASCII hyphens only.
 
@@ -92,7 +92,7 @@ Reproduce this shape exactly. Replace every `<...>` and replace `<THIS-FILE>` wi
 
     ## 2. Context & Canvas Links
 
-    - [[LWMA20260202-AMIR-Memory-Prediction-v2.canvas]]
+    - [[<project-canvas>.canvas]]
     - <add other canvas / design-note wikilinks discussed in-session>
 
     ## 3. Active Todos
@@ -100,7 +100,7 @@ Reproduce this shape exactly. Replace every `<...>` and replace `<THIS-FILE>` wi
     - [ ] <first task to validate this claim> [obj:: [[<THIS-FILE>]]]
 
 Notes on the template:
-- The Canvas wikilink defaults to `LWMA20260202-AMIR-Memory-Prediction-v2.canvas`; the user may override or add more. Do not create or edit Canvas files from the repo.
+- The Canvas wikilink defaults to `<project-canvas>.canvas`; the user may override or add more. Do not create or edit Canvas files from the repo.
 - **Do not** add a Linked Runs / Dataview section — Obsidian owns run tracking in the vault. `pkm-eval` still sets `claim_linked` on Run notes for the vault join.
 - Section 3 seeds one Todo. Further quick captures are appended by **pkm-task**, never a second file.
 
@@ -108,7 +108,7 @@ Notes on the template:
 
 1. **Confirm scope was discussed.** If the boundary was not talked through in-session, ask for it before writing — do not infer the experiment's edges.
 2. **Resolve claim_id / target_section** from the registry (read the two files). New claim → ask, then register on confirmation.
-3. **Deduplicate** against `docs/papers/pkm/SHL - Objective - *.md`.
+3. **Deduplicate** against `docs/papers/pkm/ZAR - Objective - *.md`.
 4. **Draft** the note with a real, measurable acceptance bar and the design table; use `[TBD: …]` for any hardware/config the user has not fixed.
 5. **Wording check (automatic).** Always run **pkm-note-wording** on Hypothesis & Goal and Risks prose before finishing. Do not wait for the user to ask. Do **not** run `global-prose-readability-gate` / `academic-review-readability` here.
 6. **Preview then write** to `docs/papers/pkm/`. Report `PKM wording: PASS` (or fixes) in the reply.

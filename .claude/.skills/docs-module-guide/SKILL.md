@@ -1,14 +1,14 @@
 ---
 name: docs-module-guide
-description: Deep module-documentation workflow under the flat docs/notes/ hub as SHL - Module - ….md (same folder as SHL - Note - … Zettelkasten; not academic staging). Logical-component mapping, PlantUML class diagram, per-component walkthrough with code citations, open-issues TODO, readability gate, and Zettelkasten extraction. Use when asked to document/explain a module under src/, or when editing docs/notes/SHL - Module - *.md.
+description: Deep module-documentation workflow under the flat docs/notes/ hub as ZAR - Module - ….md (same folder as ZAR - Note - … Zettelkasten; not academic staging). Logical-component mapping, PlantUML class diagram, per-component walkthrough with code citations, open-issues TODO, readability gate, and Zettelkasten extraction. Use when asked to document/explain a module under src/, or when editing docs/notes/ZAR - Module - *.md.
 ---
 
 # Module deep-dive documentation workflow
 
 **Trigger:** User asks to document, explain, or write a module guide for code under
-`src/`, or edits `docs/notes/SHL - Module - *.md`.
+`src/`, or edits `docs/notes/ZAR - Module - *.md`.
 
-**Output:** `docs/notes/SHL - Module - <logical-name>.md` (English body).
+**Output:** `docs/notes/ZAR - Module - <logical-name>.md` (English body).
 
 **Do not** touch `test/` in the same task (global-workflow-testcase-separation).
 
@@ -21,8 +21,8 @@ description: Deep module-documentation workflow under the flat docs/notes/ hub a
 ## Naming & frontmatter
 
 - **Directory (locked, flat):** `docs/notes/` — shared hub with Zettelkasten notes; **no subfolders**. Type is in the filename.
-- **File name:** `SHL - Module - <module-name>.md` (project abbrev `SHL` + NoteType `Module`; `<module-name>` lowercase, hyphens for spaces)
-  - e.g. `SHL - Module - ir-byte-binder.md`
+- **File name:** `ZAR - Module - <module-name>.md` (project abbrev `ZAR` + NoteType `Module`; `<module-name>` lowercase, hyphens for spaces)
+  - e.g. `ZAR - Module - zotero-service.md`
 - **Not academic staging:** never write under `docs/papers/pkm/` or `docs/papers/eval/`.
 - **Constraint:** Document by logical functionality, not by source file list.
 
@@ -40,7 +40,7 @@ tags: [module, <tech-stack>]
 ## Phase 0 — Map the logical module
 
 1. Identify **logical boundaries** across `src/` (not file-by-file).
-2. Search `docs/notes/` for existing `SHL - Module - …` / related `SHL - Note - …` coverage; plan merge vs new.
+2. Search `docs/notes/` for existing `ZAR - Module - …` / related `ZAR - Note - …` coverage; plan merge vs new.
 3. Read source until you can name entry points, data stages, and 3–7 logical **components**.
 
 Deliverable before writing: a component list for the class diagram.
@@ -58,7 +58,7 @@ Write `## 1. Overview`. Before any diagram or API table, answer (academic-writin
 **Voice:** technical blog — short sentences (12–22 words), one idea each; no AI-fluff (§7).
 A **Design goals** table (Goal | Mechanism) may follow the three answers, not replace them.
 
-Link existing `[[SHL - Note - …]]`; do not create notes yet.
+Link existing `[[ZAR - Note - …]]`; do not create notes yet.
 
 ---
 
@@ -90,7 +90,7 @@ For each component (data-flow order), add `### 3.<n> <ComponentName>`.
 | **Input** | Schema + minimal `json`/`python` example from code (no fabricated numbers) |
 | **Processing steps** | Numbered; each step cites code (`startLine:endLine:path`) or snippet ≤15 lines |
 | **Output** | Schema + example |
-| **Links** | `[[SHL - Note - …]]` only if note already exists |
+| **Links** | `[[ZAR - Note - …]]` only if note already exists |
 
 `## 4. Public API` and `## 5. Maintenance` — thin tables only; no Phase 3 duplication.
 

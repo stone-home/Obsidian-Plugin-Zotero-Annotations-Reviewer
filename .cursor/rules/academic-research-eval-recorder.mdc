@@ -1,5 +1,5 @@
 ---
-description: "Record one experiment's results into flat docs/papers/eval/ as SHL - Eval - … - YYYYMMDD.md — design spec, run metadata, full results with analysis, and a provenance Data note. Separate from docs/papers/pkm/ (Obsidian experiment archive). True-data recorder; never invent runs/numbers/hardware; missing values are [TODO: value]. Date suffix is YYYYMMDD (date only). Use when recording / writing up a finished experiment into eval."
+description: "Record one experiment's results into flat docs/papers/eval/ as ZAR - Eval - … - YYYYMMDD.md — design spec, run metadata, full results with analysis, and a provenance Data note. Separate from docs/papers/pkm/ (Obsidian experiment archive). True-data recorder; never invent runs/numbers/hardware; missing values are [TODO: value]. Date suffix is YYYYMMDD (date only). Use when recording / writing up a finished experiment into eval."
 globs:
   - "docs/papers/eval/**.md"
 alwaysApply: false
@@ -26,7 +26,7 @@ alwaysApply: false
 Before writing the file, you must have:
 
 - **Data source** — the exact path to the executed notebook / script / CSV / JSON the numbers come from. If absent, **stop and ask**; you cannot record what you cannot read.
-- **Experiment ID** and its **claim** and **type** (micro / e2e / ablation / scoping / support) — these set the filename, the status blockquote, and the design-spec row. Cross-check against `docs/papers/eval/SHL - Eval - 00 - experiment-design-overview.md`.
+- **Experiment ID** and its **claim** and **type** (micro / e2e / ablation / scoping / support) — these set the filename, the status blockquote, and the design-spec row. Cross-check against `docs/papers/eval/ZAR - Eval - 00 - experiment-design-overview.md`.
 - **Status** — `measured` (numbers exist) vs `not yet run` (skeleton only). A skeleton report states no peak/headline number and is mostly `[TODO: value]`.
 
 When the data source is available, **read it and pull the numbers and metadata yourself** — do not let the user paraphrase figures you could read directly. If a notebook is referenced, prefer the executed-cell outputs over any prose that may be stale. **Before drafting Part 2**, scan the summary JSON / trace sidecars for `runtime`, `RuntimeConstraints`, `schema_version`, `trace_files`, device names, and job/capture ids — lift every field that belongs to this experiment (see **Run metadata** below).
@@ -34,14 +34,14 @@ When the data source is available, **read it and pull the numbers and metadata y
 ## File location & naming
 
 - **Directory (locked, flat, separate):** `docs/papers/eval/` — experiment reports only. Do **not** write Eval notes under `docs/papers/pkm/` (that hub is Objectives / Designs / Meta / light Runs / Captures).
-- **Shape (mandatory):** `SHL - Eval - <rest> - <YYYYMMDD>.md` — project abbrev, NoteType `Eval`, claim/experiment stem, **date last**.
-- **Project abbreviation — derive once, then reuse.** Read `pyproject.toml` (fallback README) and form a short uppercase abbrev (e.g. `layer-wise-analysis` → `LWA`). If any `SHL - Eval - …` note already exists in `docs/papers/eval/`, **reuse that abbrev exactly** — never invent a second one. Prefer matching the abbrev used in `docs/papers/pkm/` as well (`LWA`).
+- **Shape (mandatory):** `ZAR - Eval - <rest> - <YYYYMMDD>.md` — project abbrev, NoteType `Eval`, claim/experiment stem, **date last**.
+- **Project abbreviation — derive once, then reuse.** Read `pyproject.toml` (fallback README) and form a short uppercase abbrev (e.g. `zotero-annotation-reviewer` → `ZAR`). If any `ZAR - Eval - …` note already exists in `docs/papers/eval/`, **reuse that abbrev exactly** — never invent a second one. Prefer matching the abbrev used in `docs/papers/pkm/` as well (`ZAR`).
 - **Datestamp:** calendar `YYYYMMDD` only (when the report is written). **Never** put time / datetime in the filename.
-- **Claim experiments:** `SHL - Eval - C<claim> - E<id> - <slug> - <YYYYMMDD>.md`
-  - e.g. `SHL - Eval - C3 - E2c - formula-error-and-cupti - 20260628.md`
-- **Support / apparatus:** `SHL - Eval - support - E<id> - <slug> - <YYYYMMDD>.md`
-  - e.g. `SHL - Eval - support - E0b - homogeneity - 20260628.md`
-- **Indexes (no date):** `SHL - Eval - 00 - experiment-design-overview.md`, `SHL - Eval - 00 - captures.md`
+- **Claim experiments:** `ZAR - Eval - C<claim> - E<id> - <slug> - <YYYYMMDD>.md`
+  - e.g. `ZAR - Eval - C3 - E2c - formula-error-and-cupti - 20260628.md`
+- **Support / apparatus:** `ZAR - Eval - support - E<id> - <slug> - <YYYYMMDD>.md`
+  - e.g. `ZAR - Eval - support - E0b - homogeneity - 20260628.md`
+- **Indexes (no date):** `ZAR - Eval - 00 - experiment-design-overview.md`, `ZAR - Eval - 00 - captures.md`
 - `<slug>` is short kebab-case; match the overview design table.
 - **When comparing prior notes**, search `docs/papers/eval/` for the same experiment ID (`E0`, `E2c`, …) and take the newest trailing `YYYYMMDD`.
 - **Frontmatter `sources:`** — list every path this note depends on. Do not leave `sources: []` on a measured report.
@@ -172,7 +172,7 @@ Add rows for any other field present in the source and tied to this experiment (
 <exact provenance: which executed file, which entry point, which pool. Repeat any metadata gaps as `[TODO: …]`. Name anything this supersedes (e.g. stale figures in another doc).>
 
 ## Changes since last note
-<comparison against the most recent prior note **for this same experiment ID** under `docs/papers/eval/`. Baseline filename e.g. `SHL - Eval - C3 - E2c - formula-error-and-cupti - <older-YYYYMMDD>.md`. State which note is the baseline, or "first note for this experiment". Record (a) metric old → new, (b) metadata changes (pool, GPU, pin, git), (c) `git diff` since the baseline note's datestamp. If nothing material changed, say so in one line.>
+<comparison against the most recent prior note **for this same experiment ID** under `docs/papers/eval/`. Baseline filename e.g. `ZAR - Eval - C3 - E2c - formula-error-and-cupti - <older-YYYYMMDD>.md`. State which note is the baseline, or "first note for this experiment". Record (a) metric old → new, (b) metadata changes (pool, GPU, pin, git), (c) `git diff` since the baseline note's datestamp. If nothing material changed, say so in one line.>
 ```
 
 ## Recording discipline
@@ -185,14 +185,14 @@ Add rows for any other field present in the source and tied to this experiment (
 - **CIs / significance** that are not yet computed are `[TODO]` open items in the Data note — do not assert a CI the data does not contain.
 - **Supersession.** If these numbers replace stale figures elsewhere (e.g. `docs/papers/experiments.md`), say so explicitly in the Data note with both the old and new values.
 - **Frontmatter dates & status.** Use field name `create` (never `created`). `status: done` on every written note. `create` = today on first write (session date). `start` = `end` of the most recent prior note for the **same experiment ID** under `docs/papers/eval/`; if no prior note exists, set `start` = `create`. `end` = today (session date) on every write or edit.
-- After writing, check the overview design table (`SHL - Eval - 00 - experiment-design-overview.md`): if its row carries a measured value in bold, keep this report's headline consistent with it; if they diverge, flag the divergence rather than silently picking one.
+- After writing, check the overview design table (`ZAR - Eval - 00 - experiment-design-overview.md`): if its row carries a measured value in bold, keep this report's headline consistent with it; if they diverge, flag the divergence rather than silently picking one.
 
 ## Execution Protocol
 
-1. **Derive the project abbreviation (first).** Read the project config file (`pyproject.toml`, then README / paper meta) for the project name and form the single shared `<ABBR>` (`LWA`). If `docs/papers/eval/` already has `SHL - Eval - …` notes, reuse that abbrev; also stay consistent with `docs/papers/pkm/`.
+1. **Derive the project abbreviation (first).** Read the project config file (`pyproject.toml`, then README / paper meta) for the project name and form the single shared `<ABBR>` (`ZAR`). If `docs/papers/eval/` already has `ZAR - Eval - …` notes, reuse that abbrev; also stay consistent with `docs/papers/pkm/`.
 2. **Locate & read the data source.** Confirm the path; read executed outputs **and** embedded runtime / metadata blocks. If unreadable or absent, stop and ask.
 3. **Extract run metadata.** Fill the Run metadata table from the source before writing results prose. Mark gaps `[TODO: value]`.
-4. **Place the file under `docs/papers/eval/`.** Build `SHL - Eval - <stem> - <YYYYMMDD>.md` (abbrev + NoteType; date last, date only) from the overview table stem and today's datestamp. Never write this artifact into `pkm/`.
+4. **Place the file under `docs/papers/eval/`.** Build `ZAR - Eval - <stem> - <YYYYMMDD>.md` (abbrev + NoteType; date last, date only) from the overview table stem and today's datestamp. Never write this artifact into `pkm/`.
 5. **Fill the structure.** Design spec from the overview row; metadata and results verbatim from the data; interpretation grounded only in those numbers.
 6. **Mark gaps.** Every expected-but-absent value becomes `[TODO: value]`; every uncomputed CI/test becomes a Data-note open item.
 7. **Compare against the same experiment's prior note (after drafting).** Search `docs/papers/eval/` for earlier notes of the **same experiment ID**; take the most recent (by trailing datestamp or frontmatter `end`). Diff numbers **and metadata** against the new data; run `git diff` since the baseline note's datestamp. Write findings into **Changes since last note**. Set frontmatter `start` to that prior note's `end` (or to `create` if this is the first note for the experiment); set `end` to today.
