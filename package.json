@@ -1,6 +1,6 @@
 {
 	"name": "zotero-annotation-reviewer",
-	"version": "1.8.0",
+	"version": "1.8.1",
 	"description": "A plugin designed to review all annotations marked in Zotero and help select insightful notes to create a quick summary note.",
 	"main": "src/main.js",
 	"scripts": {
