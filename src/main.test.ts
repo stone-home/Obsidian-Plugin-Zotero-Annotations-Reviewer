@@ -1,4 +1,4 @@
-import { App, TFile, Notice } from 'obsidian';
+import { App, TFile } from 'obsidian';
 import ZoteroGKPlugin from './main';
 import { HighlightModal } from './ui/highlights';
 import { DEFAULT_SETTINGS } from './types';

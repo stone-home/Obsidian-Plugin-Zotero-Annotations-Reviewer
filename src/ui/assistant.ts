@@ -25,7 +25,7 @@ export class AssistantView extends MarkdownRenderChild {
 		}
 
 		// 1. Parse Image Map (Legacy/Standard feature)
-		let imageMap = parseImageMap(source);
+		const imageMap = parseImageMap(source);
 
 		const container = el.createDiv({ cls: 'zotero-assistant-container' });
 

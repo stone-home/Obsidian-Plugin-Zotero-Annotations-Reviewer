@@ -1,6 +1,6 @@
 import { App, TFile, Notice } from 'obsidian';
 import { ZoteroAnnotation, ZoteroItemMetadata, MyPluginSettings } from '../types';
-import {NoteModel, ObsidianNoteFactory, ZettelNoteModel} from 'markdown-note-orm';
+import {ObsidianNoteFactory, ZettelNoteModel} from 'markdown-note-orm';
 import { normalizePath } from '../utils/paths';
 
 export class ObsidianService {

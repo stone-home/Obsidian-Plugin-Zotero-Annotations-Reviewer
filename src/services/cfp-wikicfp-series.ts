@@ -15,14 +15,16 @@ export function delay(ms: number): Promise<void> {
 	return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-/** Strip basic HTML tags & entities – lighter version for series tables. */
+const BASIC_ENTITIES: Record<string, string> = { nbsp: ' ', amp: '&', lt: '<', gt: '>' };
+
+/**
+ * Strip basic HTML tags & entities – lighter version for series tables.
+ * Entities are decoded in one pass, so `&amp;lt;` becomes `&lt;`, not `<`.
+ */
 export function stripHtmlLite(html: string): string {
 	return html
 		.replace(/<[^>]+>/g, ' ')
-		.replace(/&nbsp;/g, ' ')
-		.replace(/&amp;/g, '&')
-		.replace(/&lt;/g, '<')
-		.replace(/&gt;/g, '>')
+		.replace(/&(nbsp|amp|lt|gt);/g, (_, name: string) => BASIC_ENTITIES[name])
 		.replace(/\s+/g, ' ')
 		.trim();
 }
@@ -106,13 +108,11 @@ export async function fetchWikiCFPSeriesIndex(
 			const resp = await requestUrl({ url, method: 'GET' });
 			if (resp.status !== 200) continue;
 			const entries = parseSeriesIndexPage(resp.text);
-			let added = 0;
 			for (const e of entries) {
 				const key = e.id + '|' + e.seriesAcronym;
 				if (seen.has(key)) continue;
 				seen.add(key);
 				all.push(e);
-				added++;
 			}
 			onProgress?.(letter, all.length);
 		} catch {
@@ -165,13 +165,13 @@ export function parseSeriesTableToItems(html: string, programUrl: string, series
 	};
 
 	for (let i = 0; i < rows.length; i++) {
-		let rowHtml = rows[i];
+		const rowHtml = rows[i];
 		let eventCell: string;
 		let whenCell: string;
 		let whereCell: string;
 		let deadlineCell: string;
 
-		let cells = extractTds(rowHtml);
+		const cells = extractTds(rowHtml);
 
 		// WAIFI-style layout: first data row uses rowspan and only has Event + description,
 		// second row has dates + where + deadline. Merge them into a single logical row.

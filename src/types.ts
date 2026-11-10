@@ -1,3 +1,5 @@
+import type { DigestSettings } from './services/digest-types';
+
 export interface ZoteroAnnotation {
 	key: string;
 	citationKey: string;
@@ -185,6 +187,8 @@ export interface MyPluginSettings {
 	cfpCoreCsvPath: string;
 	/** Vault-relative path to a local allconf.yml used as a fallback when CCFDDL network fetch is unavailable. */
 	cfpCcfddlLocalPath: string;
+	/** Paper Digest settings; defaults are applied by the digest code when unset. */
+	digest?: Partial<DigestSettings>;
 }
 
 // --- NEW: DEFAULT DATAVIEW SCRIPT ---

@@ -915,3 +915,217 @@
 	flex: 1;
 	min-width: 180px;
 }
+
+/* --- Paper Digest --- */
+.zotero-digest {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	height: 100%;
+	padding: 12px 16px;
+	overflow: hidden;
+}
+.zotero-digest-header,
+.zotero-digest-header-right,
+.zotero-digest-list-bar {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+}
+.zotero-digest-header-right {
+	margin-left: auto;
+}
+.zotero-digest-status::before {
+	content: "●";
+	margin-right: 4px;
+}
+.zotero-digest-status.is-online::before {
+	color: var(--text-success);
+}
+.zotero-digest-status.is-offline::before {
+	color: var(--text-error);
+}
+.zotero-digest-meta,
+.zotero-digest-hint {
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+}
+.zotero-digest-alert {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 6px;
+	padding: 10px 12px;
+	border: 1px solid var(--text-error);
+	border-radius: 6px;
+	color: var(--text-error);
+	user-select: text;
+}
+.zotero-digest-body {
+	display: flex;
+	flex: 1;
+	gap: 12px;
+	min-height: 0;
+}
+.zotero-digest-list {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	flex: 0 0 38%;
+	min-width: 260px;
+	overflow-y: auto;
+	padding-right: 4px;
+}
+.zotero-digest-list-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 8px 10px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 6px;
+	cursor: pointer;
+}
+.zotero-digest-list-row:hover {
+	background-color: var(--background-modifier-hover);
+}
+.zotero-digest-list-row.is-selected {
+	border-color: var(--interactive-accent);
+	background-color: var(--background-primary-alt);
+}
+.zotero-digest-list-text {
+	flex: 1;
+	min-width: 0;
+}
+.zotero-digest-list-title {
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+	font-weight: 500;
+}
+.zotero-digest-list-side {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-end;
+	gap: 4px;
+}
+.zotero-digest-badge {
+	padding: 1px 8px;
+	border-radius: 10px;
+	font-size: var(--font-ui-smaller);
+	background-color: var(--background-modifier-border);
+	white-space: nowrap;
+}
+.zotero-digest-badge.is-accepted {
+	color: var(--text-success);
+}
+.zotero-digest-badge.is-rejected {
+	color: var(--text-error);
+}
+.zotero-digest-detail {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	flex: 1;
+	min-width: 0;
+	overflow-y: auto;
+}
+.zotero-digest-card {
+	padding: 14px 16px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 8px;
+	background-color: var(--background-primary-alt);
+	user-select: text;
+}
+.zotero-digest-title {
+	margin: 0 0 6px 0;
+}
+.zotero-digest-card .zotero-digest-meta {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 10px;
+}
+.zotero-digest-abstract {
+	margin-top: 10px;
+	line-height: 1.5;
+	white-space: pre-wrap;
+}
+.zotero-digest-actions {
+	display: flex;
+	justify-content: center;
+	gap: 12px;
+}
+.zotero-digest-panel {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 10px;
+	padding: 12px;
+	border-top: 1px solid var(--background-modifier-border);
+}
+.zotero-digest-panel .zotero-digest-actions {
+	align-self: center;
+}
+.zotero-digest-panel-title {
+	font-weight: 600;
+}
+.zotero-digest-chips {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+.zotero-digest-chip.is-picked {
+	background-color: var(--interactive-accent);
+	color: var(--text-on-accent);
+}
+.zotero-digest-collections {
+	align-self: stretch;
+	max-height: 220px;
+	overflow-y: auto;
+	padding: 6px 8px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 6px;
+}
+.zotero-digest-collection {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding-top: 2px;
+	padding-bottom: 2px;
+}
+.zotero-digest-error {
+	align-self: stretch;
+	padding: 8px 10px;
+	border: 1px solid var(--text-error);
+	border-radius: 6px;
+	color: var(--text-error);
+	font-weight: 600;
+	user-select: text;
+}
+.zotero-digest-empty {
+	padding: 24px;
+	text-align: center;
+	color: var(--text-muted);
+}
+.zotero-digest-invalid {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	overflow-y: auto;
+}
+.zotero-digest-invalid-row {
+	padding: 8px 10px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 6px;
+	user-select: text;
+}
+.zotero-digest-raw {
+	font-family: var(--font-monospace);
+	font-size: var(--font-ui-smaller);
+	color: var(--text-muted);
+	word-break: break-all;
+}
+.zotero-digest-hidden {
+	display: none;
+}

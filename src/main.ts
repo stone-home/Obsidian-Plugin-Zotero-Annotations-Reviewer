@@ -1,4 +1,4 @@
-import { Plugin, Notice, TFile, SuggestModal, App, Modal, Setting, TextComponent, ButtonComponent } from 'obsidian';
+import { Plugin, Notice, TFile, SuggestModal, App, Modal, TextComponent, ButtonComponent } from 'obsidian';
 import { DEFAULT_SETTINGS, MyPluginSettings, WebhookProfile } from './types';
 import { ZoteroSettingTab } from './settings';
 import { HighlightModal } from './ui/highlights';
@@ -161,6 +161,11 @@ export default class ZoteroGKPlugin extends Plugin {
 					}) as Promise<void>;
 			}
 		};
+
+		// Paper Digest is loaded lazily so that a failure there cannot stop the plugin loading.
+		import('./ui/digest-view')
+			.then((digest) => digest.registerDigest(this))
+			.catch((e) => console.error('[Paper Digest] registration failed', e));
 	}
 
 	onunload() {
@@ -302,7 +307,7 @@ class WebhookInputValueModal extends Modal {
 			const values: Record<string, string> = {};
 			this.variables.forEach(iv => {
 				const v = this.inputs.get(iv.name)?.getValue() ?? '';
-				values[iv.name] = iv.type === 'number' ? String(Number(v) ?? v) : v;
+				values[iv.name] = iv.type === 'number' ? String(Number(v)) : v;
 			});
 			this.close();
 			this.onSubmit(values);

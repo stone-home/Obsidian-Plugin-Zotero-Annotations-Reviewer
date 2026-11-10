@@ -318,3 +318,23 @@ export const normalizePath = (path: string) => {
 };
 
 
+
+// --- Used by the Paper Digest window (src/ui/digest-view.ts) ---
+export class ItemView extends Component {
+	app = new App();
+	contentEl = document.createElement('div');
+	scope: Scope | null = null;
+	constructor(public leaf?: unknown) {
+		super();
+	}
+}
+export class Scope {
+	register = mockFn();
+}
+export class Menu {
+	addItem = mockFn();
+	addSeparator = mockFn();
+	showAtMouseEvent = mockFn();
+}
+export const Platform = { isDesktopApp: false };
+export const requestUrl = mockFn();
