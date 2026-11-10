@@ -42,6 +42,46 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "symbol" ? key + "" : key, value);
 
+// src/services/digest-types.ts
+function resolveDigestSettings(stored) {
+  return { ...DEFAULT_DIGEST_SETTINGS, ...stored != null ? stored : {} };
+}
+function activeVocab(items) {
+  return items.filter((item) => !item.archived).map((item) => ({ ...item, id: item.id.trim() || toVocabId(item.label) })).filter((item) => item.id !== "");
+}
+function toVocabId(value) {
+  return value.trim().toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "");
+}
+function getHeader(headers, name) {
+  const wanted = name.toLowerCase();
+  const found = Object.keys(headers).find((key) => key.toLowerCase() === wanted);
+  return found ? headers[found] : void 0;
+}
+var DEFAULT_DIGEST_SETTINGS;
+var init_digest_types = __esm({
+  "src/services/digest-types.ts"() {
+    "use strict";
+    DEFAULT_DIGEST_SETTINGS = {
+      incomingFolder: "Digest/Incoming",
+      translationServerUrl: "http://127.0.0.1:1969",
+      directions: [],
+      tagPrefix: "dir/",
+      rejectReasons: [
+        { id: "off-topic", label: "Off-topic" },
+        { id: "low-quality", label: "Low quality" },
+        { id: "already-have", label: "Already have" },
+        { id: "too-old", label: "Too old" },
+        { id: "other", label: "Other" }
+      ],
+      retentionDays: 30,
+      showInRibbon: true,
+      zoteroApiKey: "",
+      lastDirections: [],
+      lastCollectionKeys: []
+    };
+  }
+});
+
 // src/services/digest-import.ts
 function isNonEmptyString(value) {
   return typeof value === "string" && value.trim() !== "";
@@ -407,7 +447,7 @@ var init_digest_store = __esm({
         const record = this.require(key);
         record.status = "accepted";
         record.directions = decision.directions;
-        record.collection = decision.collection;
+        record.collections = decision.collections;
         record.zotero_key = decision.zoteroKey;
         record.decided_at = this.now().toISOString();
       }
@@ -418,7 +458,7 @@ var init_digest_store = __esm({
         delete record.reject_reason;
         delete record.decided_at;
         delete record.directions;
-        delete record.collection;
+        delete record.collections;
         delete record.zotero_key;
       }
       /** Import batches that still have unchecked papers. */
@@ -557,43 +597,6 @@ var init_digest_translate = __esm({
   }
 });
 
-// src/services/digest-types.ts
-function resolveDigestSettings(stored) {
-  return { ...DEFAULT_DIGEST_SETTINGS, ...stored != null ? stored : {} };
-}
-function activeVocab(items) {
-  return items.filter((item) => item.id.trim() !== "" && !item.archived);
-}
-function getHeader(headers, name) {
-  const wanted = name.toLowerCase();
-  const found = Object.keys(headers).find((key) => key.toLowerCase() === wanted);
-  return found ? headers[found] : void 0;
-}
-var DEFAULT_DIGEST_SETTINGS;
-var init_digest_types = __esm({
-  "src/services/digest-types.ts"() {
-    "use strict";
-    DEFAULT_DIGEST_SETTINGS = {
-      incomingFolder: "Digest/Incoming",
-      translationServerUrl: "http://127.0.0.1:1969",
-      directions: [],
-      tagPrefix: "dir/",
-      rejectReasons: [
-        { id: "off-topic", label: "Off-topic" },
-        { id: "low-quality", label: "Low quality" },
-        { id: "already-have", label: "Already have" },
-        { id: "too-old", label: "Too old" },
-        { id: "other", label: "Other" }
-      ],
-      retentionDays: 30,
-      showInRibbon: true,
-      zoteroApiKey: "",
-      lastDirections: [],
-      lastCollectionKey: ""
-    };
-  }
-});
-
 // src/services/digest-zotero.ts
 function buildCollectionList(raw) {
   var _a, _b;
@@ -624,20 +627,20 @@ function buildCollectionList(raw) {
 function directionTags(prefix, directions) {
   return directions.map((id) => ({ tag: prefix + id }));
 }
-function prepareLookupItem(item, tags4, collectionKey) {
+function prepareLookupItem(item, tags4, collectionKeys) {
   const prepared = { ...item };
   for (const field of NON_API_FIELDS) delete prepared[field];
   prepared.tags = tags4;
-  prepared.collections = collectionKey ? [collectionKey] : [];
+  prepared.collections = [...collectionKeys];
   return prepared;
 }
-function buildBasicItem(record, tags4, collectionKey) {
+function buildBasicItem(record, tags4, collectionKeys) {
   const itemType = record.item_type || "journalArticle";
   const item = {
     itemType,
     title: record.title,
     tags: tags4,
-    collections: collectionKey ? [collectionKey] : []
+    collections: [...collectionKeys]
   };
   if (record.abstract) item.abstractNote = record.abstract;
   if (record.url) item.url = record.url;
@@ -650,10 +653,10 @@ function buildBasicItem(record, tags4, collectionKey) {
   }
   return item;
 }
-async function acceptRecord(deps, record, tags4, collectionKey, basic = false) {
+async function acceptRecord(deps, record, tags4, collectionKeys, basic = false) {
   let item;
   if (basic) {
-    item = buildBasicItem(record, tags4, collectionKey);
+    item = buildBasicItem(record, tags4, collectionKeys);
   } else {
     if (!record.doi) {
       return {
@@ -670,7 +673,7 @@ async function acceptRecord(deps, record, tags4, collectionKey, basic = false) {
         canSaveBasic: !found.unreachable
       };
     }
-    item = prepareLookupItem(found.item, tags4, collectionKey);
+    item = prepareLookupItem(found.item, tags4, collectionKeys);
   }
   const written = await deps.createItem(item);
   if (written.ok) return written;
@@ -896,7 +899,7 @@ async function openDigest(plugin) {
   const { workspace } = plugin.app;
   let leaf = workspace.getLeavesOfType(VIEW_TYPE_DIGEST)[0];
   if (!leaf) {
-    leaf = workspace.openPopoutLeaf({ size: { width: 760, height: 860 } });
+    leaf = workspace.openPopoutLeaf({ size: { width: 1180, height: 840 } });
     await leaf.setViewState({ type: VIEW_TYPE_DIGEST, active: true });
   }
   await workspace.revealLeaf(leaf);
@@ -923,7 +926,7 @@ function registerDigest(plugin) {
   });
   updateDigestRibbon(plugin);
 }
-var import_obsidian, VIEW_TYPE_DIGEST, SECRET_ID, DOCKER_HINT, digestHttp, servicesByPlugin, ribbonByPlugin, PaperDigestView;
+var import_obsidian, VIEW_TYPE_DIGEST, SECRET_ID, DOCKER_HINT, digestHttp, servicesByPlugin, ribbonByPlugin, STATUS_LABELS, PaperDigestView;
 var init_digest_view = __esm({
   "src/ui/digest-view.ts"() {
     "use strict";
@@ -943,21 +946,27 @@ var init_digest_view = __esm({
     };
     servicesByPlugin = /* @__PURE__ */ new WeakMap();
     ribbonByPlugin = /* @__PURE__ */ new WeakMap();
+    STATUS_LABELS = {
+      unchecked: "Unchecked",
+      accepted: "Accepted",
+      rejected: "Rejected"
+    };
     PaperDigestView = class extends import_obsidian.ItemView {
       constructor(leaf, plugin) {
         super(leaf);
-        this.queue = [];
+        this.filter = "all";
         this.batch = "";
+        this.selectedKey = "";
         this.mode = "card";
         this.zotero = { state: "offline" };
         this.translateOnline = false;
         this.storeError = "";
-        this.picked = /* @__PURE__ */ new Set();
-        this.collectionKey = "";
+        this.pickedDirections = /* @__PURE__ */ new Set();
+        this.pickedCollections = /* @__PURE__ */ new Set();
         this.busy = false;
         this.error = "";
         this.offerBasic = false;
-        this.undo = null;
+        this.listScroll = 0;
         this.svc = getDigestServices(plugin);
         this.scope = new import_obsidian.Scope(this.app.scope);
         this.registerKeys();
@@ -998,7 +1007,7 @@ var init_digest_view = __esm({
           this.storeError = e.message;
         }
         await this.checkServices();
-        this.rebuildQueue();
+        this.ensureSelection();
         this.render();
       }
       async checkServices() {
@@ -1008,29 +1017,70 @@ var init_digest_view = __esm({
         ]);
         this.zotero = zotero;
         this.translateOnline = translateOnline;
-        if (zotero.state === "online") {
-          const keys = zotero.collections.map((collection) => collection.key);
-          const last = this.svc.settings().lastCollectionKey;
-          if (!keys.includes(this.collectionKey)) {
-            this.collectionKey = keys.includes(last) ? last : "";
+      }
+      // --- Selection -----------------------------------------------------------
+      /** Papers shown in the list: unchecked first, then the most recent decisions. */
+      visible() {
+        const { store } = this.svc;
+        const statuses = this.filter === "all" ? ["unchecked", "accepted", "rejected"] : [this.filter];
+        const decided = (records2) => records2.sort(
+          (a, b) => {
+            var _a, _b;
+            return ((_a = b.decided_at) != null ? _a : "").localeCompare((_b = a.decided_at) != null ? _b : "");
           }
-        }
+        );
+        const records = [];
+        if (statuses.includes("unchecked")) records.push(...store.list("unchecked"));
+        records.push(
+          ...decided(
+            statuses.filter((status) => status !== "unchecked").flatMap((status) => store.list(status))
+          )
+        );
+        return records.filter((record) => !this.batch || record.batch === this.batch);
       }
-      rebuildQueue() {
-        this.queue = this.svc.store.list("unchecked").filter((record) => !this.batch || record.batch === this.batch).map((record) => record.key);
-        this.undo = null;
+      selected() {
+        return this.selectedKey ? this.svc.store.get(this.selectedKey) : void 0;
       }
-      current() {
-        return this.queue.length ? this.svc.store.get(this.queue[0]) : void 0;
+      ensureSelection() {
+        var _a, _b;
+        const records = this.visible();
+        if (records.some((record) => record.key === this.selectedKey)) return;
+        this.selectedKey = (_b = (_a = records[0]) == null ? void 0 : _a.key) != null ? _b : "";
+      }
+      select(key) {
+        this.selectedKey = key;
+        this.setMode("card");
+      }
+      move(step) {
+        const records = this.visible();
+        if (records.length === 0) return;
+        const index = records.findIndex((record) => record.key === this.selectedKey);
+        const next = Math.min(records.length - 1, Math.max(0, index + step));
+        this.select(records[next].key);
+      }
+      /** After a decision, moves to the next unchecked paper below, or the first one. */
+      selectNextUnchecked(after, index) {
+        var _a;
+        const unchecked = (record) => {
+          var _a2;
+          return ((_a2 = this.svc.store.get(record.key)) == null ? void 0 : _a2.status) === "unchecked";
+        };
+        const next = (_a = after.slice(index + 1).find(unchecked)) != null ? _a : after.find(unchecked);
+        if (next) this.selectedKey = next.key;
+        this.ensureSelection();
       }
       canTriage() {
-        return !this.busy && !this.storeError && this.zotero.state === "online" && this.translateOnline && this.current() !== void 0;
+        var _a;
+        return !this.busy && !this.storeError && this.zotero.state === "online" && this.translateOnline && ((_a = this.selected()) == null ? void 0 : _a.status) === "unchecked";
       }
       directions() {
         return activeVocab(this.svc.settings().directions);
       }
       reasons() {
         return activeVocab(this.svc.settings().rejectReasons);
+      }
+      collections() {
+        return this.zotero.state === "online" ? this.zotero.collections : [];
       }
       // --- Actions -------------------------------------------------------------
       setMode(mode) {
@@ -1041,47 +1091,43 @@ var init_digest_view = __esm({
       }
       startAccept() {
         if (!this.canTriage()) return;
-        const valid = new Set(this.directions().map((item) => item.id));
-        this.picked = new Set(
-          this.svc.settings().lastDirections.filter((id) => valid.has(id))
+        const settings = this.svc.settings();
+        const directions = new Set(this.directions().map((item) => item.id));
+        const collections = new Set(this.collections().map((item) => item.key));
+        this.pickedDirections = new Set(
+          settings.lastDirections.filter((id) => directions.has(id))
+        );
+        this.pickedCollections = new Set(
+          settings.lastCollectionKeys.filter((key) => collections.has(key))
         );
         this.setMode("accept");
       }
       startReject() {
         if (this.canTriage()) this.setMode("reject");
       }
-      later() {
-        if (!this.canTriage() || this.queue.length < 2) return;
-        this.undo = { kind: "later", key: this.queue[0], queue: [...this.queue] };
-        this.queue.push(this.queue.shift());
-        this.setMode("card");
-      }
       async reject(reasonId) {
-        const record = this.current();
+        const record = this.selected();
         if (!record || !this.canTriage()) return;
-        const step = {
-          kind: "reject",
-          key: record.key,
-          queue: [...this.queue]
-        };
+        const before = this.visible();
+        const index = before.findIndex((item) => item.key === record.key);
         await this.persist(() => this.svc.store.reject(record.key, reasonId));
-        this.queue.shift();
-        this.undo = step;
+        this.selectNextUnchecked(before, index);
         this.setMode("card");
       }
       async confirmAccept(basic = false) {
-        const record = this.current();
+        const record = this.selected();
         if (!record || !this.canTriage()) return;
-        if (this.picked.size === 0) {
-          this.error = "Pick at least one direction.";
+        if (this.directions().length > 0 && this.pickedDirections.size === 0) {
+          this.error = "Pick at least one direction above, then confirm.";
           this.render();
           return;
         }
         const settings = this.svc.settings();
-        const directions = Array.from(this.picked);
-        const collection = this.zotero.state === "online" ? this.zotero.collections.find(
-          (item) => item.key === this.collectionKey
-        ) : void 0;
+        const directions = Array.from(this.pickedDirections);
+        const collections = this.collections().filter((item) => this.pickedCollections.has(item.key)).map((item) => ({ key: item.key, name: item.path }));
+        const collectionKeys = collections.map((item) => item.key);
+        const before = this.visible();
+        const index = before.findIndex((item) => item.key === record.key);
         this.busy = true;
         this.error = "";
         this.render();
@@ -1092,7 +1138,7 @@ var init_digest_view = __esm({
           },
           record,
           directionTags(settings.tagPrefix, directions),
-          this.collectionKey,
+          collectionKeys,
           basic
         );
         this.busy = false;
@@ -1104,40 +1150,33 @@ var init_digest_view = __esm({
           return;
         }
         await this.persist(
-          () => {
-            var _a;
-            return this.svc.store.accept(record.key, {
-              directions,
-              collection: {
-                key: this.collectionKey,
-                name: (_a = collection == null ? void 0 : collection.path) != null ? _a : "Library root"
-              },
-              zoteroKey: result.key
-            });
-          }
+          () => this.svc.store.accept(record.key, {
+            directions,
+            collections,
+            zoteroKey: result.key
+          })
         );
         await this.svc.updateSettings({
           lastDirections: directions,
-          lastCollectionKey: this.collectionKey
+          lastCollectionKeys: collectionKeys
         });
-        this.queue.shift();
-        this.undo = null;
+        this.selectNextUnchecked(before, index);
         this.setMode("card");
       }
-      async undoLast() {
-        const step = this.undo;
-        if (!step) return;
-        if (step.kind === "reject") {
-          await this.persist(() => this.svc.store.restore(step.key));
-        }
-        this.queue = step.queue;
-        this.undo = null;
-        this.setMode("card");
-      }
-      async restore(key) {
+      /** Returns a decided paper to unchecked. An accepted item stays in Zotero. */
+      async undo(key) {
+        const record = this.svc.store.get(key);
+        if (!record || record.status === "unchecked") return;
+        const wasAccepted = record.status === "accepted";
         await this.persist(() => this.svc.store.restore(key));
-        this.rebuildQueue();
-        this.render();
+        if (wasAccepted) {
+          new import_obsidian.Notice(
+            "Paper Digest: restored to unchecked. The item already created in Zotero was not removed."
+          );
+        }
+        this.selectedKey = key;
+        this.ensureSelection();
+        this.setMode("card");
       }
       async withdrawBatch() {
         const batch = this.batch;
@@ -1148,7 +1187,7 @@ var init_digest_view = __esm({
         });
         new import_obsidian.Notice(`Paper Digest: withdrew ${removed} unchecked papers of ${batch}.`);
         this.batch = "";
-        this.rebuildQueue();
+        this.ensureSelection();
         this.render();
       }
       async importBib(file) {
@@ -1163,7 +1202,7 @@ var init_digest_view = __esm({
           new import_obsidian.Notice(
             `Paper Digest: ${counts.added} new, ${counts.duplicates} duplicate, ${skipped} without identifier (${file.name}).`
           );
-          this.rebuildQueue();
+          this.ensureSelection();
           this.render();
         } catch (e) {
           console.error("[Paper Digest] bib import failed", e);
@@ -1193,7 +1232,8 @@ var init_digest_view = __esm({
         };
         bind("ArrowLeft", () => this.mode === "card" && this.startReject());
         bind("ArrowRight", () => this.mode === "card" && this.startAccept());
-        bind("ArrowDown", () => this.mode === "card" && this.later());
+        bind("ArrowDown", () => this.mode !== "invalid" && this.move(1));
+        bind("ArrowUp", () => this.mode !== "invalid" && this.move(-1));
         bind("Enter", () => this.mode === "accept" && void this.confirmAccept());
         bind("Escape", () => this.mode !== "card" && this.setMode("card"));
         for (let digit = 1; digit <= 9; digit++) {
@@ -1203,21 +1243,23 @@ var init_digest_view = __esm({
       pickByDigit(index) {
         if (this.mode === "accept") {
           const item = this.directions()[index];
-          if (item) this.toggleDirection(item.id);
+          if (item) this.toggle(this.pickedDirections, item.id);
         } else if (this.mode === "reject") {
           const item = this.reasons()[index];
           if (item) void this.reject(item.id);
         }
       }
-      toggleDirection(id) {
-        if (this.picked.has(id)) this.picked.delete(id);
-        else this.picked.add(id);
+      toggle(set2, id) {
+        if (set2.has(id)) set2.delete(id);
+        else set2.add(id);
         this.error = "";
         this.render();
       }
       // --- Rendering -----------------------------------------------------------
       render() {
         const root = this.contentEl;
+        const oldList = root.querySelector(".zotero-digest-list");
+        if (oldList) this.listScroll = oldList.scrollTop;
         root.empty();
         root.addClass("zotero-digest");
         this.renderHeader(root);
@@ -1229,11 +1271,13 @@ var init_digest_view = __esm({
           return;
         }
         this.renderServiceAlert(root);
-        if (this.mode === "rejected" || this.mode === "accepted" || this.mode === "invalid") {
-          this.renderList(root, this.mode);
+        if (this.mode === "invalid") {
+          this.renderInvalid(root);
           return;
         }
-        this.renderCard(root);
+        const body = root.createDiv({ cls: "zotero-digest-body" });
+        this.renderList(body);
+        this.renderDetail(body.createDiv({ cls: "zotero-digest-detail" }));
       }
       renderHeader(root) {
         const header = root.createDiv({ cls: "zotero-digest-header" });
@@ -1245,6 +1289,22 @@ var init_digest_view = __esm({
         dot2("Zotero", this.zotero.state === "online");
         dot2("Translation server", this.translateOnline);
         const right = header.createDiv({ cls: "zotero-digest-header-right" });
+        const counts = this.svc.store.counts();
+        const filter = right.createEl("select", { cls: "dropdown" });
+        const total = counts.unchecked + counts.accepted + counts.rejected;
+        filter.createEl("option", { text: `All (${total})`, value: "all" });
+        for (const status of ["unchecked", "accepted", "rejected"]) {
+          filter.createEl("option", {
+            text: `${STATUS_LABELS[status]} (${counts[status]})`,
+            value: status
+          });
+        }
+        filter.value = this.filter;
+        filter.onchange = () => {
+          this.filter = filter.value;
+          this.ensureSelection();
+          this.setMode("card");
+        };
         const batches = this.svc.store.batches();
         if (batches.length > 0 || this.batch) {
           const select = right.createEl("select", { cls: "dropdown" });
@@ -1254,14 +1314,10 @@ var init_digest_view = __esm({
           select.value = this.batch;
           select.onchange = () => {
             this.batch = select.value;
-            this.rebuildQueue();
+            this.ensureSelection();
             this.setMode("card");
           };
         }
-        right.createSpan({
-          cls: "zotero-digest-count",
-          text: `${this.queue.length} unchecked`
-        });
         const menuButton = right.createEl("button", {
           text: "\u22EF",
           cls: "clickable-icon"
@@ -1270,7 +1326,6 @@ var init_digest_view = __esm({
         menuButton.onclick = (evt) => this.openMenu(evt);
       }
       openMenu(evt) {
-        const counts = this.svc.store.counts();
         const invalid2 = this.svc.store.invalidLines().length;
         const menu = new import_obsidian.Menu();
         menu.addItem(
@@ -1278,13 +1333,6 @@ var init_digest_view = __esm({
         );
         menu.addItem(
           (item) => item.setTitle("Import .bib").setIcon("file-up").onClick(() => this.pickBibFile())
-        );
-        menu.addSeparator();
-        menu.addItem(
-          (item) => item.setTitle(`Rejected (${counts.rejected})`).onClick(() => this.setMode("rejected"))
-        );
-        menu.addItem(
-          (item) => item.setTitle(`Accepted (${counts.accepted})`).onClick(() => this.setMode("accepted"))
         );
         menu.addItem(
           (item) => item.setTitle(`Invalid lines (${invalid2})`).onClick(() => this.setMode("invalid"))
@@ -1336,15 +1384,52 @@ var init_digest_view = __esm({
           this.render();
         };
       }
-      renderCard(root) {
-        var _a, _b, _c, _d;
-        const record = this.current();
-        if (!record) {
-          root.createDiv({ cls: "zotero-digest-empty", text: "Nothing to check." });
-          this.renderUndo(root);
+      renderList(body) {
+        var _a;
+        const list = body.createDiv({ cls: "zotero-digest-list" });
+        const records = this.visible();
+        if (records.length === 0) {
+          list.createDiv({ cls: "zotero-digest-empty", text: "No papers." });
           return;
         }
-        const card = root.createDiv({ cls: "zotero-digest-card" });
+        let selectedRow = null;
+        for (const record of records) {
+          const row = list.createDiv({ cls: "zotero-digest-list-row" });
+          if (record.key === this.selectedKey) {
+            row.addClass("is-selected");
+            selectedRow = row;
+          }
+          row.onclick = () => this.select(record.key);
+          const text = row.createDiv({ cls: "zotero-digest-list-text" });
+          text.createDiv({ cls: "zotero-digest-list-title", text: record.title });
+          const parts = [record.venue, (_a = record.year) == null ? void 0 : _a.toString()].filter(Boolean);
+          if (parts.length) {
+            text.createDiv({ cls: "zotero-digest-meta", text: parts.join(" \xB7 ") });
+          }
+          const side = row.createDiv({ cls: "zotero-digest-list-side" });
+          side.createSpan({
+            cls: `zotero-digest-badge is-${record.status}`,
+            text: STATUS_LABELS[record.status]
+          });
+          if (record.status !== "unchecked") {
+            const undo = side.createEl("button", { text: "Undo" });
+            undo.onclick = (evt) => {
+              evt.stopPropagation();
+              void this.undo(record.key);
+            };
+          }
+        }
+        list.scrollTop = this.listScroll;
+        selectedRow == null ? void 0 : selectedRow.scrollIntoView({ block: "nearest" });
+      }
+      renderDetail(detail) {
+        var _a, _b, _c, _d;
+        const record = this.selected();
+        if (!record) {
+          detail.createDiv({ cls: "zotero-digest-empty", text: "Select a paper." });
+          return;
+        }
+        const card = detail.createDiv({ cls: "zotero-digest-card" });
         card.createEl("h3", { cls: "zotero-digest-title", text: record.title });
         const meta = card.createDiv({ cls: "zotero-digest-meta" });
         const parts = [record.venue, (_a = record.year) == null ? void 0 : _a.toString(), record.item_type].filter(
@@ -1353,43 +1438,68 @@ var init_digest_view = __esm({
         if (parts.length) meta.createSpan({ text: parts.join(" \xB7 ") });
         const href = (_b = record.url) != null ? _b : record.doi ? `https://doi.org/${record.doi}` : "";
         if (href) meta.createEl("a", { text: (_c = record.doi) != null ? _c : record.url, href });
-        if (record.batch)
-          meta.createSpan({ cls: "zotero-digest-batch", text: record.batch });
+        if (record.batch) meta.createSpan({ text: record.batch });
         card.createDiv({
           cls: "zotero-digest-abstract",
           text: (_d = record.abstract) != null ? _d : "No abstract."
         });
+        if (record.status !== "unchecked") {
+          this.renderDecision(detail, record);
+          return;
+        }
         const enabled = this.canTriage();
-        const actions = root.createDiv({ cls: "zotero-digest-actions" });
+        const actions = detail.createDiv({ cls: "zotero-digest-actions" });
         const button = (text, cls, onClick) => {
           const el = actions.createEl("button", { text, cls });
           el.disabled = !enabled;
           el.onclick = onClick;
         };
         button("\u2717 Reject \u2190", "mod-warning", () => this.startReject());
-        button("Later \u2193", "", () => this.later());
         button("\u2713 Accept \u2192", "mod-cta", () => this.startAccept());
-        this.renderUndo(root);
-        if (this.mode === "accept") this.renderAcceptPanel(root, record);
-        if (this.mode === "reject") this.renderRejectPanel(root);
+        if (this.mode === "accept") this.renderAcceptPanel(detail, record);
+        if (this.mode === "reject") this.renderRejectPanel(detail);
       }
-      renderUndo(root) {
-        if (!this.undo) return;
-        const row = root.createDiv({ cls: "zotero-digest-undo" });
-        const undo = row.createEl("button", { text: "\u21B6 Undo" });
-        undo.onclick = () => void this.undoLast();
+      renderDecision(detail, record) {
+        var _a, _b, _c, _d, _e;
+        const panel = detail.createDiv({ cls: "zotero-digest-panel" });
+        const day = ((_a = record.decided_at) != null ? _a : "").slice(0, 10);
+        if (record.status === "rejected") {
+          const labels = new Map(
+            this.svc.settings().rejectReasons.map((item) => [item.id, item.label || item.id])
+          );
+          const reason = (_b = record.reject_reason) != null ? _b : "";
+          panel.createDiv({
+            text: `Rejected: ${(_c = labels.get(reason)) != null ? _c : reason} \xB7 ${day}`
+          });
+        } else {
+          const where = ((_d = record.collections) != null ? _d : []).map((item) => item.name).join(", ") || "Library root";
+          panel.createDiv({ text: `Accepted \xB7 ${day}` });
+          panel.createDiv({
+            cls: "zotero-digest-meta",
+            text: `Collections: ${where}`
+          });
+          panel.createDiv({
+            cls: "zotero-digest-meta",
+            text: `Directions: ${((_e = record.directions) != null ? _e : []).join(", ") || "none"}`
+          });
+          if (record.zotero_key) {
+            panel.createEl("a", {
+              text: "Show in Zotero",
+              href: `zotero://select/library/items/${record.zotero_key}`
+            });
+          }
+        }
+        const undo = panel.createEl("button", { text: "\u21B6 Undo (back to unchecked)" });
+        undo.onclick = () => void this.undo(record.key);
       }
-      renderAcceptPanel(root, record) {
-        const panel = root.createDiv({ cls: "zotero-digest-panel" });
-        panel.createDiv({
-          cls: "zotero-digest-panel-title",
-          text: "Accept: directions"
-        });
+      renderAcceptPanel(detail, record) {
+        const panel = detail.createDiv({ cls: "zotero-digest-panel" });
+        panel.createDiv({ cls: "zotero-digest-panel-title", text: "Directions" });
         const directions = this.directions();
         if (directions.length === 0) {
           panel.createDiv({
             cls: "zotero-digest-hint",
-            text: "No directions defined. Add them in Settings \u2192 Digest."
+            text: "No directions are defined, so no direction tag will be written. Add them in Settings \u2192 Digest."
           });
         }
         const chips = panel.createDiv({ cls: "zotero-digest-chips" });
@@ -1398,25 +1508,32 @@ var init_digest_view = __esm({
             cls: "zotero-digest-chip",
             text: `${index + 1} ${item.label || item.id}`
           });
-          chip.toggleClass("is-picked", this.picked.has(item.id));
-          chip.onclick = () => this.toggleDirection(item.id);
+          chip.toggleClass("is-picked", this.pickedDirections.has(item.id));
+          chip.onclick = () => this.toggle(this.pickedDirections, item.id);
         });
-        const row = panel.createDiv({ cls: "zotero-digest-row" });
-        row.createSpan({ text: "Collection" });
-        const select = row.createEl("select", { cls: "dropdown" });
-        select.createEl("option", { text: "Library root", value: "" });
-        if (this.zotero.state === "online") {
-          for (const collection of this.zotero.collections) {
-            select.createEl("option", {
-              text: collection.path,
-              value: collection.key
-            });
-          }
+        panel.createDiv({
+          cls: "zotero-digest-panel-title",
+          text: `Collections (${this.pickedCollections.size} selected)`
+        });
+        const box = panel.createDiv({ cls: "zotero-digest-collections" });
+        for (const collection of this.collections()) {
+          const label = box.createEl("label", { cls: "zotero-digest-collection" });
+          label.style.paddingLeft = `${collection.depth * 16}px`;
+          const input = label.createEl("input", { attr: { type: "checkbox" } });
+          input.checked = this.pickedCollections.has(collection.key);
+          input.onchange = () => {
+            if (input.checked) this.pickedCollections.add(collection.key);
+            else this.pickedCollections.delete(collection.key);
+            this.render();
+          };
+          label.createSpan({ text: collection.name });
         }
-        select.value = this.collectionKey;
-        select.onchange = () => {
-          this.collectionKey = select.value;
-        };
+        if (this.pickedCollections.size === 0) {
+          panel.createDiv({
+            cls: "zotero-digest-hint",
+            text: "No collection selected: the item goes to the library root."
+          });
+        }
         if (!record.doi) {
           panel.createDiv({
             cls: "zotero-digest-hint",
@@ -1442,8 +1559,8 @@ var init_digest_view = __esm({
         confirm.disabled = this.busy;
         confirm.onclick = () => void this.confirmAccept();
       }
-      renderRejectPanel(root) {
-        const panel = root.createDiv({ cls: "zotero-digest-panel" });
+      renderRejectPanel(detail) {
+        const panel = detail.createDiv({ cls: "zotero-digest-panel" });
         panel.createDiv({ cls: "zotero-digest-panel-title", text: "Reject: reason" });
         const chips = panel.createDiv({ cls: "zotero-digest-chips" });
         this.reasons().forEach((item, index) => {
@@ -1456,73 +1573,26 @@ var init_digest_view = __esm({
         const cancel = panel.createEl("button", { text: "Cancel (Esc)" });
         cancel.onclick = () => this.setMode("card");
       }
-      renderList(root, mode) {
-        var _a, _b, _c, _d, _e, _f;
-        const titles = {
-          rejected: "Rejected",
-          accepted: "Accepted",
-          invalid: "Invalid lines"
-        };
+      renderInvalid(root) {
         const bar = root.createDiv({ cls: "zotero-digest-list-bar" });
         const back = bar.createEl("button", { text: "\u2190 Back" });
         back.onclick = () => this.setMode("card");
-        bar.createSpan({ cls: "zotero-digest-panel-title", text: titles[mode] });
-        const list = root.createDiv({ cls: "zotero-digest-list" });
-        if (mode === "invalid") {
-          const lines = this.svc.store.invalidLines();
-          if (lines.length > 0) {
-            const clear = bar.createEl("button", { text: "Clear" });
-            clear.onclick = async () => {
-              await this.persist(() => this.svc.store.clearInvalid());
-              this.render();
-            };
-          }
-          for (const line of lines) {
-            const row = list.createDiv({ cls: "zotero-digest-list-row" });
-            row.createDiv({ text: `${line.file}: ${line.reason}` });
-            row.createDiv({
-              cls: "zotero-digest-raw",
-              text: line.raw.slice(0, 300)
-            });
-          }
-          if (lines.length === 0)
-            list.createDiv({ cls: "zotero-digest-empty", text: "None." });
-          return;
+        bar.createSpan({ cls: "zotero-digest-panel-title", text: "Invalid lines" });
+        const lines = this.svc.store.invalidLines();
+        if (lines.length > 0) {
+          const clear = bar.createEl("button", { text: "Clear" });
+          clear.onclick = async () => {
+            await this.persist(() => this.svc.store.clearInvalid());
+            this.render();
+          };
         }
-        const reasonLabels = new Map(
-          this.svc.settings().rejectReasons.map((item) => [item.id, item.label || item.id])
-        );
-        const records = this.svc.store.list(mode).sort((a, b) => {
-          var _a2, _b2;
-          return ((_a2 = b.decided_at) != null ? _a2 : "").localeCompare((_b2 = a.decided_at) != null ? _b2 : "");
-        });
-        for (const record of records) {
-          const row = list.createDiv({ cls: "zotero-digest-list-row" });
-          row.createDiv({ cls: "zotero-digest-list-title", text: record.title });
-          const detail = row.createDiv({ cls: "zotero-digest-meta" });
-          const day = ((_a = record.decided_at) != null ? _a : "").slice(0, 10);
-          if (mode === "rejected") {
-            const reason = (_b = record.reject_reason) != null ? _b : "";
-            detail.createSpan({
-              text: `${(_c = reasonLabels.get(reason)) != null ? _c : reason} \xB7 ${day}`
-            });
-            const restore = detail.createEl("button", { text: "Restore" });
-            restore.onclick = () => void this.restore(record.key);
-          } else {
-            const where = (_e = (_d = record.collection) == null ? void 0 : _d.name) != null ? _e : "";
-            const tags4 = ((_f = record.directions) != null ? _f : []).join(", ");
-            detail.createSpan({
-              text: [where, tags4, day].filter(Boolean).join(" \xB7 ")
-            });
-            if (record.zotero_key) {
-              detail.createEl("a", {
-                text: "Show in Zotero",
-                href: `zotero://select/library/items/${record.zotero_key}`
-              });
-            }
-          }
+        const list = root.createDiv({ cls: "zotero-digest-invalid" });
+        for (const line of lines) {
+          const row = list.createDiv({ cls: "zotero-digest-invalid-row" });
+          row.createDiv({ text: `${line.file}: ${line.reason}` });
+          row.createDiv({ cls: "zotero-digest-raw", text: line.raw.slice(0, 300) });
         }
-        if (records.length === 0)
+        if (lines.length === 0)
           list.createDiv({ cls: "zotero-digest-empty", text: "None." });
       }
     };
@@ -1534,9 +1604,6 @@ var digest_settings_exports = {};
 __export(digest_settings_exports, {
   renderDigestSettings: () => renderDigestSettings
 });
-function toVocabId(value) {
-  return value.trim().toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "");
-}
 function renderDigestSettings(container, plugin, rerender) {
   const svc = getDigestServices(plugin);
   const settings = svc.settings();
@@ -1600,7 +1667,7 @@ function renderVocab(container, editor) {
   );
   items.forEach((item, index) => {
     new import_obsidian2.Setting(container).addText(
-      (text) => text.setPlaceholder("id (a-z, 0-9, -)").setValue(item.id).onChange((value) => {
+      (text) => text.setPlaceholder("id (optional, from label)").setValue(item.id).onChange((value) => {
         item.id = toVocabId(value);
         void editor.save(items);
       })
@@ -1627,6 +1694,7 @@ var init_digest_settings = __esm({
   "src/ui/digest-settings.ts"() {
     "use strict";
     import_obsidian2 = require("obsidian");
+    init_digest_types();
     init_digest_view();
     TEST_IDENTIFIER = "10.48550/arXiv.1706.03762";
   }

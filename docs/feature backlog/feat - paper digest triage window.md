@@ -65,7 +65,7 @@ A survey often starts from a `.bib` file, and that format carries the same ident
 The metadata in Zotero should come from Zotero's own translators, because the input only carries a few display fields. Accept therefore runs two requests. The first sends the DOI to a Zotero translation-server, which returns the full item. The second writes that item through the local API of the running Zotero.
 
 - The tags returned by the translator are replaced with the chosen direction tags, written as `<prefix><direction id>`.
-- The item is placed in the collection chosen in the window, by collection key. The collection selected inside Zotero has no effect.
+- The item is placed in the collections ticked in the window, by collection key. The collection selected inside Zotero has no effect.
 - When a paper has no DOI, or the lookup finds nothing, the window offers Save with basic metadata. This writes the title, URL, year, venue and abstract from the input.
 - Zotero's API does not download PDFs. Use Find Full Text in Zotero afterwards.
 
@@ -73,13 +73,17 @@ The metadata in Zotero should come from Zotero's own translators, because the in
 
 Triage is a short task, so the window is a separate popout that is opened, used and closed. It opens from the command Open Paper Digest or the sidebar icon. Opening it this way, or choosing Refresh, imports the incoming folder and then removes expired papers. A window that Obsidian restores at startup only displays the store and does no file work.
 
-- The header shows whether Zotero and the translation server answer. When either does not, Accept, Reject and Later are disabled, and the window states what to start.
-- Accept opens a panel with the direction list and the collection list. At least one direction is required.
+The window has two parts, so that the user can see all papers and still read one in full. The left part is a scrollable list of every paper with its status. The right part shows the selected paper and its actions.
+
+- The list shows unchecked papers first, then decided papers with the most recent decision on top. A filter narrows it to one status or one import.
+- Each decided paper has an Undo button in its row, which returns it to unchecked. An accepted item stays in Zotero when its decision is undone.
+- Clicking a row, or pressing `↑` and `↓`, selects a paper.
+- The header shows whether Zotero and the translation server answer. When either does not, Accept and Reject are disabled, and the window states what to start.
+- Accept opens a panel with the direction list and a checklist of collections. Several collections can be ticked, and none means the library root. A direction is required only when directions are defined in the settings.
 - Reject opens the reason list. One click stores the reason.
-- Later moves the paper to the end of the queue.
-- Undo reverts the last Reject or Later. Accept cannot be undone, because the item already exists in Zotero.
-- Keys: `←` reject, `→` accept, `↓` later, digits choose a direction or reason, `Enter` confirms, `Esc` cancels.
-- The menu lists rejected papers with a Restore action, accepted papers with a link to Zotero, and invalid lines.
+- After a decision the next unchecked paper is selected.
+- Keys: `←` reject, `→` accept, `↑` `↓` move, digits choose a direction or reason, `Enter` confirms, `Esc` cancels.
+- The menu holds Refresh, Import .bib, Invalid lines and Withdraw import.
 
 ### 1.6 Settings
 

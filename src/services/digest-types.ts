@@ -20,7 +20,7 @@ export type DigestRecord = DigestInput & {
 	decided_at?: string;
 	reject_reason?: string;
 	directions?: string[];
-	collection?: { key: string; name: string };
+	collections?: { key: string; name: string }[];
 	zotero_key?: string;
 	batch?: string;
 };
@@ -59,7 +59,7 @@ export type DigestSettings = {
 	/** Used only when Obsidian secret storage is unavailable. */
 	zoteroApiKey: string;
 	lastDirections: string[];
-	lastCollectionKey: string;
+	lastCollectionKeys: string[];
 };
 
 /** Defaults applied to any digest setting the user has not set. */
@@ -79,7 +79,7 @@ export const DEFAULT_DIGEST_SETTINGS: DigestSettings = {
 	showInRibbon: true,
 	zoteroApiKey: '',
 	lastDirections: [],
-	lastCollectionKey: '',
+	lastCollectionKeys: [],
 };
 
 /** Merges stored digest settings over the defaults. */
@@ -89,9 +89,24 @@ export function resolveDigestSettings(
 	return { ...DEFAULT_DIGEST_SETTINGS, ...(stored ?? {}) };
 }
 
-/** Vocabulary entries that can be offered in the triage window. */
+/**
+ * Vocabulary entries that can be offered in the triage window. An entry
+ * without an id takes one derived from its label.
+ */
 export function activeVocab(items: DigestVocabItem[]): DigestVocabItem[] {
-	return items.filter((item) => item.id.trim() !== '' && !item.archived);
+	return items
+		.filter((item) => !item.archived)
+		.map((item) => ({ ...item, id: item.id.trim() || toVocabId(item.label) }))
+		.filter((item) => item.id !== '');
+}
+
+/** Turns free text into a vocabulary id: lower case, digits and dashes only. */
+export function toVocabId(value: string): string {
+	return value
+		.trim()
+		.toLowerCase()
+		.replace(/[^a-z0-9-]+/g, '-')
+		.replace(/^-+|-+$/g, '');
 }
 
 /** HTTP request passed to {@link DigestHttp}. */

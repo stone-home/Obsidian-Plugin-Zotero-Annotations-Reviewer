@@ -96,18 +96,18 @@ export function directionTags(prefix: string, directions: string[]): { tag: stri
 
 /**
  * Prepares a looked-up item for writing: translator tags are replaced by the
- * direction tags and the item is placed in the chosen collection (an empty
- * key leaves it at the library root).
+ * direction tags and the item is placed in the chosen collections (none
+ * leaves it at the library root).
  */
 export function prepareLookupItem(
 	item: ZoteroItemJson,
 	tags: { tag: string }[],
-	collectionKey: string
+	collectionKeys: string[]
 ): ZoteroItemJson {
 	const prepared: ZoteroItemJson = { ...item };
 	for (const field of NON_API_FIELDS) delete prepared[field];
 	prepared.tags = tags;
-	prepared.collections = collectionKey ? [collectionKey] : [];
+	prepared.collections = [...collectionKeys];
 	return prepared;
 }
 
@@ -115,14 +115,14 @@ export function prepareLookupItem(
 export function buildBasicItem(
 	record: DigestRecord,
 	tags: { tag: string }[],
-	collectionKey: string
+	collectionKeys: string[]
 ): ZoteroItemJson {
 	const itemType = record.item_type || 'journalArticle';
 	const item: ZoteroItemJson = {
 		itemType,
 		title: record.title,
 		tags,
-		collections: collectionKey ? [collectionKey] : [],
+		collections: [...collectionKeys],
 	};
 	if (record.abstract) item.abstractNote = record.abstract;
 	if (record.url) item.url = record.url;
@@ -299,12 +299,12 @@ export async function acceptRecord(
 	deps: DigestAcceptDeps,
 	record: DigestRecord,
 	tags: { tag: string }[],
-	collectionKey: string,
+	collectionKeys: string[],
 	basic = false
 ): Promise<DigestAcceptResult> {
 	let item: ZoteroItemJson;
 	if (basic) {
-		item = buildBasicItem(record, tags, collectionKey);
+		item = buildBasicItem(record, tags, collectionKeys);
 	} else {
 		if (!record.doi) {
 			return {
@@ -321,7 +321,7 @@ export async function acceptRecord(
 				canSaveBasic: !found.unreachable,
 			};
 		}
-		item = prepareLookupItem(found.item, tags, collectionKey);
+		item = prepareLookupItem(found.item, tags, collectionKeys);
 	}
 	const written = await deps.createItem(item);
 	if (written.ok) return written;

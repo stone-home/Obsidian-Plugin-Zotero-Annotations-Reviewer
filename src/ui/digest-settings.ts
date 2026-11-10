@@ -1,17 +1,9 @@
 import { Notice, Setting } from 'obsidian';
 import type ZoteroGKPlugin from '../main';
-import { DigestSettings, DigestVocabItem } from '../services/digest-types';
+import { DigestSettings, DigestVocabItem, toVocabId } from '../services/digest-types';
 import { getDigestServices, updateDigestRibbon } from './digest-view';
 
 const TEST_IDENTIFIER = '10.48550/arXiv.1706.03762';
-
-function toVocabId(value: string): string {
-	return value
-		.trim()
-		.toLowerCase()
-		.replace(/[^a-z0-9-]+/g, '-')
-		.replace(/^-+|-+$/g, '');
-}
 
 /**
  * Renders the body of the Digest settings tab.
@@ -131,7 +123,7 @@ function renderVocab(container: HTMLElement, editor: VocabEditor): void {
 		new Setting(container)
 			.addText((text) =>
 				text
-					.setPlaceholder('id (a-z, 0-9, -)')
+					.setPlaceholder('id (optional, from label)')
 					.setValue(item.id)
 					.onChange((value) => {
 						item.id = toVocabId(value);

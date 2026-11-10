@@ -22,7 +22,7 @@ function emptyData(): DigestStoreData {
 /** What the user chose when accepting a paper. */
 export type DigestAcceptDecision = {
 	directions: string[];
-	collection: { key: string; name: string };
+	collections: { key: string; name: string }[];
 	zoteroKey: string;
 };
 
@@ -135,7 +135,7 @@ export class DigestStore {
 		const record = this.require(key);
 		record.status = 'accepted';
 		record.directions = decision.directions;
-		record.collection = decision.collection;
+		record.collections = decision.collections;
 		record.zotero_key = decision.zoteroKey;
 		record.decided_at = this.now().toISOString();
 	}
@@ -147,7 +147,7 @@ export class DigestStore {
 		delete record.reject_reason;
 		delete record.decided_at;
 		delete record.directions;
-		delete record.collection;
+		delete record.collections;
 		delete record.zotero_key;
 	}
 
