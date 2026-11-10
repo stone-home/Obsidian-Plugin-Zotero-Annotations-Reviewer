@@ -65,6 +65,12 @@ describe('WikiCFP series additional coverage', () => {
 				stripHtmlLite(' <b>A&amp;B</b>&nbsp;&lt;x&gt;\n\n  <br/>done ')
 			).toBe('A&B <x> done');
 		});
+
+		it('stripHtmlLite decodes each entity once', () => {
+			expect(stripHtmlLite('&amp;lt;b&amp;gt; &amp;amp; &amp;nbsp;')).toBe(
+				'&lt;b&gt; &amp; &nbsp;'
+			);
+		});
 	});
 
 	describe('fetchWikiCFPSeriesIndex', () => {

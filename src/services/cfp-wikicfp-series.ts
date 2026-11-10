@@ -15,14 +15,16 @@ export function delay(ms: number): Promise<void> {
 	return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-/** Strip basic HTML tags & entities – lighter version for series tables. */
+const BASIC_ENTITIES: Record<string, string> = { nbsp: ' ', amp: '&', lt: '<', gt: '>' };
+
+/**
+ * Strip basic HTML tags & entities – lighter version for series tables.
+ * Entities are decoded in one pass, so `&amp;lt;` becomes `&lt;`, not `<`.
+ */
 export function stripHtmlLite(html: string): string {
 	return html
 		.replace(/<[^>]+>/g, ' ')
-		.replace(/&nbsp;/g, ' ')
-		.replace(/&amp;/g, '&')
-		.replace(/&lt;/g, '<')
-		.replace(/&gt;/g, '>')
+		.replace(/&(nbsp|amp|lt|gt);/g, (_, name: string) => BASIC_ENTITIES[name])
 		.replace(/\s+/g, ' ')
 		.trim();
 }

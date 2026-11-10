@@ -48,6 +48,26 @@ describe('cfp-wikicfp', () => {
 		expect(results[1].series).toBe('SPRA');
 	});
 
+	it('decodes each HTML entity once', async () => {
+		const html = `
+		<table>
+		<tr>
+			<td><a href="/x">R&amp;D 2026</a> Notes on &amp;lt;tags&amp;gt;</td>
+			<td>Jun 1, 2026 - Jun 2, 2026</td>
+			<td>Lyon, France</td>
+			<td>Feb 1, 2026</td>
+		</tr>
+		</table>`;
+		(requestUrl as jest.Mock).mockResolvedValue({ status: 200, text: html });
+
+		const results = await fetchWikiCFP(['https://wikicfp.com/call?q=rd']);
+
+		expect(results).toHaveLength(1);
+		expect(results[0].acronym).toBe('R&D 2026');
+		expect(results[0].fullName).toContain('&lt;tags&gt;');
+		expect(results[0].fullName).not.toContain('<tags>');
+	});
+
 	it('skips empty URLs and handles request failure', async () => {
 		(requestUrl as jest.Mock).mockRejectedValue(new Error('Network error'));
 

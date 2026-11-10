@@ -8,14 +8,16 @@ function delay(ms: number): Promise<void> {
 	return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-/** Extract text content from HTML, stripping tags. */
+const BASIC_ENTITIES: Record<string, string> = { nbsp: ' ', amp: '&', lt: '<', gt: '>' };
+
+/**
+ * Extract text content from HTML, stripping tags. Entities are decoded in one
+ * pass, so `&amp;lt;` becomes `&lt;`, not `<`.
+ */
 function stripHtml(html: string): string {
 	return html
 		.replace(/<[^>]+>/g, ' ')
-		.replace(/&nbsp;/g, ' ')
-		.replace(/&amp;/g, '&')
-		.replace(/&lt;/g, '<')
-		.replace(/&gt;/g, '>')
+		.replace(/&(nbsp|amp|lt|gt);/g, (_, name: string) => BASIC_ENTITIES[name])
 		.replace(/\s+/g, ' ')
 		.trim();
 }
