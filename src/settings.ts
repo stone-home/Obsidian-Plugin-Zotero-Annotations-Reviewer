@@ -84,7 +84,7 @@ function mountCodeMirror(
 // =========================================================================
 export class ZoteroSettingTab extends PluginSettingTab {
 	plugin: ZoteroGKPlugin;
-	activeTab: 'general' | 'zotero' | 'webhook' | 'cfp' = 'general';
+	activeTab: 'general' | 'zotero' | 'webhook' | 'cfp' | 'digest' = 'general';
 
 	constructor(app: App, plugin: ZoteroGKPlugin) {
 		super(app, plugin);
@@ -103,6 +103,7 @@ export class ZoteroSettingTab extends PluginSettingTab {
 		this.renderTabItem(tabsEl, 'zotero', 'Zotero & Highlights');
 		this.renderTabItem(tabsEl, 'webhook', 'Modular Webhooks');
 		this.renderTabItem(tabsEl, 'cfp', 'CFP');
+		this.renderTabItem(tabsEl, 'digest', 'Digest');
 
 		// --- 2. Tab Content ---
 		const bodyEl = containerEl.createDiv({ cls: 'zotero-setting-container' });
@@ -111,9 +112,14 @@ export class ZoteroSettingTab extends PluginSettingTab {
 		else if (this.activeTab === 'zotero') this.renderZoteroSettings(bodyEl);
 		else if (this.activeTab === 'webhook') this.renderWebhookSettings(bodyEl);
 		else if (this.activeTab === 'cfp') this.renderCFPSettings(bodyEl);
+		else if (this.activeTab === 'digest') {
+			import('./ui/digest-settings')
+				.then((digest) => digest.renderDigestSettings(bodyEl, this.plugin, () => this.display()))
+				.catch((e) => console.error('[Paper Digest] settings failed', e));
+		}
 	}
 
-	renderTabItem(container: HTMLElement, id: 'general' | 'zotero' | 'webhook' | 'cfp', label: string) {
+	renderTabItem(container: HTMLElement, id: 'general' | 'zotero' | 'webhook' | 'cfp' | 'digest', label: string) {
 		const tab = container.createDiv({ cls: `zotero-tab-item ${this.activeTab === id ? 'active' : ''}` });
 		tab.innerText = label;
 		tab.onclick = () => {

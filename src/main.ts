@@ -161,6 +161,11 @@ export default class ZoteroGKPlugin extends Plugin {
 					}) as Promise<void>;
 			}
 		};
+
+		// Paper Digest is loaded lazily so that a failure there cannot stop the plugin loading.
+		import('./ui/digest-view')
+			.then((digest) => digest.registerDigest(this))
+			.catch((e) => console.error('[Paper Digest] registration failed', e));
 	}
 
 	onunload() {
