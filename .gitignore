@@ -154,3 +154,6 @@ coverage/
 
 # Obsidian
 data.json
+
+# test folder
+playground/
