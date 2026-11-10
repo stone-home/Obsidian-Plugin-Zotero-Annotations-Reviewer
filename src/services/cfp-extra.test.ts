@@ -8,7 +8,10 @@ import { fetchOpenresearch } from './cfp-openresearch';
 import { fetchSeriesEvents } from './cfp-wikicfp-series';
 
 jest.mock('./cfp-wikicfp', () => ({ fetchWikiCFP: jest.fn() }));
-jest.mock('./cfp-ccfddl', () => ({ fetchCcfddl: jest.fn() }));
+jest.mock('./cfp-ccfddl', () => ({
+	...jest.requireActual('./cfp-ccfddl'),
+	fetchCcfddl: jest.fn()
+}));
 jest.mock('./cfp-easychair', () => ({ fetchEasychair: jest.fn() }));
 jest.mock('./cfp-openresearch', () => ({ fetchOpenresearch: jest.fn() }));
 jest.mock('./cfp-wikicfp-series', () => ({
