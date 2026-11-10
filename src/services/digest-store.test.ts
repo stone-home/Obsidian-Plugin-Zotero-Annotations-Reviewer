@@ -3,6 +3,7 @@ import {
 	DEFAULT_DIGEST_SETTINGS,
 	DigestFiles,
 	activeVocab,
+	toVocabId,
 	getHeader,
 	resolveDigestSettings,
 } from './digest-types';
@@ -92,7 +93,7 @@ describe('DigestStore', () => {
 		store.reject('r', 'too-old');
 		store.accept('a', {
 			directions: ['llm'],
-			collection: { key: 'C1', name: 'Survey' },
+			collections: [{ key: 'C1', name: 'Survey' }],
 			zoteroKey: 'ZK1',
 		});
 
@@ -104,7 +105,7 @@ describe('DigestStore', () => {
 		expect(store.get('a')).toMatchObject({
 			status: 'accepted',
 			directions: ['llm'],
-			collection: { key: 'C1', name: 'Survey' },
+			collections: [{ key: 'C1', name: 'Survey' }],
 			zotero_key: 'ZK1',
 		});
 		expect(store.counts()).toEqual({ unchecked: 0, accepted: 1, rejected: 1 });
@@ -114,7 +115,7 @@ describe('DigestStore', () => {
 		store.add({ key: 'a', title: 'A' });
 		store.accept('a', {
 			directions: ['llm'],
-			collection: { key: 'C1', name: 'Survey' },
+			collections: [{ key: 'C1', name: 'Survey' }],
 			zoteroKey: 'ZK1',
 		});
 
@@ -261,14 +262,19 @@ describe('digest helpers', () => {
 		});
 	});
 
-	it('offers only named, unarchived vocabulary entries', () => {
+	it('offers unarchived vocabulary entries and derives a missing id from the label', () => {
 		expect(
 			activeVocab([
 				{ id: 'a', label: 'A' },
-				{ id: ' ', label: 'blank' },
+				{ id: ' ', label: ' LLM Serving! ' },
+				{ id: '', label: '' },
 				{ id: 'b', label: 'B', archived: true },
 			])
-		).toEqual([{ id: 'a', label: 'A' }]);
+		).toEqual([
+			{ id: 'a', label: 'A' },
+			{ id: 'llm-serving', label: ' LLM Serving! ' },
+		]);
+		expect(toVocabId('  GPU / Memory  ')).toBe('gpu-memory');
 	});
 
 	it('reads a header regardless of case', () => {

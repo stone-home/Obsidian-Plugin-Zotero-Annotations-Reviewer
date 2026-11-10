@@ -145,18 +145,18 @@ describe('item builders', () => {
 			itemID: 2,
 		};
 
-		expect(prepareLookupItem(looked, [{ tag: 'dir/llm' }], 'C2')).toEqual({
+		expect(prepareLookupItem(looked, [{ tag: 'dir/llm' }], ['C2'])).toEqual({
 			itemType: 'preprint',
 			title: 'T',
 			tags: [{ tag: 'dir/llm' }],
 			collections: ['C2'],
 		});
-		expect(prepareLookupItem(looked, [], '').collections).toEqual([]);
+		expect(prepareLookupItem(looked, [], []).collections).toEqual([]);
 		expect(looked.key).toBe('5385JXGT');
 	});
 
 	it('builds a journal article from the record fields', () => {
-		expect(buildBasicItem(record, [{ tag: 'dir/llm' }], 'C2')).toEqual({
+		expect(buildBasicItem(record, [{ tag: 'dir/llm' }], ['C2'])).toEqual({
 			itemType: 'journalArticle',
 			title: 'Title',
 			tags: [{ tag: 'dir/llm' }],
@@ -171,18 +171,18 @@ describe('item builders', () => {
 
 	it('maps the venue by item type and moves the DOI to extra when unsupported', () => {
 		expect(
-			buildBasicItem({ ...record, item_type: 'conferencePaper' }, [], '')
+			buildBasicItem({ ...record, item_type: 'conferencePaper' }, [], [])
 		).toMatchObject({
 			proceedingsTitle: 'Venue',
 			DOI: '10.1000/a',
 			collections: [],
 		});
 		expect(
-			buildBasicItem({ ...record, item_type: 'preprint' }, [], '')
+			buildBasicItem({ ...record, item_type: 'preprint' }, [], [])
 		).toMatchObject({
 			repository: 'Venue',
 		});
-		const book = buildBasicItem({ ...record, item_type: 'book' }, [], '');
+		const book = buildBasicItem({ ...record, item_type: 'book' }, [], []);
 		expect(book.extra).toBe('DOI: 10.1000/a');
 		expect(book).not.toHaveProperty('DOI');
 		expect(book).not.toHaveProperty('publicationTitle');
@@ -193,7 +193,7 @@ describe('item builders', () => {
 			buildBasicItem(
 				{ key: 'k', title: 'Only title', status: 'unchecked', added_at: '' },
 				[],
-				''
+				[]
 			)
 		).toEqual({
 			itemType: 'journalArticle',
@@ -439,7 +439,7 @@ describe('acceptRecord', () => {
 			item: { itemType: 'preprint', key: 'X', tags: [{ tag: 'a' }] },
 		});
 
-		expect(await acceptRecord(d, record, tags, 'C2')).toEqual({
+		expect(await acceptRecord(d, record, tags, ['C2', 'C3'])).toEqual({
 			ok: true,
 			key: 'ZK',
 		});
@@ -447,7 +447,7 @@ describe('acceptRecord', () => {
 		expect(d.created[0]).toEqual({
 			itemType: 'preprint',
 			tags,
-			collections: ['C2'],
+			collections: ['C2', 'C3'],
 		});
 	});
 
@@ -455,7 +455,7 @@ describe('acceptRecord', () => {
 		const d = deps({ ok: true, item: { itemType: 'preprint' } });
 
 		expect(
-			await acceptRecord(d, { ...record, doi: undefined }, tags, 'C2')
+			await acceptRecord(d, { ...record, doi: undefined }, tags, ['C2', 'C3'])
 		).toEqual({
 			ok: false,
 			reason: 'This paper has no DOI to look up',
@@ -468,7 +468,7 @@ describe('acceptRecord', () => {
 	it('offers basic metadata when the lookup finds nothing', async () => {
 		const d = deps({ ok: false, reason: 'Lookup found nothing for 10.1000/a' });
 
-		expect(await acceptRecord(d, record, tags, 'C2')).toEqual({
+		expect(await acceptRecord(d, record, tags, ['C2', 'C3'])).toEqual({
 			ok: false,
 			reason: 'Lookup found nothing for 10.1000/a',
 			canSaveBasic: true,
@@ -478,7 +478,7 @@ describe('acceptRecord', () => {
 	it('does not offer basic metadata when the server is unreachable', async () => {
 		const d = deps({ ok: false, reason: 'down', unreachable: true });
 
-		expect(await acceptRecord(d, record, tags, 'C2')).toMatchObject({
+		expect(await acceptRecord(d, record, tags, ['C2', 'C3'])).toMatchObject({
 			ok: false,
 			canSaveBasic: false,
 		});
@@ -487,7 +487,7 @@ describe('acceptRecord', () => {
 	it('writes the record fields directly in basic mode', async () => {
 		const d = deps({ ok: true, item: { itemType: 'preprint' } });
 
-		expect(await acceptRecord(d, record, tags, '', true)).toEqual({
+		expect(await acceptRecord(d, record, tags, [], true)).toEqual({
 			ok: true,
 			key: 'ZK',
 		});
@@ -504,7 +504,7 @@ describe('acceptRecord', () => {
 			{ ok: false, reason: 'Zotero rejected the item: x' }
 		);
 
-		expect(await acceptRecord(d, record, tags, 'C2')).toEqual({
+		expect(await acceptRecord(d, record, tags, ['C2', 'C3'])).toEqual({
 			ok: false,
 			reason: 'Zotero rejected the item: x',
 			canSaveBasic: false,
