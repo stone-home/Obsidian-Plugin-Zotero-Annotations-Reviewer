@@ -7,7 +7,6 @@ import {
 	ButtonComponent,
 	TextComponent,
 	ToggleComponent,
-	TextAreaComponent,
 	Modal,
 	DropdownComponent,
 	getIconIds,
@@ -559,7 +558,6 @@ export class ZoteroSettingTab extends PluginSettingTab {
 			attr: { style: "margin-bottom: 12px;" }
 		});
 		const scriptWrapper = codeCard.createDiv({ cls: 'zotero-cfp-script-wrapper' });
-		let codeEditor: EditorView | null = null;
 		mountCodeMirror(
 			scriptWrapper,
 			this.plugin.settings.cfpSeriesDataviewJSCode || '',
@@ -1127,7 +1125,7 @@ class WebhookEditModal extends Modal {
 
 		let availableSecrets: string[] = [];
 		if (this.app.secretStorage && this.app.secretStorage.listSecrets) {
-			try { availableSecrets = await this.app.secretStorage.listSecrets(); } catch(e) {}
+			try { availableSecrets = await this.app.secretStorage.listSecrets(); } catch(e) { /* secrets are optional */ }
 		}
 
 		const refreshHeaders = () => {

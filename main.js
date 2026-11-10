@@ -2897,7 +2897,6 @@ var ZoteroSettingTab = class extends import_obsidian4.PluginSettingTab {
       attr: { style: "margin-bottom: 12px;" }
     });
     const scriptWrapper = codeCard.createDiv({ cls: "zotero-cfp-script-wrapper" });
-    let codeEditor = null;
     mountCodeMirror(
       scriptWrapper,
       this.plugin.settings.cfpSeriesDataviewJSCode || "",
@@ -12050,7 +12049,7 @@ var AssistantView = class extends import_obsidian11.MarkdownRenderChild {
       el.createDiv({ text: "Assistant only works in notes." });
       return;
     }
-    let imageMap = parseImageMap(source);
+    const imageMap = parseImageMap(source);
     const container = el.createDiv({ cls: "zotero-assistant-container" });
     const header = container.createDiv({ cls: "zotero-assistant-header" });
     header.createEl("h4", { text: "\u{1F916} Zotero Assistant", cls: "zotero-title" });
@@ -15814,13 +15813,11 @@ async function fetchWikiCFPSeriesIndex(onProgress, letters) {
       const resp = await (0, import_obsidian15.requestUrl)({ url, method: "GET" });
       if (resp.status !== 200) continue;
       const entries = parseSeriesIndexPage(resp.text);
-      let added = 0;
       for (const e of entries) {
         const key = e.id + "|" + e.seriesAcronym;
         if (seen.has(key)) continue;
         seen.add(key);
         all.push(e);
-        added++;
       }
       onProgress == null ? void 0 : onProgress(letter, all.length);
     } catch (e) {
@@ -15858,12 +15855,12 @@ function parseSeriesTableToItems(html, programUrl, seriesAcronym) {
     return cells;
   };
   for (let i = 0; i < rows.length; i++) {
-    let rowHtml = rows[i];
+    const rowHtml = rows[i];
     let eventCell;
     let whenCell;
     let whereCell;
     let deadlineCell;
-    let cells = extractTds(rowHtml);
+    const cells = extractTds(rowHtml);
     if (cells.length === 2 && /rowspan\s*=\s*["']?2/i.test(rowHtml) && i + 1 < rows.length) {
       const nextCells = extractTds(rows[i + 1]);
       if (nextCells.length >= 3) {
@@ -17242,7 +17239,7 @@ var ProjectSelectorView = class extends import_obsidian19.MarkdownRenderChild {
         };
         const pill = statusDiv.createSpan(tagParams);
         const link = pill.createEl("a", {
-          text: proj.replace(/[\[\]]/g, "").split("|").pop(),
+          text: proj.replace(/[[\]]/g, "").split("|").pop(),
           attr: {
             href: "#",
             style: "color: inherit; text-decoration: none;"
@@ -17703,9 +17700,9 @@ var WebhookInputValueModal = class extends import_obsidian22.Modal {
     new import_obsidian22.ButtonComponent(footer).setButtonText("Trigger").setCta().onClick(() => {
       const values = {};
       this.variables.forEach((iv) => {
-        var _a, _b, _c;
+        var _a, _b;
         const v = (_b = (_a = this.inputs.get(iv.name)) == null ? void 0 : _a.getValue()) != null ? _b : "";
-        values[iv.name] = iv.type === "number" ? String((_c = Number(v)) != null ? _c : v) : v;
+        values[iv.name] = iv.type === "number" ? String(Number(v)) : v;
       });
       this.close();
       this.onSubmit(values);

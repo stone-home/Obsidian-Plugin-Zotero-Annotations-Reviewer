@@ -66,7 +66,7 @@ export class ProjectSelectorView extends MarkdownRenderChild {
 
 				// --- CLICKABLE LINK ---
 				const link = pill.createEl("a", {
-					text: proj.replace(/[\[\]]/g, "").split("|").pop(),
+					text: proj.replace(/[[\]]/g, "").split("|").pop(),
 					attr: {
 						href: "#",
 						style: "color: inherit; text-decoration: none;"

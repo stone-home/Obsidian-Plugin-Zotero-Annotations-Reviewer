@@ -4,9 +4,7 @@ import { fetchWikiCFP } from './cfp-wikicfp';
 import { fetchCcfddl, parseCcfddlYaml, getCcfRankForSeriesTitle, CcfRankInfo } from './cfp-ccfddl';
 import {
 	fetchWikiCFPSeriesIndex,
-	fetchSeriesEvents,
-	delay,
-	randomDelayMs
+	fetchSeriesEvents
 } from './cfp-wikicfp-series';
 import { fetchEasychair } from './cfp-easychair';
 import { fetchOpenresearch } from './cfp-openresearch';

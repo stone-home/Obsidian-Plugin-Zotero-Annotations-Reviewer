@@ -1,4 +1,4 @@
-import { Plugin, Notice, TFile, SuggestModal, App, Modal, Setting, TextComponent, ButtonComponent } from 'obsidian';
+import { Plugin, Notice, TFile, SuggestModal, App, Modal, TextComponent, ButtonComponent } from 'obsidian';
 import { DEFAULT_SETTINGS, MyPluginSettings, WebhookProfile } from './types';
 import { ZoteroSettingTab } from './settings';
 import { HighlightModal } from './ui/highlights';
@@ -307,7 +307,7 @@ class WebhookInputValueModal extends Modal {
 			const values: Record<string, string> = {};
 			this.variables.forEach(iv => {
 				const v = this.inputs.get(iv.name)?.getValue() ?? '';
-				values[iv.name] = iv.type === 'number' ? String(Number(v) ?? v) : v;
+				values[iv.name] = iv.type === 'number' ? String(Number(v)) : v;
 			});
 			this.close();
 			this.onSubmit(values);
