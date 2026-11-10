@@ -111,6 +111,21 @@ describe('DigestStore', () => {
 		expect(store.counts()).toEqual({ unchecked: 0, accepted: 1, rejected: 1 });
 	});
 
+	it('marks an acceptance without a Zotero key as a manual import', () => {
+		store.add({ key: 'm', title: 'M' });
+
+		store.accept('m', { directions: [], collections: [] });
+
+		expect(store.get('m')).toMatchObject({
+			status: 'accepted',
+			manual_import: true,
+		});
+		expect(store.get('m')).not.toHaveProperty('zotero_key');
+
+		store.restore('m');
+		expect(store.get('m')).not.toHaveProperty('manual_import');
+	});
+
 	it('restores a decided paper and clears the decision', () => {
 		store.add({ key: 'a', title: 'A' });
 		store.accept('a', {

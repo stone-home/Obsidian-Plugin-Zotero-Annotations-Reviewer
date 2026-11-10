@@ -9,7 +9,6 @@ import {
 	ZoteroLocalClient,
 	ZoteroWriteResult,
 	acceptRecord,
-	buildBasicItem,
 	buildCollectionList,
 	directionTags,
 	prepareLookupItem,
@@ -112,18 +111,6 @@ describe('buildCollectionList', () => {
 });
 
 describe('item builders', () => {
-	const record: DigestRecord = {
-		key: 'k',
-		title: 'Title',
-		status: 'unchecked',
-		added_at: '2026-11-01T00:00:00.000Z',
-		doi: '10.1000/a',
-		url: 'https://x.org/a',
-		year: 2024,
-		venue: 'Venue',
-		abstract: 'Abstract',
-	};
-
 	it('builds manual direction tags with the prefix', () => {
 		expect(directionTags('dir/', ['llm', 'gpu'])).toEqual([
 			{ tag: 'dir/llm' },
@@ -153,54 +140,6 @@ describe('item builders', () => {
 		});
 		expect(prepareLookupItem(looked, [], []).collections).toEqual([]);
 		expect(looked.key).toBe('5385JXGT');
-	});
-
-	it('builds a journal article from the record fields', () => {
-		expect(buildBasicItem(record, [{ tag: 'dir/llm' }], ['C2'])).toEqual({
-			itemType: 'journalArticle',
-			title: 'Title',
-			tags: [{ tag: 'dir/llm' }],
-			collections: ['C2'],
-			abstractNote: 'Abstract',
-			url: 'https://x.org/a',
-			date: '2024',
-			publicationTitle: 'Venue',
-			DOI: '10.1000/a',
-		});
-	});
-
-	it('maps the venue by item type and moves the DOI to extra when unsupported', () => {
-		expect(
-			buildBasicItem({ ...record, item_type: 'conferencePaper' }, [], [])
-		).toMatchObject({
-			proceedingsTitle: 'Venue',
-			DOI: '10.1000/a',
-			collections: [],
-		});
-		expect(
-			buildBasicItem({ ...record, item_type: 'preprint' }, [], [])
-		).toMatchObject({
-			repository: 'Venue',
-		});
-		const book = buildBasicItem({ ...record, item_type: 'book' }, [], []);
-		expect(book.extra).toBe('DOI: 10.1000/a');
-		expect(book).not.toHaveProperty('DOI');
-		expect(book).not.toHaveProperty('publicationTitle');
-	});
-
-	it('omits fields the record does not have', () => {
-		expect(
-			buildBasicItem(
-				{ key: 'k', title: 'Only title', status: 'unchecked', added_at: '' },
-				[],
-				[]
-			)
-		).toEqual({
-			itemType: 'journalArticle',
-			title: 'Only title',
-			tags: [],
-			collections: [],
-		});
 	});
 });
 
@@ -451,63 +390,38 @@ describe('acceptRecord', () => {
 		});
 	});
 
-	it('offers basic metadata when the paper has no DOI', async () => {
+	it('writes nothing when the paper has no DOI', async () => {
 		const d = deps({ ok: true, item: { itemType: 'preprint' } });
 
 		expect(
-			await acceptRecord(d, { ...record, doi: undefined }, tags, ['C2', 'C3'])
+			await acceptRecord(d, { ...record, doi: undefined }, tags, ['C2'])
 		).toEqual({
 			ok: false,
 			reason: 'This paper has no DOI to look up',
-			canSaveBasic: true,
 		});
 		expect(d.lookup).not.toHaveBeenCalled();
 		expect(d.createItem).not.toHaveBeenCalled();
 	});
 
-	it('offers basic metadata when the lookup finds nothing', async () => {
+	it('writes nothing when the lookup fails', async () => {
 		const d = deps({ ok: false, reason: 'Lookup found nothing for 10.1000/a' });
 
-		expect(await acceptRecord(d, record, tags, ['C2', 'C3'])).toEqual({
+		expect(await acceptRecord(d, record, tags, ['C2'])).toEqual({
 			ok: false,
 			reason: 'Lookup found nothing for 10.1000/a',
-			canSaveBasic: true,
 		});
+		expect(d.createItem).not.toHaveBeenCalled();
 	});
 
-	it('does not offer basic metadata when the server is unreachable', async () => {
-		const d = deps({ ok: false, reason: 'down', unreachable: true });
-
-		expect(await acceptRecord(d, record, tags, ['C2', 'C3'])).toMatchObject({
-			ok: false,
-			canSaveBasic: false,
-		});
-	});
-
-	it('writes the record fields directly in basic mode', async () => {
-		const d = deps({ ok: true, item: { itemType: 'preprint' } });
-
-		expect(await acceptRecord(d, record, tags, [], true)).toEqual({
-			ok: true,
-			key: 'ZK',
-		});
-		expect(d.lookup).not.toHaveBeenCalled();
-		expect(d.created[0]).toMatchObject({
-			itemType: 'journalArticle',
-			title: 'Title',
-		});
-	});
-
-	it('reports a failed write without offering basic metadata', async () => {
+	it('reports a failed write', async () => {
 		const d = deps(
 			{ ok: true, item: { itemType: 'preprint' } },
 			{ ok: false, reason: 'Zotero rejected the item: x' }
 		);
 
-		expect(await acceptRecord(d, record, tags, ['C2', 'C3'])).toEqual({
+		expect(await acceptRecord(d, record, tags, [])).toEqual({
 			ok: false,
 			reason: 'Zotero rejected the item: x',
-			canSaveBasic: false,
 		});
 	});
 });

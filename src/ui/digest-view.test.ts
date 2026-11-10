@@ -212,19 +212,25 @@ describe('PaperDigestView', () => {
 		expect(texts('.zotero-digest-title')).toEqual(['Title bb']);
 	});
 
-	it('accepts into several collections without directions when none are defined', async () => {
+	it('accepts into the one chosen collection and keeps the list position', async () => {
 		const { click, root, saved, plugin } = await openView({}, { a: paper('a') });
 
 		await click('.zotero-digest-actions button', 'Accept');
 		expect(root.textContent).toContain('No directions are defined');
-		const boxes = root.querySelectorAll<HTMLInputElement>(
-			'.zotero-digest-collection input'
-		);
-		expect(boxes).toHaveLength(3);
-		for (const index of [1, 2]) {
-			boxes[index].checked = true;
-			boxes[index].dispatchEvent(new Event('change'));
-		}
+		const radios = () =>
+			root.querySelectorAll<HTMLInputElement>('.zotero-digest-collection input');
+		expect(Array.from(radios()).map((input) => input.type)).toEqual([
+			'radio',
+			'radio',
+			'radio',
+			'radio',
+		]);
+		expect(radios()[0].checked).toBe(true);
+		const box = root.querySelector('.zotero-digest-collections') as HTMLElement;
+		radios()[2].checked = true;
+		radios()[2].dispatchEvent(new Event('change'));
+		expect(root.querySelector('.zotero-digest-collections')).toBe(box);
+
 		await click('.zotero-digest-actions button', 'Confirm');
 		await new Promise((resolve) => setTimeout(resolve, 0));
 
@@ -232,17 +238,54 @@ describe('PaperDigestView', () => {
 			itemType: 'preprint',
 			title: 'Looked up',
 			tags: [],
-			collections: ['C2', 'C3'],
+			collections: ['C2'],
 		});
 		expect(saved().a).toMatchObject({
 			status: 'accepted',
 			zotero_key: 'ZK1',
-			collections: [
-				{ key: 'C2', name: 'Peer Review / 2026' },
-				{ key: 'C3', name: 'Visualisation' },
-			],
+			collections: [{ key: 'C2', name: 'Peer Review / 2026' }],
 		});
-		expect(plugin.settings.digest.lastCollectionKeys).toEqual(['C2', 'C3']);
+		expect(plugin.settings.digest.lastCollectionKeys).toEqual(['C2']);
+	});
+
+	it('offers a manual import when the lookup finds nothing, and writes nothing', async () => {
+		(requestUrl as jest.Mock).mockImplementation(async (request: any) => {
+			if (request.url.endsWith('/collections')) {
+				return {
+					status: 200,
+					headers: { 'Zotero-Server-ID': 'SID' },
+					text: JSON.stringify(COLLECTIONS),
+				};
+			}
+			if (request.url.endsWith('/search')) {
+				return {
+					status: 501,
+					headers: {},
+					text: 'No items returned from any translator',
+				};
+			}
+			if (request.url.endsWith('/items')) posted.push(request.body);
+			return { status: 404, headers: {}, text: '' };
+		});
+		const { click, root, texts, saved } = await openView({}, { a: paper('a') });
+
+		await click('.zotero-digest-actions button', 'Accept');
+		expect(root.textContent).not.toContain('Accept, import manually');
+		await click('.zotero-digest-actions button', 'Confirm');
+		await new Promise((resolve) => setTimeout(resolve, 0));
+
+		expect(texts('.zotero-digest-error')).toEqual([
+			'Lookup found nothing for 10.1000/a. Nothing was added to Zotero.',
+		]);
+		expect(saved().a.status).toBe('unchecked');
+
+		await click('.zotero-digest-actions button', 'Accept, import manually');
+
+		expect(posted).toHaveLength(0);
+		expect(saved().a).toMatchObject({ status: 'accepted', manual_import: true });
+		expect(saved().a.zotero_key).toBeUndefined();
+		expect(texts('.zotero-digest-badge')).toEqual(['Accepted · manual']);
+		expect(root.textContent).toContain('Accepted, to import manually');
 	});
 
 	it('requires a direction when directions are defined, then writes its tag', async () => {
