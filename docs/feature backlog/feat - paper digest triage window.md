@@ -65,8 +65,8 @@ A survey often starts from a `.bib` file, and that format carries the same ident
 The metadata in Zotero should come from Zotero's own translators, because the input only carries a few display fields. Accept therefore runs two requests. The first sends the DOI to a Zotero translation-server, which returns the full item. The second writes that item through the local API of the running Zotero.
 
 - The tags returned by the translator are replaced with the chosen direction tags, written as `<prefix><direction id>`.
-- The item is placed in the collections ticked in the window, by collection key. The collection selected inside Zotero has no effect.
-- When a paper has no DOI, or the lookup finds nothing, the window offers Save with basic metadata. This writes the title, URL, year, venue and abstract from the input.
+- The item is placed in the one collection chosen in the window, by collection key. The collection selected inside Zotero has no effect.
+- When a paper has no DOI, or the lookup finds nothing, nothing is added to Zotero. The window then offers Accept, import manually. This marks the paper as accepted in the digest, and the user adds it to Zotero by hand.
 - Zotero's API does not download PDFs. Use Find Full Text in Zotero afterwards.
 
 ### 1.5 The window
@@ -79,7 +79,7 @@ The window has two parts, so that the user can see all papers and still read one
 - Each decided paper has an Undo button in its row, which returns it to unchecked. An accepted item stays in Zotero when its decision is undone.
 - Clicking a row, or pressing `↑` and `↓`, selects a paper.
 - The header shows whether Zotero and the translation server answer. When either does not, Accept and Reject are disabled, and the window states what to start.
-- Accept opens a panel with the direction list and a checklist of collections. Several collections can be ticked, and none means the library root. A direction is required only when directions are defined in the settings.
+- Accept opens a panel with the direction list and the collection list. Exactly one collection, or the library root, is chosen. A direction is required only when directions are defined in the settings.
 - Reject opens the reason list. One click stores the reason.
 - After a decision the next unchecked paper is selected.
 - Keys: `←` reject, `→` accept, `↑` `↓` move, digits choose a direction or reason, `Enter` confirms, `Esc` cancels.

@@ -22,6 +22,8 @@ export type DigestRecord = DigestInput & {
 	directions?: string[];
 	collections?: { key: string; name: string }[];
 	zotero_key?: string;
+	/** Accepted without a Zotero item: the user imports it by hand. */
+	manual_import?: boolean;
 	batch?: string;
 };
 

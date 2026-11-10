@@ -22,13 +22,6 @@ const NON_API_FIELDS = [
 	'id',
 	'itemID',
 ];
-const DOI_ITEM_TYPES = new Set(['journalArticle', 'conferencePaper', 'preprint']);
-const VENUE_FIELDS: Record<string, string> = {
-	journalArticle: 'publicationTitle',
-	conferencePaper: 'proceedingsTitle',
-	preprint: 'repository',
-};
-
 /** A Zotero collection, with its full path for display. */
 export type ZoteroCollection = {
 	key: string;
@@ -56,7 +49,7 @@ export type ZoteroKeyStore = {
 
 /** Outcome of the accept pipeline. */
 export type DigestAcceptResult =
-	{ ok: true; key: string } | { ok: false; reason: string; canSaveBasic: boolean };
+	{ ok: true; key: string } | { ok: false; reason: string };
 
 /** Orders collections as a tree and gives each its full path. */
 export function buildCollectionList(raw: unknown): ZoteroCollection[] {
@@ -109,31 +102,6 @@ export function prepareLookupItem(
 	prepared.tags = tags;
 	prepared.collections = [...collectionKeys];
 	return prepared;
-}
-
-/** Builds an item from the fields of the record itself, for papers without a DOI. */
-export function buildBasicItem(
-	record: DigestRecord,
-	tags: { tag: string }[],
-	collectionKeys: string[]
-): ZoteroItemJson {
-	const itemType = record.item_type || 'journalArticle';
-	const item: ZoteroItemJson = {
-		itemType,
-		title: record.title,
-		tags,
-		collections: [...collectionKeys],
-	};
-	if (record.abstract) item.abstractNote = record.abstract;
-	if (record.url) item.url = record.url;
-	if (record.year !== undefined) item.date = String(record.year);
-	if (record.venue && VENUE_FIELDS[itemType])
-		item[VENUE_FIELDS[itemType]] = record.venue;
-	if (record.doi) {
-		if (DOI_ITEM_TYPES.has(itemType)) item.DOI = record.doi;
-		else item.extra = `DOI: ${record.doi}`;
-	}
-	return item;
 }
 
 /** Client of the local API served by a running Zotero. */
@@ -292,38 +260,17 @@ export type DigestAcceptDeps = {
 };
 
 /**
- * Creates the Zotero item for an accepted paper: metadata is resolved from the
- * DOI, or taken from the record itself when `basic` is set.
+ * Creates the Zotero item for an accepted paper from the metadata its DOI
+ * resolves to. Nothing is written when the lookup finds no metadata.
  */
 export async function acceptRecord(
 	deps: DigestAcceptDeps,
 	record: DigestRecord,
 	tags: { tag: string }[],
-	collectionKeys: string[],
-	basic = false
+	collectionKeys: string[]
 ): Promise<DigestAcceptResult> {
-	let item: ZoteroItemJson;
-	if (basic) {
-		item = buildBasicItem(record, tags, collectionKeys);
-	} else {
-		if (!record.doi) {
-			return {
-				ok: false,
-				reason: 'This paper has no DOI to look up',
-				canSaveBasic: true,
-			};
-		}
-		const found = await deps.lookup(record.doi);
-		if (!found.ok) {
-			return {
-				ok: false,
-				reason: found.reason,
-				canSaveBasic: !found.unreachable,
-			};
-		}
-		item = prepareLookupItem(found.item, tags, collectionKeys);
-	}
-	const written = await deps.createItem(item);
-	if (written.ok) return written;
-	return { ok: false, reason: written.reason, canSaveBasic: false };
+	if (!record.doi) return { ok: false, reason: 'This paper has no DOI to look up' };
+	const found = await deps.lookup(record.doi);
+	if (!found.ok) return { ok: false, reason: found.reason };
+	return deps.createItem(prepareLookupItem(found.item, tags, collectionKeys));
 }

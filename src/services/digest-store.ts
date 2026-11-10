@@ -23,7 +23,8 @@ function emptyData(): DigestStoreData {
 export type DigestAcceptDecision = {
 	directions: string[];
 	collections: { key: string; name: string }[];
-	zoteroKey: string;
+	/** Key of the created Zotero item; absent when the user imports by hand. */
+	zoteroKey?: string;
 };
 
 /**
@@ -136,7 +137,8 @@ export class DigestStore {
 		record.status = 'accepted';
 		record.directions = decision.directions;
 		record.collections = decision.collections;
-		record.zotero_key = decision.zoteroKey;
+		if (decision.zoteroKey) record.zotero_key = decision.zoteroKey;
+		else record.manual_import = true;
 		record.decided_at = this.now().toISOString();
 	}
 
@@ -149,6 +151,7 @@ export class DigestStore {
 		delete record.directions;
 		delete record.collections;
 		delete record.zotero_key;
+		delete record.manual_import;
 	}
 
 	/** Import batches that still have unchecked papers. */

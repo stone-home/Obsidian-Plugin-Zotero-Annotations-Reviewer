@@ -128,10 +128,12 @@ export class PaperDigestView extends ItemView {
 	private translateOnline = false;
 	private storeError = '';
 	private pickedDirections = new Set<string>();
-	private pickedCollections = new Set<string>();
+	private pickedCollection = '';
 	private busy = false;
 	private error = '';
-	private offerBasic = false;
+	private offerManual = false;
+	private detailScroll = 0;
+	private collectionScroll = 0;
 	private listScroll = 0;
 
 	constructor(leaf: WorkspaceLeaf, plugin: ZoteroGKPlugin) {
@@ -232,6 +234,8 @@ export class PaperDigestView extends ItemView {
 
 	private select(key: string): void {
 		this.selectedKey = key;
+		const detail = this.contentEl.querySelector('.zotero-digest-detail');
+		if (detail) detail.scrollTop = 0;
 		this.setMode('card');
 	}
 
@@ -279,7 +283,7 @@ export class PaperDigestView extends ItemView {
 	private setMode(mode: Mode): void {
 		this.mode = mode;
 		this.error = '';
-		this.offerBasic = false;
+		this.offerManual = false;
 		this.render();
 	}
 
@@ -291,9 +295,9 @@ export class PaperDigestView extends ItemView {
 		this.pickedDirections = new Set(
 			settings.lastDirections.filter((id) => directions.has(id))
 		);
-		this.pickedCollections = new Set(
-			settings.lastCollectionKeys.filter((key) => collections.has(key))
-		);
+		this.pickedCollection =
+			settings.lastCollectionKeys.find((key) => collections.has(key)) ?? '';
+		this.collectionScroll = 0;
 		this.setMode('accept');
 	}
 
@@ -311,25 +315,31 @@ export class PaperDigestView extends ItemView {
 		this.setMode('card');
 	}
 
-	private async confirmAccept(basic = false): Promise<void> {
-		const record = this.selected();
-		if (!record || !this.canTriage()) return;
+	/** The choices of the accept panel, or undefined when a direction is missing. */
+	private acceptChoices() {
 		if (this.directions().length > 0 && this.pickedDirections.size === 0) {
 			this.error = 'Pick at least one direction above, then confirm.';
 			this.render();
-			return;
+			return undefined;
 		}
-		const settings = this.svc.settings();
-		const directions = Array.from(this.pickedDirections);
-		const collections = this.collections()
-			.filter((item) => this.pickedCollections.has(item.key))
-			.map((item) => ({ key: item.key, name: item.path }));
-		const collectionKeys = collections.map((item) => item.key);
-		const before = this.visible();
-		const index = before.findIndex((item) => item.key === record.key);
+		const picked = this.collections().find(
+			(item) => item.key === this.pickedCollection
+		);
+		return {
+			directions: Array.from(this.pickedDirections),
+			collections: picked ? [{ key: picked.key, name: picked.path }] : [],
+		};
+	}
+
+	private async confirmAccept(): Promise<void> {
+		const record = this.selected();
+		if (!record || !this.canTriage()) return;
+		const choices = this.acceptChoices();
+		if (!choices) return;
 
 		this.busy = true;
 		this.error = '';
+		this.offerManual = false;
 		this.render();
 		const result = await acceptRecord(
 			{
@@ -337,29 +347,42 @@ export class PaperDigestView extends ItemView {
 				createItem: (item) => this.svc.zotero.createItem(item),
 			},
 			record,
-			directionTags(settings.tagPrefix, directions),
-			collectionKeys,
-			basic
+			directionTags(this.svc.settings().tagPrefix, choices.directions),
+			choices.collections.map((item) => item.key)
 		);
 		this.busy = false;
 
 		if (!result.ok) {
-			this.error = result.reason;
-			this.offerBasic = result.canSaveBasic;
+			this.error = `${result.reason}. Nothing was added to Zotero.`;
+			this.offerManual = true;
 			await this.checkServices();
 			this.render();
 			return;
 		}
+		await this.finishAccept(record, choices, result.key);
+	}
+
+	/** Marks the paper accepted without creating a Zotero item. */
+	private async acceptManually(): Promise<void> {
+		const record = this.selected();
+		if (!record || record.status !== 'unchecked' || this.busy) return;
+		const choices = this.acceptChoices();
+		if (choices) await this.finishAccept(record, choices);
+	}
+
+	private async finishAccept(
+		record: DigestRecord,
+		choices: { directions: string[]; collections: { key: string; name: string }[] },
+		zoteroKey?: string
+	): Promise<void> {
+		const before = this.visible();
+		const index = before.findIndex((item) => item.key === record.key);
 		await this.persist(() =>
-			this.svc.store.accept(record.key, {
-				directions,
-				collections,
-				zoteroKey: result.key,
-			})
+			this.svc.store.accept(record.key, { ...choices, zoteroKey })
 		);
 		await this.svc.updateSettings({
-			lastDirections: directions,
-			lastCollectionKeys: collectionKeys,
+			lastDirections: choices.directions,
+			lastCollectionKeys: choices.collections.map((item) => item.key),
 		});
 		this.selectNextUnchecked(before, index);
 		this.setMode('card');
@@ -469,8 +492,14 @@ export class PaperDigestView extends ItemView {
 
 	private render(): void {
 		const root = this.contentEl;
-		const oldList = root.querySelector('.zotero-digest-list');
-		if (oldList) this.listScroll = oldList.scrollTop;
+		const scrollOf = (selector: string, fallback: number) =>
+			root.querySelector(selector)?.scrollTop ?? fallback;
+		this.listScroll = scrollOf('.zotero-digest-list', this.listScroll);
+		this.detailScroll = scrollOf('.zotero-digest-detail', this.detailScroll);
+		this.collectionScroll = scrollOf(
+			'.zotero-digest-collections',
+			this.collectionScroll
+		);
 		root.empty();
 		root.addClass('zotero-digest');
 		this.renderHeader(root);
@@ -488,7 +517,9 @@ export class PaperDigestView extends ItemView {
 		}
 		const body = root.createDiv({ cls: 'zotero-digest-body' });
 		this.renderList(body);
-		this.renderDetail(body.createDiv({ cls: 'zotero-digest-detail' }));
+		const detail = body.createDiv({ cls: 'zotero-digest-detail' });
+		this.renderDetail(detail);
+		detail.scrollTop = this.detailScroll;
 	}
 
 	private renderHeader(root: HTMLElement): void {
@@ -637,7 +668,9 @@ export class PaperDigestView extends ItemView {
 			const side = row.createDiv({ cls: 'zotero-digest-list-side' });
 			side.createSpan({
 				cls: `zotero-digest-badge is-${record.status}`,
-				text: STATUS_LABELS[record.status],
+				text: record.manual_import
+					? 'Accepted · manual'
+					: STATUS_LABELS[record.status],
 			});
 			if (record.status !== 'unchecked') {
 				const undo = side.createEl('button', { text: 'Undo' });
@@ -707,7 +740,11 @@ export class PaperDigestView extends ItemView {
 			const where =
 				(record.collections ?? []).map((item) => item.name).join(', ') ||
 				'Library root';
-			panel.createDiv({ text: `Accepted · ${day}` });
+			panel.createDiv({
+				text: record.manual_import
+					? `Accepted, to import manually · ${day}`
+					: `Accepted · ${day}`,
+			});
 			panel.createDiv({
 				cls: 'zotero-digest-meta',
 				text: `Collections: ${where}`,
@@ -749,29 +786,25 @@ export class PaperDigestView extends ItemView {
 			chip.onclick = () => this.toggle(this.pickedDirections, item.id);
 		});
 
-		panel.createDiv({
-			cls: 'zotero-digest-panel-title',
-			text: `Collections (${this.pickedCollections.size} selected)`,
-		});
+		panel.createDiv({ cls: 'zotero-digest-panel-title', text: 'Collection' });
 		const box = panel.createDiv({ cls: 'zotero-digest-collections' });
-		for (const collection of this.collections()) {
+		const option = (key: string, name: string, depth: number) => {
 			const label = box.createEl('label', { cls: 'zotero-digest-collection' });
-			label.style.paddingLeft = `${collection.depth * 16}px`;
-			const input = label.createEl('input', { attr: { type: 'checkbox' } });
-			input.checked = this.pickedCollections.has(collection.key);
-			input.onchange = () => {
-				if (input.checked) this.pickedCollections.add(collection.key);
-				else this.pickedCollections.delete(collection.key);
-				this.render();
-			};
-			label.createSpan({ text: collection.name });
-		}
-		if (this.pickedCollections.size === 0) {
-			panel.createDiv({
-				cls: 'zotero-digest-hint',
-				text: 'No collection selected: the item goes to the library root.',
+			label.style.paddingLeft = `${depth * 16}px`;
+			const input = label.createEl('input', {
+				attr: { type: 'radio', name: 'zotero-digest-collection' },
 			});
+			input.checked = this.pickedCollection === key;
+			input.onchange = () => {
+				if (input.checked) this.pickedCollection = key;
+			};
+			label.createSpan({ text: name });
+		};
+		option('', 'Library root', 0);
+		for (const collection of this.collections()) {
+			option(collection.key, collection.name, collection.depth);
 		}
+		box.scrollTop = this.collectionScroll;
 		if (!record.doi) {
 			panel.createDiv({
 				cls: 'zotero-digest-hint',
@@ -784,12 +817,12 @@ export class PaperDigestView extends ItemView {
 		const buttons = panel.createDiv({ cls: 'zotero-digest-actions' });
 		const cancel = buttons.createEl('button', { text: 'Cancel (Esc)' });
 		cancel.onclick = () => this.setMode('card');
-		if (this.offerBasic) {
-			const basic = buttons.createEl('button', {
-				text: 'Save with basic metadata',
+		if (this.offerManual) {
+			const manual = buttons.createEl('button', {
+				text: 'Accept, import manually',
 			});
-			basic.disabled = this.busy;
-			basic.onclick = () => void this.confirmAccept(true);
+			manual.disabled = this.busy;
+			manual.onclick = () => void this.acceptManually();
 		}
 		const confirm = buttons.createEl('button', {
 			cls: 'mod-cta',
