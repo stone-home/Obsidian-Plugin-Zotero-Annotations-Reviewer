@@ -5,7 +5,7 @@ import { fetchWikiCFP } from './cfp-wikicfp';
 import { fetchCcfddl } from './cfp-ccfddl';
 import { fetchEasychair } from './cfp-easychair';
 import { fetchOpenresearch } from './cfp-openresearch';
-import { fetchWikiCFPSeriesIndex, fetchSeriesEvents } from './cfp-wikicfp-series';
+import { fetchWikiCFPSeriesIndex } from './cfp-wikicfp-series';
 
 jest.mock('./cfp-wikicfp', () => ({ fetchWikiCFP: jest.fn() }));
 jest.mock('./cfp-ccfddl', () => ({ fetchCcfddl: jest.fn() }));
