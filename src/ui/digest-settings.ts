@@ -49,6 +49,7 @@ export function renderDigestSettings(
 				.setValue(settings.incomingFolder)
 				.onChange((value) => save({ incomingFolder: value.trim() }))
 		);
+	renderFormatHelp(container);
 
 	new Setting(container)
 		.setName('Direction tag prefix')
@@ -96,6 +97,81 @@ export function renderDigestSettings(
 		save: (items) => save({ rejectReasons: items }),
 		rerender,
 	});
+}
+
+const JSONL_FIELDS: [field: string, required: string, value: string][] = [
+	['key', 'yes', 'Non-empty string. Use the DOI, else the URL, else another stable id.'],
+	['title', 'yes', 'Non-empty string.'],
+	['doi', 'no', 'Bare DOI such as 10.1234/abc, without https://doi.org/.'],
+	['url', 'no', 'Absolute http(s) URL.'],
+	['year', 'no', 'Integer such as 2026, not the string "2026".'],
+	['venue', 'no', 'String, e.g. OSDI.'],
+	['abstract', 'no', 'String.'],
+	['item_type', 'no', 'String shown on the card, e.g. conferencePaper or preprint.'],
+];
+
+const JSONL_EXAMPLE =
+	'{"key":"10.48550/arXiv.2401.12345","title":"Paper title",' +
+	'"doi":"10.48550/arXiv.2401.12345","url":"https://arxiv.org/abs/2401.12345",' +
+	'"year":2024,"venue":"arXiv","abstract":"…","item_type":"preprint"}';
+
+const BIB_FIELDS: [field: string, use: string][] = [
+	['doi', 'DOI and key. A https://doi.org/ or doi: prefix is removed.'],
+	[
+		'eprint + archivePrefix (or eprinttype) = arXiv',
+		'Used when doi or url is missing: DOI 10.48550/arXiv.<id> and URL https://arxiv.org/abs/<id>. A version suffix such as v2 is removed.',
+	],
+	['url', 'URL. Also the key when there is no DOI.'],
+	['title', 'Title, with LaTeX markup removed. The citation key is used when it is empty.'],
+	['year', 'Year, when it is a number.'],
+	['journal or booktitle', 'Venue.'],
+	['abstract', 'Abstract, with LaTeX markup removed.'],
+	[
+		'entry type',
+		'Item type: article → journalArticle, inproceedings / conference → conferencePaper, ' +
+			'book / proceedings → book, incollection / inbook → bookSection, ' +
+			'phdthesis / mastersthesis → thesis, techreport → report, any other → document. ' +
+			'arXiv entries become preprint.',
+	],
+];
+
+function renderTable(parent: HTMLElement, head: string[], rows: string[][]): void {
+	const table = parent.createEl('table', { cls: 'zotero-digest-format-table' });
+	const headRow = table.createEl('thead').createEl('tr');
+	head.forEach((text) => headRow.createEl('th', { text }));
+	const body = table.createEl('tbody');
+	rows.forEach((row) => {
+		const tr = body.createEl('tr');
+		row.forEach((text, i) => tr.createEl('td').createEl(i === 0 ? 'code' : 'span', { text }));
+	});
+}
+
+/** Read-only reference for the two input formats: JSONL lines and BibTeX fields. */
+export function renderFormatHelp(container: HTMLElement): void {
+	const jsonl = container.createEl('details', { cls: 'zotero-digest-format' });
+	jsonl.createEl('summary', { text: 'JSONL format for the incoming folder' });
+	jsonl.createEl('p', {
+		text:
+			'One JSON object per line. Only *.jsonl files are read, so write to a .tmp file ' +
+			'and rename it when it is complete. A file is removed after its lines are imported. ' +
+			'Values are checked, never converted: a line that fails a check is listed under ' +
+			'Invalid lines in the Paper Digest window. A line whose key or DOI matches a stored ' +
+			'paper (ignoring case) is skipped as a duplicate.',
+	});
+	renderTable(jsonl, ['Field', 'Required', 'Value'], JSONL_FIELDS);
+	jsonl.createEl('p', { text: 'Example line:' });
+	jsonl.createEl('pre').createEl('code', { text: JSONL_EXAMPLE });
+
+	const bib = container.createEl('details', { cls: 'zotero-digest-format' });
+	bib.createEl('summary', { text: 'BibTeX fields for Import .bib' });
+	bib.createEl('p', {
+		text:
+			'Import .bib is in the menu of the Paper Digest window. Each entry needs an ' +
+			'identifier: doi, an arXiv eprint, or url. Entries without one are skipped, and ' +
+			'@comment, @string and @preamble are ignored. Authors are not read from the file: ' +
+			'they come from the DOI lookup when a paper is accepted.',
+	});
+	renderTable(bib, ['BibTeX field', 'Used as'], BIB_FIELDS);
 }
 
 type VocabEditor = {

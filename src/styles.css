@@ -1129,3 +1129,36 @@
 .zotero-digest-hidden {
 	display: none;
 }
+.zotero-digest-format {
+	margin: 8px 0 16px;
+	padding: 8px 12px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 6px;
+	font-size: var(--font-ui-small);
+	color: var(--text-muted);
+	user-select: text;
+}
+.zotero-digest-format summary {
+	cursor: pointer;
+	color: var(--text-normal);
+	font-weight: var(--font-semibold);
+}
+.zotero-digest-format-table {
+	width: 100%;
+	margin: 8px 0;
+	border-collapse: collapse;
+}
+.zotero-digest-format-table th,
+.zotero-digest-format-table td {
+	padding: 4px 8px;
+	border-bottom: 1px solid var(--background-modifier-border);
+	text-align: left;
+	vertical-align: top;
+}
+.zotero-digest-format-table th {
+	color: var(--text-normal);
+}
+.zotero-digest-format pre {
+	white-space: pre-wrap;
+	word-break: break-all;
+}

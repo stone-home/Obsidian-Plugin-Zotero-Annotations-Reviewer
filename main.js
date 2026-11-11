@@ -1585,7 +1585,8 @@ var init_digest_view = __esm({
 // src/ui/digest-settings.ts
 var digest_settings_exports = {};
 __export(digest_settings_exports, {
-  renderDigestSettings: () => renderDigestSettings
+  renderDigestSettings: () => renderDigestSettings,
+  renderFormatHelp: () => renderFormatHelp
 });
 function renderDigestSettings(container, plugin, rerender) {
   const svc = getDigestServices(plugin);
@@ -1607,6 +1608,7 @@ function renderDigestSettings(container, plugin, rerender) {
   new import_obsidian2.Setting(container).setName("Incoming folder").setDesc("Vault folder where external sources drop *.jsonl files.").addText(
     (text) => text.setValue(settings.incomingFolder).onChange((value) => save({ incomingFolder: value.trim() }))
   );
+  renderFormatHelp(container);
   new import_obsidian2.Setting(container).setName("Direction tag prefix").setDesc("Written to Zotero as <prefix><direction id>.").addText(
     (text) => text.setValue(settings.tagPrefix).onChange((value) => save({ tagPrefix: value }))
   );
@@ -1640,6 +1642,32 @@ function renderDigestSettings(container, plugin, rerender) {
     rerender
   });
 }
+function renderTable(parent, head, rows) {
+  const table = parent.createEl("table", { cls: "zotero-digest-format-table" });
+  const headRow = table.createEl("thead").createEl("tr");
+  head.forEach((text) => headRow.createEl("th", { text }));
+  const body = table.createEl("tbody");
+  rows.forEach((row) => {
+    const tr = body.createEl("tr");
+    row.forEach((text, i) => tr.createEl("td").createEl(i === 0 ? "code" : "span", { text }));
+  });
+}
+function renderFormatHelp(container) {
+  const jsonl = container.createEl("details", { cls: "zotero-digest-format" });
+  jsonl.createEl("summary", { text: "JSONL format for the incoming folder" });
+  jsonl.createEl("p", {
+    text: "One JSON object per line. Only *.jsonl files are read, so write to a .tmp file and rename it when it is complete. A file is removed after its lines are imported. Values are checked, never converted: a line that fails a check is listed under Invalid lines in the Paper Digest window. A line whose key or DOI matches a stored paper (ignoring case) is skipped as a duplicate."
+  });
+  renderTable(jsonl, ["Field", "Required", "Value"], JSONL_FIELDS);
+  jsonl.createEl("p", { text: "Example line:" });
+  jsonl.createEl("pre").createEl("code", { text: JSONL_EXAMPLE });
+  const bib = container.createEl("details", { cls: "zotero-digest-format" });
+  bib.createEl("summary", { text: "BibTeX fields for Import .bib" });
+  bib.createEl("p", {
+    text: "Import .bib is in the menu of the Paper Digest window. Each entry needs an identifier: doi, an arXiv eprint, or url. Entries without one are skipped, and @comment, @string and @preamble are ignored. Authors are not read from the file: they come from the DOI lookup when a paper is accepted."
+  });
+  renderTable(bib, ["BibTeX field", "Used as"], BIB_FIELDS);
+}
 function renderVocab(container, editor) {
   const items = editor.items.map((item) => ({ ...item }));
   new import_obsidian2.Setting(container).setName(editor.title).setDesc(editor.description).setHeading().addButton(
@@ -1672,7 +1700,7 @@ function renderVocab(container, editor) {
     );
   });
 }
-var import_obsidian2, TEST_IDENTIFIER;
+var import_obsidian2, TEST_IDENTIFIER, JSONL_FIELDS, JSONL_EXAMPLE, BIB_FIELDS;
 var init_digest_settings = __esm({
   "src/ui/digest-settings.ts"() {
     "use strict";
@@ -1680,6 +1708,33 @@ var init_digest_settings = __esm({
     init_digest_types();
     init_digest_view();
     TEST_IDENTIFIER = "10.48550/arXiv.1706.03762";
+    JSONL_FIELDS = [
+      ["key", "yes", "Non-empty string. Use the DOI, else the URL, else another stable id."],
+      ["title", "yes", "Non-empty string."],
+      ["doi", "no", "Bare DOI such as 10.1234/abc, without https://doi.org/."],
+      ["url", "no", "Absolute http(s) URL."],
+      ["year", "no", 'Integer such as 2026, not the string "2026".'],
+      ["venue", "no", "String, e.g. OSDI."],
+      ["abstract", "no", "String."],
+      ["item_type", "no", "String shown on the card, e.g. conferencePaper or preprint."]
+    ];
+    JSONL_EXAMPLE = '{"key":"10.48550/arXiv.2401.12345","title":"Paper title","doi":"10.48550/arXiv.2401.12345","url":"https://arxiv.org/abs/2401.12345","year":2024,"venue":"arXiv","abstract":"\u2026","item_type":"preprint"}';
+    BIB_FIELDS = [
+      ["doi", "DOI and key. A https://doi.org/ or doi: prefix is removed."],
+      [
+        "eprint + archivePrefix (or eprinttype) = arXiv",
+        "Used when doi or url is missing: DOI 10.48550/arXiv.<id> and URL https://arxiv.org/abs/<id>. A version suffix such as v2 is removed."
+      ],
+      ["url", "URL. Also the key when there is no DOI."],
+      ["title", "Title, with LaTeX markup removed. The citation key is used when it is empty."],
+      ["year", "Year, when it is a number."],
+      ["journal or booktitle", "Venue."],
+      ["abstract", "Abstract, with LaTeX markup removed."],
+      [
+        "entry type",
+        "Item type: article \u2192 journalArticle, inproceedings / conference \u2192 conferencePaper, book / proceedings \u2192 book, incollection / inbook \u2192 bookSection, phdthesis / mastersthesis \u2192 thesis, techreport \u2192 report, any other \u2192 document. arXiv entries become preprint."
+      ]
+    ];
   }
 });
 
@@ -12552,8 +12607,9 @@ var DELAY_MS = 1500;
 function delay(ms) {
   return new Promise((resolve2) => setTimeout(resolve2, ms));
 }
+var BASIC_ENTITIES = { nbsp: " ", amp: "&", lt: "<", gt: ">" };
 function stripHtml(html) {
-  return html.replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/\s+/g, " ").trim();
+  return html.replace(/<[^>]+>/g, " ").replace(/&(nbsp|amp|lt|gt);/g, (_, name) => BASIC_ENTITIES[name]).replace(/\s+/g, " ").trim();
 }
 function parseWikiCFPTableRow(rowHtml, pageUrl) {
   const tdRe = /<td[^>]*>([\s\S]*?)<\/td>/gi;
@@ -15806,8 +15862,9 @@ function randomDelayMs() {
 function delay3(ms) {
   return new Promise((resolve2) => setTimeout(resolve2, ms));
 }
+var BASIC_ENTITIES2 = { nbsp: " ", amp: "&", lt: "<", gt: ">" };
 function stripHtmlLite(html) {
-  return html.replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/\s+/g, " ").trim();
+  return html.replace(/<[^>]+>/g, " ").replace(/&(nbsp|amp|lt|gt);/g, (_, name) => BASIC_ENTITIES2[name]).replace(/\s+/g, " ").trim();
 }
 function parseSeriesIndexPage(html) {
   var _a;
