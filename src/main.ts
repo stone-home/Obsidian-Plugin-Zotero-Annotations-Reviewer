@@ -294,6 +294,7 @@ export default class ZoteroGKPlugin extends Plugin {
 			DEFAULT_PAPER_WORKSPACE,
 			data?.paperWorkspace
 		);
+		delete (this.settings.paperWorkspace as unknown as Record<string, unknown>)['s3Prefix'];
 
 		// Merge Zotero Template config safely
 		this.settings.zoteroTemplate = Object.assign(

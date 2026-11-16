@@ -1190,37 +1190,6 @@
 	min-width: 0;
 }
 
-.zotero-s3-preview {
-	display: flex;
-	flex-direction: column;
-	gap: 6px;
-	margin-top: 10px;
-	padding: 10px 12px;
-	background-color: var(--background-primary);
-	border: 1px solid var(--background-modifier-border);
-	border-radius: 6px;
-	font-family: var(--font-monospace);
-	font-size: var(--font-ui-smaller);
-}
-
-.zotero-s3-preview-row {
-	display: flex;
-	flex-wrap: wrap;
-	align-items: baseline;
-	gap: 10px;
-}
-
-.zotero-s3-preview-token {
-	color: var(--text-accent);
-	font-weight: 600;
-	min-width: 155px;
-}
-
-.zotero-s3-preview-val {
-	color: var(--text-muted);
-	word-break: break-all;
-}
-
 .zotero-prompt-pills {
 	display: flex;
 	flex-wrap: wrap;
@@ -2160,6 +2129,33 @@
 .zotero-hub-seg-btn.is-active {
 	background-color: var(--interactive-accent);
 	color: var(--text-on-accent);
+}
+
+.zotero-library-import-btn {
+	padding: 4px 12px;
+	height: 28px;
+	font-size: var(--font-ui-small);
+	font-weight: 600;
+	border-radius: 6px;
+	cursor: pointer;
+	white-space: nowrap;
+}
+
+.zotero-library-refresh-btn {
+	padding: 4px 10px;
+	height: 28px;
+	font-size: var(--font-ui-small);
+	border-radius: 6px;
+	cursor: pointer;
+	white-space: nowrap;
+}
+
+.zotero-library-empty {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 12px;
 }
 
 .zotero-library-toolbar {

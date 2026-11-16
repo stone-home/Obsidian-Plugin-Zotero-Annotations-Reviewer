@@ -33,6 +33,7 @@ import {
 } from '../services/digest-zotero';
 import { PaperHubService } from '../services/paper-hub';
 import { VaultLibraryService, VaultPaperEntry } from '../services/vault-library';
+import { ZoteroConnectorService } from '../services/zotero-connector';
 import { ConnectorModal } from './connector-modal';
 
 /** View type id of the Paper Digest & Library window. */
@@ -157,6 +158,7 @@ export class PaperDigestView extends ItemView {
 	private libraryEditingCore = false;
 	private libraryListScroll = 0;
 	private libraryDetailScroll = 0;
+	private vaultListenersRegistered = false;
 
 	constructor(leaf: WorkspaceLeaf, plugin: ZoteroGKPlugin) {
 		super(leaf);
@@ -200,8 +202,64 @@ export class PaperDigestView extends ItemView {
 		return this.fallbackLibrary;
 	}
 
+	private ensureVaultListeners(): void {
+		if (this.vaultListenersRegistered) return;
+		this.vaultListenersRegistered = true;
+
+		const refreshIfLibraryActive = () => {
+			if (this.hubTab !== 'library' || this.libraryEditingCore) return;
+			void this.reloadLibrary().then(() => this.renderLibraryResultsOnly());
+		};
+
+		if (typeof this.app.vault?.on === 'function') {
+			this.registerEvent(
+				this.app.vault.on('create', (file) => {
+					if (file.path.toLowerCase().endsWith('.md')) {
+						refreshIfLibraryActive();
+					}
+				})
+			);
+			this.registerEvent(
+				this.app.vault.on('modify', (file) => {
+					if (file.path.toLowerCase().endsWith('.md')) {
+						refreshIfLibraryActive();
+					}
+				})
+			);
+			this.registerEvent(
+				this.app.vault.on('delete', (file) => {
+					if (file.path.toLowerCase().endsWith('.md')) {
+						refreshIfLibraryActive();
+					}
+				})
+			);
+		}
+		if (typeof this.app.metadataCache?.on === 'function') {
+			this.registerEvent(
+				this.app.metadataCache.on('changed', (file) => {
+					if (file.path.toLowerCase().endsWith('.md')) {
+						refreshIfLibraryActive();
+					}
+				})
+			);
+		}
+	}
+
+	private async importFromZotero(): Promise<void> {
+		const connector = new ZoteroConnectorService(
+			this.app,
+			Object.assign({}, DEFAULT_SETTINGS, this.plugin.settings)
+		);
+		const triggered = await connector.triggerInteractiveImport();
+		if (triggered) {
+			await this.reloadLibrary();
+			this.render();
+		}
+	}
+
 	/** Renders from the store only; importing is left to an explicit open or Refresh. */
 	async onOpen(): Promise<void> {
+		this.ensureVaultListeners();
 		if (this.hubTab === 'library') {
 			await this.reloadLibrary();
 			this.render();
@@ -212,6 +270,7 @@ export class PaperDigestView extends ItemView {
 
 	/** Opens the Hub directly on the Vault Paper Library tab, optionally pre-filtered by venue. */
 	async openLibrary(venueFilter?: string): Promise<void> {
+		this.ensureVaultListeners();
 		this.hubTab = 'library';
 		if (venueFilter !== undefined) {
 			this.libraryVenueFilter = venueFilter.trim();
@@ -223,6 +282,7 @@ export class PaperDigestView extends ItemView {
 
 	/** Switches between Library and Digest tabs. */
 	async switchHubTab(tab: HubTab): Promise<void> {
+		this.ensureVaultListeners();
 		if (this.hubTab === tab) return;
 		this.hubTab = tab;
 		this.libraryEditingCore = false;
@@ -702,9 +762,16 @@ export class PaperDigestView extends ItemView {
 				cls: 'zotero-digest-meta',
 				text: `${this.libraryEntries.length} paper${this.libraryEntries.length === 1 ? '' : 's'}`,
 			});
+			const importBtn = right.createEl('button', {
+				cls: 'mod-cta zotero-library-import-btn',
+				text: '+ Import from Zotero',
+				attr: { type: 'button' },
+			});
+			importBtn.onclick = () => void this.importFromZotero();
 			const refreshBtn = right.createEl('button', {
 				cls: 'zotero-library-refresh-btn',
 				text: '↻ Refresh',
+				attr: { type: 'button' },
 			});
 			refreshBtn.onclick = async () => {
 				await this.reloadLibrary();
@@ -869,10 +936,27 @@ export class PaperDigestView extends ItemView {
 		});
 
 		if (this.libraryEntries.length === 0) {
-			list.createDiv({
-				cls: 'zotero-digest-empty',
-				text: 'No matching papers in Vault.',
+			const hasActiveFilter = Boolean(
+				this.libraryQuery.trim() ||
+					this.libraryVenueFilter ||
+					this.libraryQuickFilter !== 'all'
+			);
+			const emptyEl = list.createDiv({
+				cls: 'zotero-digest-empty zotero-library-empty',
 			});
+			emptyEl.createDiv({
+				text: hasActiveFilter
+					? 'No matching papers in Vault.'
+					: 'No papers in Vault yet.',
+			});
+			if (!hasActiveFilter) {
+				const emptyImportBtn = emptyEl.createEl('button', {
+					cls: 'mod-cta zotero-library-import-btn',
+					text: '+ Import from Zotero',
+					attr: { type: 'button' },
+				});
+				emptyImportBtn.onclick = () => void this.importFromZotero();
+			}
 		} else {
 			let selectedRow: HTMLElement | null = null;
 			for (const entry of this.libraryEntries) {

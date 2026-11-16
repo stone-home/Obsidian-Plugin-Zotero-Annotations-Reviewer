@@ -1,7 +1,7 @@
 import { App, Notice, requestUrl, TFile } from 'obsidian';
 import { MyPluginSettings, WebhookProfile } from '../types';
 import { normalizePath } from '../utils/paths';
-import { buildS3Uri, resolvePaperPaths } from './paper-hub';
+import { resolvePaperPaths } from './paper-hub';
 
 export class WebhookService {
 	private app: App;
@@ -45,7 +45,7 @@ export class WebhookService {
 				variables[`{{frontmatter.${key}}}`] = String(frontmatter[key]);
 			});
 
-			// 2b. Paper Workspace, S3 & Prompt Placeholders
+			// 2b. Paper Workspace & Prompt Placeholders
 			if (this.getSettings) {
 				const settings = this.getSettings();
 				const fallbackName = (file.basename || safeFilename).replace(/\.md$/i, '');
@@ -64,12 +64,6 @@ export class WebhookService {
 				variables['{{path.takeaway}}'] = paths.takeaway;
 				variables['{{path.core_note}}'] = paths.coreNote;
 
-				variables['{{s3.zotero_note}}'] = paths.s3.literatureNote;
-				variables['{{s3.report1}}'] = paths.s3.report1;
-				variables['{{s3.report2}}'] = paths.s3.report2;
-				variables['{{s3.takeaway}}'] = paths.s3.takeaway;
-				variables['{{s3.core_note}}'] = paths.s3.coreNote;
-
 				const promptEntries = settings.prompts || [];
 				const resolvedPrompts = await Promise.all(
 					promptEntries.map(async (prompt) => {
@@ -83,16 +77,13 @@ export class WebhookService {
 							vaultFile instanceof TFile
 								? await this.app.vault.read(vaultFile)
 								: prompt.content;
-						const s3Uri = vPath
-							? buildS3Uri(settings.paperWorkspace.s3Prefix, vPath)
-							: '';
-						return { id: prompt.id, content: promptContent, s3Uri };
+						return { id: prompt.id, content: promptContent, path: vPath };
 					})
 				);
 
 				for (const item of resolvedPrompts) {
 					variables[`{{prompt.${item.id}}}`] = String(item.content ?? '');
-					variables[`{{s3.prompt.${item.id}}}`] = String(item.s3Uri ?? '');
+					variables[`{{path.prompt.${item.id}}}`] = String(item.path ?? '');
 				}
 			}
 

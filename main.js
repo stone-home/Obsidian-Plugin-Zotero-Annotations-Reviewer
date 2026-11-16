@@ -54,8 +54,7 @@ var init_types = __esm({
       takeawayPath: "002-Literature/101-Takeaways/Takeaway-{{citekey}}.md",
       coreNotePath: "002-Literature/104-Paper Notes/{{citekey}}.md",
       highlightNotesFolder: "001-Fleeting",
-      atomicNotesFolder: "003-Permanent",
-      s3Prefix: ""
+      atomicNotesFolder: "003-Permanent"
     };
     DEFAULT_ZOTERO_TEMPLATE = [
       "---",
@@ -70,11 +69,10 @@ var init_types = __esm({
       "  {%- endif %}",
       'short-name: "{{shortTitle}}"',
       "authors:",
-      '{%- set authorList = authors.split(",") -%}',
-      "{%- if authorList.length > 0 %}",
-      "{%- for author in authorList -%}",
+      "{%- if authors %}",
+      '{%- for author in authors.split(",") %}',
       '  - {{author | trim | replace(" ", "-") | replace(".", "")}}',
-      "{%- endfor -%}",
+      "{%- endfor %}",
       "{%- endif %}",
       'create: {{date | format("YYYY-MM-DD")}}',
       'year: {{date | format("YYYY")}}',
@@ -95,7 +93,7 @@ var init_types = __esm({
       "{%- endif %}",
       "key: {{itemKey}}",
       `code: "{% for att in attachments %}{% if att.title == 'code' %}{{ att.url | replace('"', '\\\\"') }}{% endif %}{% endfor %}"`,
-      `venue: "{% set currentVenue = publicationTitle if itemType == 'journalArticle' else (conferenceName if itemType == 'conferencePaper' else '') %}{% if currentVenue and currentVenue | trim %}[[{{ currentVenue | trim | replace('\\"', '\\\\\\"') }}]]{% endif %}"`,
+      `venue: "{% set currentVenue = publicationTitle if itemType == 'journalArticle' else ((conferenceName or proceedingsTitle) if itemType == 'conferencePaper' else '') %}{% if currentVenue and currentVenue | trim %}[[{{ currentVenue | trim | replace('\\"', '\\\\\\"') }}]]{% endif %}"`,
       "---",
       "",
       "```zotero-assistant",
@@ -270,6 +268,891 @@ if (cur && cur["series-url"]) {
       window.__ZoteroAnnotationReviewerCFP.refreshSeries(programUrl, seriesAcronym);
   });
 }`
+    };
+  }
+});
+
+// src/utils/paths.ts
+function normalizePath(path2) {
+  if (!path2) return "";
+  let normalized = path2.replace(/\\/g, "/");
+  normalized = normalized.replace(/\/+/g, "/");
+  if (normalized.startsWith("./")) {
+    normalized = normalized.slice(2);
+  }
+  if (normalized.startsWith("/")) {
+    normalized = normalized.slice(1);
+  }
+  return normalized;
+}
+var init_paths = __esm({
+  "src/utils/paths.ts"() {
+    "use strict";
+  }
+});
+
+// src/services/zotero-connector.ts
+var import_obsidian2, ZoteroConnectorService;
+var init_zotero_connector = __esm({
+  "src/services/zotero-connector.ts"() {
+    "use strict";
+    import_obsidian2 = require("obsidian");
+    init_types();
+    init_paths();
+    ZoteroConnectorService = class {
+      constructor(app, setting) {
+        this.app = app;
+        this.settings = setting;
+      }
+      getConnectorPlugin() {
+        var _a, _b;
+        const plugins = this.app.plugins;
+        return (_b = (_a = plugins == null ? void 0 : plugins.getPlugin) == null ? void 0 : _a.call(plugins, "obsidian-zotero-desktop-connector")) != null ? _b : null;
+      }
+      async triggerZoteroIntegrationImport(citationKey) {
+        var _a, _b;
+        const plugin = this.getConnectorPlugin();
+        const fmt = (_b = (_a = plugin == null ? void 0 : plugin.settings) == null ? void 0 : _a.exportFormats) == null ? void 0 : _b[0];
+        if (plugin && fmt && fmt.name && plugin.runImport) {
+          await plugin.runImport(fmt.name, String(citationKey));
+          new import_obsidian2.Notice("Triggered Zotero Integration Import");
+        } else {
+          new import_obsidian2.Notice("Obsidian Zotero Desktop Connector plugin not found or configured.");
+        }
+      }
+      async triggerInteractiveImport() {
+        var _a, _b;
+        const plugin = this.getConnectorPlugin();
+        const fmt = (_b = (_a = plugin == null ? void 0 : plugin.settings) == null ? void 0 : _a.exportFormats) == null ? void 0 : _b[0];
+        const commands = this.app.commands;
+        if ((commands == null ? void 0 : commands.executeCommandById) && commands.commands) {
+          if (fmt == null ? void 0 : fmt.name) {
+            const exactId = `obsidian-zotero-desktop-connector:zdc-exp-${fmt.name}`;
+            if (commands.commands[exactId]) {
+              commands.executeCommandById(exactId);
+              return true;
+            }
+          }
+          const found = Object.keys(commands.commands).find(
+            (k) => k.startsWith("obsidian-zotero-desktop-connector:zdc-exp-")
+          );
+          if (found) {
+            commands.executeCommandById(found);
+            return true;
+          }
+        }
+        if (plugin && (fmt == null ? void 0 : fmt.name) && plugin.runImport) {
+          await plugin.runImport(fmt.name);
+          return true;
+        }
+        new import_obsidian2.Notice("Obsidian Zotero Desktop Connector plugin not found or configured.");
+        return false;
+      }
+      detectTemplatePath() {
+        var _a, _b;
+        const plugin = this.getConnectorPlugin();
+        const fmt = (_b = (_a = plugin == null ? void 0 : plugin.settings) == null ? void 0 : _a.exportFormats) == null ? void 0 : _b[0];
+        const raw = (fmt == null ? void 0 : fmt.templatePath) || (fmt == null ? void 0 : fmt.templateFile);
+        if (typeof raw === "string" && raw.trim().length > 0) {
+          return normalizePath(raw.trim());
+        }
+        return null;
+      }
+      async loadTemplateContent(explicitPath) {
+        var _a, _b, _c;
+        const candidate = (explicitPath == null ? void 0 : explicitPath.trim()) || ((_b = (_a = this.settings.zoteroTemplate) == null ? void 0 : _a.vaultPath) == null ? void 0 : _b.trim()) || this.detectTemplatePath();
+        const resolvedPath = candidate ? normalizePath(candidate) : null;
+        if (resolvedPath) {
+          const existing = this.app.vault.getAbstractFileByPath(resolvedPath);
+          if (existing instanceof import_obsidian2.TFile) {
+            const content = await this.app.vault.read(existing);
+            return { path: resolvedPath, content, fromVault: true };
+          }
+        }
+        const fallback = ((_c = this.settings.zoteroTemplate) == null ? void 0 : _c.content) || DEFAULT_ZOTERO_TEMPLATE;
+        return { path: resolvedPath, content: fallback, fromVault: false };
+      }
+      async saveTemplateToVault(path2, content) {
+        const raw = path2.trim();
+        if (!raw) {
+          throw new Error("Template vault path cannot be empty.");
+        }
+        const withExt = /\.[^/\\]+$/.test(raw) ? raw : `${raw}.md`;
+        const normalized = normalizePath(withExt);
+        const folders = normalized.split("/").slice(0, -1).filter(Boolean);
+        let current = "";
+        for (const segment of folders) {
+          current = current ? `${current}/${segment}` : segment;
+          if (!this.app.vault.getAbstractFileByPath(current)) {
+            await this.app.vault.createFolder(current);
+          }
+        }
+        const existing = this.app.vault.getAbstractFileByPath(normalized);
+        if (existing instanceof import_obsidian2.TFile) {
+          await this.app.vault.modify(existing, content);
+        } else {
+          await this.app.vault.create(normalized, content);
+        }
+        return normalized;
+      }
+    };
+  }
+});
+
+// src/services/digest-types.ts
+function resolveDigestSettings(stored) {
+  return { ...DEFAULT_DIGEST_SETTINGS, ...stored != null ? stored : {} };
+}
+function activeVocab(items) {
+  return items.filter((item) => !item.archived).map((item) => ({ ...item, id: item.id.trim() || toVocabId(item.label) })).filter((item) => item.id !== "");
+}
+function toVocabId(value) {
+  return value.trim().toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "");
+}
+function getHeader(headers, name) {
+  const wanted = name.toLowerCase();
+  const found = Object.keys(headers).find((key) => key.toLowerCase() === wanted);
+  return found ? headers[found] : void 0;
+}
+var DEFAULT_DIGEST_SETTINGS;
+var init_digest_types = __esm({
+  "src/services/digest-types.ts"() {
+    "use strict";
+    DEFAULT_DIGEST_SETTINGS = {
+      incomingFolder: "Digest/Incoming",
+      translationServerUrl: "http://127.0.0.1:1969",
+      directions: [],
+      tagPrefix: "dir/",
+      rejectReasons: [
+        { id: "off-topic", label: "Off-topic" },
+        { id: "low-quality", label: "Low quality" },
+        { id: "already-have", label: "Already have" },
+        { id: "too-old", label: "Too old" },
+        { id: "other", label: "Other" }
+      ],
+      retentionDays: 30,
+      showInRibbon: true,
+      zoteroApiKey: "",
+      lastDirections: [],
+      lastCollectionKeys: []
+    };
+  }
+});
+
+// src/services/digest-import.ts
+function isNonEmptyString(value) {
+  return typeof value === "string" && value.trim() !== "";
+}
+function validateInput(candidate) {
+  if (typeof candidate !== "object" || candidate === null || Array.isArray(candidate)) {
+    return { ok: false, reason: "Not a JSON object" };
+  }
+  const raw = candidate;
+  if (!isNonEmptyString(raw.key)) return { ok: false, reason: "Missing key" };
+  if (!isNonEmptyString(raw.title)) return { ok: false, reason: "Missing title" };
+  const input = { key: raw.key.trim(), title: raw.title.trim() };
+  if (raw.doi !== void 0 && raw.doi !== null && raw.doi !== "") {
+    if (typeof raw.doi !== "string" || !DOI_PATTERN.test(raw.doi)) {
+      return { ok: false, reason: "doi is not a bare DOI (10.xxxx/...)" };
+    }
+    input.doi = raw.doi;
+  }
+  if (raw.url !== void 0 && raw.url !== null && raw.url !== "") {
+    if (typeof raw.url !== "string" || !URL_PATTERN.test(raw.url)) {
+      return { ok: false, reason: "url is not an absolute http(s) URL" };
+    }
+    input.url = raw.url;
+  }
+  if (raw.year !== void 0 && raw.year !== null) {
+    if (typeof raw.year !== "number" || !Number.isInteger(raw.year)) {
+      return { ok: false, reason: "year is not an integer" };
+    }
+    input.year = raw.year;
+  }
+  for (const field of OPTIONAL_STRINGS) {
+    const value = raw[field];
+    if (value === void 0 || value === null) continue;
+    if (typeof value !== "string") {
+      return { ok: false, reason: `${field} is not a string` };
+    }
+    if (value !== "") input[field] = value;
+  }
+  return { ok: true, input };
+}
+function ingest(store, inputs, batch) {
+  let added = 0;
+  for (const input of inputs) {
+    if (store.add(input, batch)) added++;
+  }
+  return { added, duplicates: inputs.length - added };
+}
+function importJsonl(store, text, file) {
+  const summary = { added: 0, duplicates: 0, invalid: 0 };
+  for (const line of text.split(/\r?\n/)) {
+    if (line.trim() === "") continue;
+    let parsed;
+    try {
+      parsed = JSON.parse(line);
+    } catch (e) {
+      store.addInvalid(line, "Not valid JSON", file);
+      summary.invalid++;
+      continue;
+    }
+    const result = validateInput(parsed);
+    if (!result.ok) {
+      store.addInvalid(line, result.reason, file);
+      summary.invalid++;
+    } else if (store.add(result.input)) {
+      summary.added++;
+    } else {
+      summary.duplicates++;
+    }
+  }
+  return summary;
+}
+async function importIncoming(files, store, folder) {
+  var _a;
+  const total = {
+    files: 0,
+    added: 0,
+    duplicates: 0,
+    invalid: 0
+  };
+  if (!await files.exists(folder)) {
+    await files.mkdir(folder);
+    return total;
+  }
+  const paths = (await files.list(folder)).filter((path2) => path2.toLowerCase().endsWith(".jsonl")).sort();
+  for (const path2 of paths) {
+    const text = await files.read(path2);
+    const name = (_a = path2.split("/").pop()) != null ? _a : path2;
+    const summary = importJsonl(store, text, name);
+    await store.save();
+    await files.remove(path2);
+    total.files++;
+    total.added += summary.added;
+    total.duplicates += summary.duplicates;
+    total.invalid += summary.invalid;
+  }
+  return total;
+}
+var DOI_PATTERN, URL_PATTERN, OPTIONAL_STRINGS;
+var init_digest_import = __esm({
+  "src/services/digest-import.ts"() {
+    "use strict";
+    DOI_PATTERN = /^10\.\d{4,9}\/\S+$/;
+    URL_PATTERN = /^https?:\/\/\S+$/i;
+    OPTIONAL_STRINGS = ["venue", "abstract", "item_type"];
+  }
+});
+
+// src/services/digest-bib.ts
+function skipBraces(text, open) {
+  let depth = 0;
+  for (let i = open; i < text.length; i++) {
+    const ch = text[i];
+    if (ch === "\\") i++;
+    else if (ch === "{") depth++;
+    else if (ch === "}" && --depth === 0) return i + 1;
+  }
+  return text.length;
+}
+function readValue(text, start) {
+  let i = start;
+  const parts = [];
+  for (; ; ) {
+    while (i < text.length && /\s/.test(text[i])) i++;
+    if (text[i] === "{") {
+      const end = skipBraces(text, i);
+      parts.push(text.slice(i + 1, end - 1));
+      i = end;
+    } else if (text[i] === '"') {
+      let j = i + 1;
+      let depth = 0;
+      while (j < text.length && (text[j] !== '"' || depth > 0)) {
+        if (text[j] === "\\") j++;
+        else if (text[j] === "{") depth++;
+        else if (text[j] === "}") depth--;
+        j++;
+      }
+      parts.push(text.slice(i + 1, j));
+      i = j + 1;
+    } else {
+      let j = i;
+      while (j < text.length && !/[,}#\s]/.test(text[j])) j++;
+      parts.push(text.slice(i, j));
+      i = j;
+    }
+    while (i < text.length && /\s/.test(text[i])) i++;
+    if (text[i] !== "#") break;
+    i++;
+  }
+  return { value: parts.join(""), end: i };
+}
+function parseFields(body) {
+  const fields = {};
+  let i = 0;
+  while (i < body.length) {
+    const match = /[A-Za-z][\w-]*/.exec(body.slice(i));
+    if (!match) break;
+    let cursor2 = i + match.index + match[0].length;
+    while (cursor2 < body.length && /\s/.test(body[cursor2])) cursor2++;
+    if (body[cursor2] !== "=") {
+      i = cursor2 + 1;
+      continue;
+    }
+    const { value, end } = readValue(body, cursor2 + 1);
+    fields[match[0].toLowerCase()] = value;
+    i = end + 1;
+  }
+  return fields;
+}
+function parseBibEntries(text) {
+  const entries = [];
+  const header = /@([A-Za-z]+)\s*\{/g;
+  let match;
+  while ((match = header.exec(text)) !== null) {
+    const open = match.index + match[0].length - 1;
+    const end = skipBraces(text, open);
+    header.lastIndex = end;
+    const type2 = match[1].toLowerCase();
+    if (SKIPPED_ENTRY_TYPES.has(type2)) continue;
+    const body = text.slice(open + 1, end - 1);
+    const comma2 = body.indexOf(",");
+    if (comma2 === -1) continue;
+    entries.push({
+      type: type2,
+      citekey: body.slice(0, comma2).trim(),
+      fields: parseFields(body.slice(comma2 + 1))
+    });
+  }
+  return entries;
+}
+function cleanLatex(value) {
+  return value.replace(/\\([&%$#_])/g, "$1").replace(/\\[`'^"~=.]\s*\{?(\\?[A-Za-z])\}?/g, "$1").replace(/\\[A-Za-z]+\s*\{([^{}]*)\}/g, "$1").replace(/\\[A-Za-z]+\s*/g, "").replace(/[{}]/g, "").replace(/~/g, " ").replace(/\s+/g, " ").trim();
+}
+function bareDoi(value) {
+  return value.trim().replace(/^https?:\/\/(dx\.)?doi\.org\//i, "").replace(/^doi:\s*/i, "");
+}
+function arxivId(fields) {
+  var _a, _b;
+  const archive = ((_b = (_a = fields.archiveprefix) != null ? _a : fields.eprinttype) != null ? _b : "").toLowerCase();
+  if (archive !== "arxiv" || !fields.eprint) return void 0;
+  const id = fields.eprint.trim().replace(/^arxiv:/i, "").replace(/v\d+$/i, "");
+  return id || void 0;
+}
+function bibEntryToInput(entry) {
+  var _a, _b, _c, _d, _e, _f, _g;
+  const { fields } = entry;
+  const arxiv = arxivId(fields);
+  const doi = fields.doi ? bareDoi(fields.doi) : arxiv ? ARXIV_DOI_PREFIX + arxiv : "";
+  const url = ((_a = fields.url) != null ? _a : "").trim() || (arxiv ? `https://arxiv.org/abs/${arxiv}` : "");
+  const key = doi || url;
+  if (!key) return void 0;
+  const isArxiv = doi.toLowerCase().startsWith(ARXIV_DOI_PREFIX.toLowerCase());
+  const candidate = {
+    key,
+    title: cleanLatex((_b = fields.title) != null ? _b : "") || entry.citekey,
+    item_type: isArxiv ? "preprint" : (_c = ITEM_TYPES[entry.type]) != null ? _c : "document"
+  };
+  if (doi) candidate.doi = doi;
+  if (url) candidate.url = url;
+  const year = Number.parseInt((_d = fields.year) != null ? _d : "", 10);
+  if (Number.isInteger(year)) candidate.year = year;
+  const venue = cleanLatex((_f = (_e = fields.journal) != null ? _e : fields.booktitle) != null ? _f : "");
+  if (venue) candidate.venue = venue;
+  const abstract = cleanLatex((_g = fields.abstract) != null ? _g : "");
+  if (abstract) candidate.abstract = abstract;
+  const checked = validateInput(candidate);
+  return checked.ok ? checked.input : void 0;
+}
+function bibToInputs(text) {
+  const inputs = [];
+  let skipped = 0;
+  for (const entry of parseBibEntries(text)) {
+    const input = bibEntryToInput(entry);
+    if (input) inputs.push(input);
+    else skipped++;
+  }
+  return { inputs, skipped };
+}
+var SKIPPED_ENTRY_TYPES, ARXIV_DOI_PREFIX, ITEM_TYPES;
+var init_digest_bib = __esm({
+  "src/services/digest-bib.ts"() {
+    "use strict";
+    init_digest_import();
+    SKIPPED_ENTRY_TYPES = /* @__PURE__ */ new Set(["comment", "string", "preamble"]);
+    ARXIV_DOI_PREFIX = "10.48550/arXiv.";
+    ITEM_TYPES = {
+      article: "journalArticle",
+      inproceedings: "conferencePaper",
+      conference: "conferencePaper",
+      proceedings: "book",
+      book: "book",
+      incollection: "bookSection",
+      inbook: "bookSection",
+      phdthesis: "thesis",
+      mastersthesis: "thesis",
+      techreport: "report"
+    };
+  }
+});
+
+// src/services/digest-store.ts
+function normaliseId(value) {
+  return value.trim().toLowerCase();
+}
+function emptyData() {
+  return { version: 1, records: {}, invalid: [] };
+}
+var DAY_MS, MAX_INVALID_LINES, DigestStore;
+var init_digest_store = __esm({
+  "src/services/digest-store.ts"() {
+    "use strict";
+    DAY_MS = 24 * 60 * 60 * 1e3;
+    MAX_INVALID_LINES = 500;
+    DigestStore = class {
+      constructor(files, path2, now = () => /* @__PURE__ */ new Date()) {
+        this.files = files;
+        this.path = path2;
+        this.now = now;
+        this.data = emptyData();
+      }
+      /**
+       * Loads the store from disk. A missing file yields an empty store.
+       * @throws Error when the file exists but is not a valid store, so that a
+       * damaged file is never silently overwritten.
+       */
+      async load() {
+        if (!await this.files.exists(this.path)) {
+          this.data = emptyData();
+          return;
+        }
+        const text = await this.files.read(this.path);
+        let parsed;
+        try {
+          parsed = JSON.parse(text);
+        } catch (e) {
+          throw new Error(`Digest store is not valid JSON: ${e.message}`);
+        }
+        const candidate = parsed;
+        if (!candidate || typeof candidate.records !== "object" || !candidate.records) {
+          throw new Error("Digest store has an unexpected shape.");
+        }
+        this.data = {
+          version: 1,
+          records: candidate.records,
+          invalid: Array.isArray(candidate.invalid) ? candidate.invalid : []
+        };
+      }
+      /** Writes the store to disk. */
+      async save() {
+        await this.files.write(this.path, JSON.stringify(this.data));
+      }
+      /** Records in one state, oldest first. */
+      list(status) {
+        return Object.values(this.data.records).filter((record) => record.status === status).sort((a, b) => a.added_at.localeCompare(b.added_at));
+      }
+      /** Looks a record up by its key. */
+      get(key) {
+        return this.data.records[normaliseId(key)];
+      }
+      /** Number of records in each state. */
+      counts() {
+        const counts = {
+          unchecked: 0,
+          accepted: 0,
+          rejected: 0
+        };
+        for (const record of Object.values(this.data.records)) counts[record.status]++;
+        return counts;
+      }
+      /** The stored record that has the same key or the same DOI, in any state. */
+      findDuplicate(input) {
+        const byKey = this.data.records[normaliseId(input.key)];
+        if (byKey) return byKey;
+        if (!input.doi) return void 0;
+        const doi = normaliseId(input.doi);
+        return Object.values(this.data.records).find(
+          (record) => record.doi !== void 0 && normaliseId(record.doi) === doi
+        );
+      }
+      /**
+       * Adds a paper as unchecked.
+       * @returns false when it duplicates a stored record and was not added.
+       */
+      add(input, batch) {
+        if (this.findDuplicate(input)) return false;
+        const record = {
+          ...input,
+          status: "unchecked",
+          added_at: this.now().toISOString()
+        };
+        if (batch) record.batch = batch;
+        this.data.records[normaliseId(input.key)] = record;
+        return true;
+      }
+      /** Marks a paper as rejected with a reason id. */
+      reject(key, reason) {
+        const record = this.require(key);
+        record.status = "rejected";
+        record.reject_reason = reason;
+        record.decided_at = this.now().toISOString();
+      }
+      /** Marks a paper as accepted and stores what was written to Zotero. */
+      accept(key, decision) {
+        const record = this.require(key);
+        record.status = "accepted";
+        record.directions = decision.directions;
+        record.collections = decision.collections;
+        if (decision.zoteroKey) record.zotero_key = decision.zoteroKey;
+        else record.manual_import = true;
+        record.decided_at = this.now().toISOString();
+      }
+      /** Returns a decided paper to the unchecked state and clears the decision. */
+      restore(key) {
+        const record = this.require(key);
+        record.status = "unchecked";
+        delete record.reject_reason;
+        delete record.decided_at;
+        delete record.directions;
+        delete record.collections;
+        delete record.zotero_key;
+        delete record.manual_import;
+      }
+      /** Import batches that still have unchecked papers. */
+      batches() {
+        const names = /* @__PURE__ */ new Set();
+        for (const record of this.list("unchecked")) {
+          if (record.batch) names.add(record.batch);
+        }
+        return Array.from(names).sort();
+      }
+      /**
+       * Deletes the still-unchecked papers of one import batch.
+       * @returns the number of papers removed.
+       */
+      withdrawBatch(batch) {
+        return this.deleteWhere(
+          (record) => record.status === "unchecked" && record.batch === batch
+        );
+      }
+      /**
+       * Deletes decided papers older than the retention period. Unchecked papers
+       * are never deleted here.
+       * @returns the number of papers removed.
+       */
+      cleanup(retentionDays) {
+        if (!(retentionDays > 0)) return 0;
+        const cutoff = this.now().getTime() - retentionDays * DAY_MS;
+        return this.deleteWhere((record) => {
+          if (record.status === "unchecked" || !record.decided_at) return false;
+          const decided = Date.parse(record.decided_at);
+          return !Number.isNaN(decided) && decided < cutoff;
+        });
+      }
+      /** Lines that failed validation and have not been cleared yet. */
+      invalidLines() {
+        return this.data.invalid;
+      }
+      /** Keeps a line that failed validation so the user can inspect it. */
+      addInvalid(raw, reason, file) {
+        this.data.invalid.push({ raw, reason, file, at: this.now().toISOString() });
+        if (this.data.invalid.length > MAX_INVALID_LINES) {
+          this.data.invalid = this.data.invalid.slice(-MAX_INVALID_LINES);
+        }
+      }
+      /** Discards all kept invalid lines. */
+      clearInvalid() {
+        this.data.invalid = [];
+      }
+      require(key) {
+        const record = this.get(key);
+        if (!record) throw new Error(`Paper not found in digest store: ${key}`);
+        return record;
+      }
+      deleteWhere(predicate) {
+        let removed = 0;
+        for (const [id, record] of Object.entries(this.data.records)) {
+          if (predicate(record)) {
+            delete this.data.records[id];
+            removed++;
+          }
+        }
+        return removed;
+      }
+    };
+  }
+});
+
+// src/services/digest-translate.ts
+var CHILD_ITEM_TYPES, TranslationClient;
+var init_digest_translate = __esm({
+  "src/services/digest-translate.ts"() {
+    "use strict";
+    CHILD_ITEM_TYPES = /* @__PURE__ */ new Set(["note", "attachment", "annotation"]);
+    TranslationClient = class {
+      constructor(http, getBaseUrl) {
+        this.http = http;
+        this.getBaseUrl = getBaseUrl;
+      }
+      endpoint(path2) {
+        return this.getBaseUrl().trim().replace(/\/+$/, "") + path2;
+      }
+      /** True when the server answers at all, whatever the HTTP status. */
+      async ping() {
+        try {
+          await this.http({ url: this.endpoint("/"), method: "GET" });
+          return true;
+        } catch (e) {
+          return false;
+        }
+      }
+      /** Resolves an identifier to the first top-level item the server returns. */
+      async search(identifier) {
+        let response;
+        try {
+          response = await this.http({
+            url: this.endpoint("/search"),
+            method: "POST",
+            contentType: "text/plain",
+            headers: { "Content-Type": "text/plain" },
+            body: identifier
+          });
+        } catch (e) {
+          return {
+            ok: false,
+            unreachable: true,
+            reason: `Translation server not reachable: ${e.message}`
+          };
+        }
+        if (response.status === 300) {
+          return { ok: false, reason: "Lookup returned several candidates" };
+        }
+        if (response.status === 501) {
+          return { ok: false, reason: `Lookup found nothing for ${identifier}` };
+        }
+        if (response.status !== 200) {
+          return {
+            ok: false,
+            reason: `Lookup failed (HTTP ${response.status}) for ${identifier}`
+          };
+        }
+        let parsed;
+        try {
+          parsed = JSON.parse(response.text);
+        } catch (e) {
+          return { ok: false, reason: "Lookup returned a response that is not JSON" };
+        }
+        const items = Array.isArray(parsed) ? parsed : [];
+        const item = items.find(
+          (candidate) => typeof candidate === "object" && candidate !== null && typeof candidate.itemType === "string" && !CHILD_ITEM_TYPES.has(candidate.itemType)
+        );
+        if (!item)
+          return { ok: false, reason: `Lookup found nothing for ${identifier}` };
+        return { ok: true, item };
+      }
+    };
+  }
+});
+
+// src/services/digest-zotero.ts
+function buildCollectionList(raw) {
+  var _a, _b;
+  const nodes = /* @__PURE__ */ new Map();
+  for (const entry of Array.isArray(raw) ? raw : []) {
+    const data = (_a = entry == null ? void 0 : entry.data) != null ? _a : entry;
+    const key = (_b = entry == null ? void 0 : entry.key) != null ? _b : data == null ? void 0 : data.key;
+    if (typeof key !== "string" || typeof (data == null ? void 0 : data.name) !== "string") continue;
+    const parent = typeof data.parentCollection === "string" ? data.parentCollection : null;
+    nodes.set(key, { key, name: data.name, parent });
+  }
+  const resolve2 = (node, seen) => {
+    const parent = node.parent ? nodes.get(node.parent) : void 0;
+    if (!parent || seen.has(parent.key)) return [node.name];
+    seen.add(parent.key);
+    return [...resolve2(parent, seen), node.name];
+  };
+  return Array.from(nodes.values()).map((node) => {
+    const names = resolve2(node, /* @__PURE__ */ new Set([node.key]));
+    return {
+      key: node.key,
+      name: node.name,
+      path: names.join(" / "),
+      depth: names.length - 1
+    };
+  }).sort((a, b) => a.path.localeCompare(b.path));
+}
+function directionTags(prefix, directions) {
+  return directions.map((id) => ({ tag: prefix + id }));
+}
+function prepareLookupItem(item, tags4, collectionKeys) {
+  const prepared = { ...item };
+  for (const field of NON_API_FIELDS) delete prepared[field];
+  prepared.tags = tags4;
+  prepared.collections = [...collectionKeys];
+  return prepared;
+}
+async function acceptRecord(deps, record, tags4, collectionKeys) {
+  if (!record.doi) return { ok: false, reason: "This paper has no DOI to look up" };
+  const found = await deps.lookup(record.doi);
+  if (!found.ok) return { ok: false, reason: found.reason };
+  return deps.createItem(prepareLookupItem(found.item, tags4, collectionKeys));
+}
+var APP_NAME, BASE_HEADERS, NON_API_FIELDS, ZoteroLocalClient;
+var init_digest_zotero = __esm({
+  "src/services/digest-zotero.ts"() {
+    "use strict";
+    init_digest_types();
+    APP_NAME = "Obsidian Paper Digest";
+    BASE_HEADERS = {
+      "Zotero-API-Version": "3",
+      "Zotero-Allowed-Request": "1",
+      "User-Agent": "obsidian/zotero"
+    };
+    NON_API_FIELDS = [
+      "key",
+      "version",
+      "attachments",
+      "notes",
+      "seeAlso",
+      "id",
+      "itemID"
+    ];
+    ZoteroLocalClient = class {
+      constructor(http, getPort, keys) {
+        this.http = http;
+        this.getPort = getPort;
+        this.keys = keys;
+      }
+      url(path2) {
+        return `http://127.0.0.1:${this.getPort()}${path2}`;
+      }
+      /**
+       * Probes Zotero and reads its collections. The same request also yields
+       * the server id that write requests must carry.
+       */
+      async status() {
+        let response;
+        try {
+          response = await this.http({
+            url: this.url("/api/users/0/collections"),
+            method: "GET",
+            headers: BASE_HEADERS
+          });
+        } catch (e) {
+          return { state: "offline" };
+        }
+        if (response.status === 403) return { state: "disabled" };
+        if (response.status !== 200) {
+          return {
+            state: "error",
+            message: `Zotero answered HTTP ${response.status}`
+          };
+        }
+        this.serverId = getHeader(response.headers, "Zotero-Server-ID");
+        try {
+          return {
+            state: "online",
+            collections: buildCollectionList(JSON.parse(response.text))
+          };
+        } catch (e) {
+          return {
+            state: "error",
+            message: "Zotero returned an unreadable collection list"
+          };
+        }
+      }
+      /**
+       * Asks Zotero for a write key; Zotero shows an approval prompt.
+       * @throws Error when the request is denied or writes are not supported.
+       */
+      async authorize() {
+        var _a;
+        const response = await this.http({
+          url: this.url("/api/local/authorize"),
+          method: "POST",
+          contentType: "application/json",
+          headers: {
+            ...BASE_HEADERS,
+            "Content-Type": "application/json",
+            "Zotero-Server-ID": (_a = this.serverId) != null ? _a : ""
+          },
+          body: JSON.stringify({ appName: APP_NAME })
+        });
+        if (response.status === 404) {
+          throw new Error("This Zotero version does not support local writes");
+        }
+        if (response.status === 403) {
+          throw new Error(
+            response.text.includes("not enabled") ? "Zotero local API is not enabled" : "Write access was denied in Zotero"
+          );
+        }
+        if (response.status !== 200) {
+          throw new Error(`Zotero authorization failed (HTTP ${response.status})`);
+        }
+        const body = JSON.parse(response.text);
+        if (!body.key) throw new Error("Zotero returned no write key");
+        if (body.remember) await this.keys.set(body.key);
+        return body.key;
+      }
+      postItem(item, key) {
+        var _a;
+        return this.http({
+          url: this.url("/api/users/0/items"),
+          method: "POST",
+          contentType: "application/json",
+          headers: {
+            ...BASE_HEADERS,
+            "Content-Type": "application/json",
+            "Zotero-API-Key": key,
+            "Zotero-Server-ID": (_a = this.serverId) != null ? _a : ""
+          },
+          body: JSON.stringify([item])
+        });
+      }
+      /** Creates one item and returns its Zotero key. */
+      async createItem(item) {
+        var _a;
+        try {
+          if (!this.serverId) {
+            const status = await this.status();
+            if (status.state !== "online") {
+              return { ok: false, reason: "Zotero is not reachable" };
+            }
+          }
+          let key = (_a = await this.keys.get()) != null ? _a : await this.authorize();
+          let response = await this.postItem(item, key);
+          if (response.status === 401) {
+            await this.keys.set(null);
+            key = await this.authorize();
+            response = await this.postItem(item, key);
+          }
+          if (response.status === 403) {
+            return { ok: false, reason: "Zotero local API is not enabled" };
+          }
+          if (response.status !== 200) {
+            return {
+              ok: false,
+              reason: `Zotero refused the item (HTTP ${response.status}): ${response.text.slice(0, 200)}`
+            };
+          }
+          return this.readWriteResult(response.text);
+        } catch (e) {
+          return { ok: false, reason: e.message };
+        }
+      }
+      readWriteResult(text) {
+        var _a, _b, _c, _d, _e;
+        const body = JSON.parse(text);
+        const key = (_d = (_a = body.success) == null ? void 0 : _a["0"]) != null ? _d : (_c = (_b = body.successful) == null ? void 0 : _b["0"]) == null ? void 0 : _c.key;
+        if (key) return { ok: true, key };
+        const failure = (_e = body.failed) == null ? void 0 : _e["0"];
+        return {
+          ok: false,
+          reason: (failure == null ? void 0 : failure.message) ? `Zotero rejected the item: ${failure.message}` : "Zotero did not report a created item"
+        };
+      }
     };
   }
 });
@@ -3299,25 +4182,6 @@ var init_js_yaml = __esm({
   }
 });
 
-// src/utils/paths.ts
-function normalizePath(path2) {
-  if (!path2) return "";
-  let normalized = path2.replace(/\\/g, "/");
-  normalized = normalized.replace(/\/+/g, "/");
-  if (normalized.startsWith("./")) {
-    normalized = normalized.slice(2);
-  }
-  if (normalized.startsWith("/")) {
-    normalized = normalized.slice(1);
-  }
-  return normalized;
-}
-var init_paths = __esm({
-  "src/utils/paths.ts"() {
-    "use strict";
-  }
-});
-
 // src/services/paper-hub.ts
 function normalizeHttpUrl(raw) {
   if (typeof raw !== "string") return null;
@@ -3358,12 +4222,6 @@ function resolveCitekeyTemplate(pattern, citekey) {
   }
   return normalized;
 }
-function buildS3Uri(s3Prefix, vaultRelativePath) {
-  const cleanRel = normalizePath(vaultRelativePath).replace(/^\/+/, "");
-  const prefix = s3Prefix.trim().replace(/\/+$/, "");
-  if (!prefix) return cleanRel;
-  return cleanRel ? `${prefix}/${cleanRel}` : prefix;
-}
 function resolvePaperPaths(workspace, citekey) {
   const cleanKey = citekey.trim();
   const literatureNote = resolveCitekeyTemplate(workspace.literatureNotePath, cleanKey);
@@ -3377,14 +4235,7 @@ function resolvePaperPaths(workspace, citekey) {
     report1,
     report2,
     takeaway,
-    coreNote,
-    s3: {
-      literatureNote: buildS3Uri(workspace.s3Prefix, literatureNote),
-      report1: buildS3Uri(workspace.s3Prefix, report1),
-      report2: buildS3Uri(workspace.s3Prefix, report2),
-      takeaway: buildS3Uri(workspace.s3Prefix, takeaway),
-      coreNote: buildS3Uri(workspace.s3Prefix, coreNote)
-    }
+    coreNote
   };
 }
 function extractCodeUrlFromReport(markdown) {
@@ -3533,11 +4384,11 @@ ${yamlBlock}
 ---
 `;
 }
-var import_obsidian, INVALID_URL_TOKENS, PaperHubService;
+var import_obsidian3, INVALID_URL_TOKENS, PaperHubService;
 var init_paper_hub = __esm({
   "src/services/paper-hub.ts"() {
     "use strict";
-    import_obsidian = require("obsidian");
+    import_obsidian3 = require("obsidian");
     init_js_yaml();
     init_paths();
     INVALID_URL_TOKENS = /* @__PURE__ */ new Set(["null", "none", "n/a", "na", "unknown", "tbd", "-"]);
@@ -3575,7 +4426,7 @@ var init_paper_hub = __esm({
       }
       getVaultFile(path2) {
         const f = this.app.vault.getAbstractFileByPath(normalizePath(path2));
-        return f instanceof import_obsidian.TFile ? f : null;
+        return f instanceof import_obsidian3.TFile ? f : null;
       }
       async writeVaultFile(filePath, content) {
         const normalized = normalizePath(filePath);
@@ -3724,764 +4575,6 @@ var init_paper_hub = __esm({
         const targetPath = normalizePath(rawPath.endsWith(".md") ? rawPath : `${rawPath}.md`);
         await this.writeVaultFile(targetPath, content);
         return targetPath;
-      }
-    };
-  }
-});
-
-// src/services/digest-types.ts
-function resolveDigestSettings(stored) {
-  return { ...DEFAULT_DIGEST_SETTINGS, ...stored != null ? stored : {} };
-}
-function activeVocab(items) {
-  return items.filter((item) => !item.archived).map((item) => ({ ...item, id: item.id.trim() || toVocabId(item.label) })).filter((item) => item.id !== "");
-}
-function toVocabId(value) {
-  return value.trim().toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "");
-}
-function getHeader(headers, name) {
-  const wanted = name.toLowerCase();
-  const found = Object.keys(headers).find((key) => key.toLowerCase() === wanted);
-  return found ? headers[found] : void 0;
-}
-var DEFAULT_DIGEST_SETTINGS;
-var init_digest_types = __esm({
-  "src/services/digest-types.ts"() {
-    "use strict";
-    DEFAULT_DIGEST_SETTINGS = {
-      incomingFolder: "Digest/Incoming",
-      translationServerUrl: "http://127.0.0.1:1969",
-      directions: [],
-      tagPrefix: "dir/",
-      rejectReasons: [
-        { id: "off-topic", label: "Off-topic" },
-        { id: "low-quality", label: "Low quality" },
-        { id: "already-have", label: "Already have" },
-        { id: "too-old", label: "Too old" },
-        { id: "other", label: "Other" }
-      ],
-      retentionDays: 30,
-      showInRibbon: true,
-      zoteroApiKey: "",
-      lastDirections: [],
-      lastCollectionKeys: []
-    };
-  }
-});
-
-// src/services/digest-import.ts
-function isNonEmptyString(value) {
-  return typeof value === "string" && value.trim() !== "";
-}
-function validateInput(candidate) {
-  if (typeof candidate !== "object" || candidate === null || Array.isArray(candidate)) {
-    return { ok: false, reason: "Not a JSON object" };
-  }
-  const raw = candidate;
-  if (!isNonEmptyString(raw.key)) return { ok: false, reason: "Missing key" };
-  if (!isNonEmptyString(raw.title)) return { ok: false, reason: "Missing title" };
-  const input = { key: raw.key.trim(), title: raw.title.trim() };
-  if (raw.doi !== void 0 && raw.doi !== null && raw.doi !== "") {
-    if (typeof raw.doi !== "string" || !DOI_PATTERN.test(raw.doi)) {
-      return { ok: false, reason: "doi is not a bare DOI (10.xxxx/...)" };
-    }
-    input.doi = raw.doi;
-  }
-  if (raw.url !== void 0 && raw.url !== null && raw.url !== "") {
-    if (typeof raw.url !== "string" || !URL_PATTERN.test(raw.url)) {
-      return { ok: false, reason: "url is not an absolute http(s) URL" };
-    }
-    input.url = raw.url;
-  }
-  if (raw.year !== void 0 && raw.year !== null) {
-    if (typeof raw.year !== "number" || !Number.isInteger(raw.year)) {
-      return { ok: false, reason: "year is not an integer" };
-    }
-    input.year = raw.year;
-  }
-  for (const field of OPTIONAL_STRINGS) {
-    const value = raw[field];
-    if (value === void 0 || value === null) continue;
-    if (typeof value !== "string") {
-      return { ok: false, reason: `${field} is not a string` };
-    }
-    if (value !== "") input[field] = value;
-  }
-  return { ok: true, input };
-}
-function ingest(store, inputs, batch) {
-  let added = 0;
-  for (const input of inputs) {
-    if (store.add(input, batch)) added++;
-  }
-  return { added, duplicates: inputs.length - added };
-}
-function importJsonl(store, text, file) {
-  const summary = { added: 0, duplicates: 0, invalid: 0 };
-  for (const line of text.split(/\r?\n/)) {
-    if (line.trim() === "") continue;
-    let parsed;
-    try {
-      parsed = JSON.parse(line);
-    } catch (e) {
-      store.addInvalid(line, "Not valid JSON", file);
-      summary.invalid++;
-      continue;
-    }
-    const result = validateInput(parsed);
-    if (!result.ok) {
-      store.addInvalid(line, result.reason, file);
-      summary.invalid++;
-    } else if (store.add(result.input)) {
-      summary.added++;
-    } else {
-      summary.duplicates++;
-    }
-  }
-  return summary;
-}
-async function importIncoming(files, store, folder) {
-  var _a;
-  const total = {
-    files: 0,
-    added: 0,
-    duplicates: 0,
-    invalid: 0
-  };
-  if (!await files.exists(folder)) {
-    await files.mkdir(folder);
-    return total;
-  }
-  const paths = (await files.list(folder)).filter((path2) => path2.toLowerCase().endsWith(".jsonl")).sort();
-  for (const path2 of paths) {
-    const text = await files.read(path2);
-    const name = (_a = path2.split("/").pop()) != null ? _a : path2;
-    const summary = importJsonl(store, text, name);
-    await store.save();
-    await files.remove(path2);
-    total.files++;
-    total.added += summary.added;
-    total.duplicates += summary.duplicates;
-    total.invalid += summary.invalid;
-  }
-  return total;
-}
-var DOI_PATTERN, URL_PATTERN, OPTIONAL_STRINGS;
-var init_digest_import = __esm({
-  "src/services/digest-import.ts"() {
-    "use strict";
-    DOI_PATTERN = /^10\.\d{4,9}\/\S+$/;
-    URL_PATTERN = /^https?:\/\/\S+$/i;
-    OPTIONAL_STRINGS = ["venue", "abstract", "item_type"];
-  }
-});
-
-// src/services/digest-bib.ts
-function skipBraces(text, open) {
-  let depth = 0;
-  for (let i = open; i < text.length; i++) {
-    const ch = text[i];
-    if (ch === "\\") i++;
-    else if (ch === "{") depth++;
-    else if (ch === "}" && --depth === 0) return i + 1;
-  }
-  return text.length;
-}
-function readValue(text, start) {
-  let i = start;
-  const parts = [];
-  for (; ; ) {
-    while (i < text.length && /\s/.test(text[i])) i++;
-    if (text[i] === "{") {
-      const end = skipBraces(text, i);
-      parts.push(text.slice(i + 1, end - 1));
-      i = end;
-    } else if (text[i] === '"') {
-      let j = i + 1;
-      let depth = 0;
-      while (j < text.length && (text[j] !== '"' || depth > 0)) {
-        if (text[j] === "\\") j++;
-        else if (text[j] === "{") depth++;
-        else if (text[j] === "}") depth--;
-        j++;
-      }
-      parts.push(text.slice(i + 1, j));
-      i = j + 1;
-    } else {
-      let j = i;
-      while (j < text.length && !/[,}#\s]/.test(text[j])) j++;
-      parts.push(text.slice(i, j));
-      i = j;
-    }
-    while (i < text.length && /\s/.test(text[i])) i++;
-    if (text[i] !== "#") break;
-    i++;
-  }
-  return { value: parts.join(""), end: i };
-}
-function parseFields(body) {
-  const fields = {};
-  let i = 0;
-  while (i < body.length) {
-    const match = /[A-Za-z][\w-]*/.exec(body.slice(i));
-    if (!match) break;
-    let cursor2 = i + match.index + match[0].length;
-    while (cursor2 < body.length && /\s/.test(body[cursor2])) cursor2++;
-    if (body[cursor2] !== "=") {
-      i = cursor2 + 1;
-      continue;
-    }
-    const { value, end } = readValue(body, cursor2 + 1);
-    fields[match[0].toLowerCase()] = value;
-    i = end + 1;
-  }
-  return fields;
-}
-function parseBibEntries(text) {
-  const entries = [];
-  const header = /@([A-Za-z]+)\s*\{/g;
-  let match;
-  while ((match = header.exec(text)) !== null) {
-    const open = match.index + match[0].length - 1;
-    const end = skipBraces(text, open);
-    header.lastIndex = end;
-    const type2 = match[1].toLowerCase();
-    if (SKIPPED_ENTRY_TYPES.has(type2)) continue;
-    const body = text.slice(open + 1, end - 1);
-    const comma2 = body.indexOf(",");
-    if (comma2 === -1) continue;
-    entries.push({
-      type: type2,
-      citekey: body.slice(0, comma2).trim(),
-      fields: parseFields(body.slice(comma2 + 1))
-    });
-  }
-  return entries;
-}
-function cleanLatex(value) {
-  return value.replace(/\\([&%$#_])/g, "$1").replace(/\\[`'^"~=.]\s*\{?(\\?[A-Za-z])\}?/g, "$1").replace(/\\[A-Za-z]+\s*\{([^{}]*)\}/g, "$1").replace(/\\[A-Za-z]+\s*/g, "").replace(/[{}]/g, "").replace(/~/g, " ").replace(/\s+/g, " ").trim();
-}
-function bareDoi(value) {
-  return value.trim().replace(/^https?:\/\/(dx\.)?doi\.org\//i, "").replace(/^doi:\s*/i, "");
-}
-function arxivId(fields) {
-  var _a, _b;
-  const archive = ((_b = (_a = fields.archiveprefix) != null ? _a : fields.eprinttype) != null ? _b : "").toLowerCase();
-  if (archive !== "arxiv" || !fields.eprint) return void 0;
-  const id = fields.eprint.trim().replace(/^arxiv:/i, "").replace(/v\d+$/i, "");
-  return id || void 0;
-}
-function bibEntryToInput(entry) {
-  var _a, _b, _c, _d, _e, _f, _g;
-  const { fields } = entry;
-  const arxiv = arxivId(fields);
-  const doi = fields.doi ? bareDoi(fields.doi) : arxiv ? ARXIV_DOI_PREFIX + arxiv : "";
-  const url = ((_a = fields.url) != null ? _a : "").trim() || (arxiv ? `https://arxiv.org/abs/${arxiv}` : "");
-  const key = doi || url;
-  if (!key) return void 0;
-  const isArxiv = doi.toLowerCase().startsWith(ARXIV_DOI_PREFIX.toLowerCase());
-  const candidate = {
-    key,
-    title: cleanLatex((_b = fields.title) != null ? _b : "") || entry.citekey,
-    item_type: isArxiv ? "preprint" : (_c = ITEM_TYPES[entry.type]) != null ? _c : "document"
-  };
-  if (doi) candidate.doi = doi;
-  if (url) candidate.url = url;
-  const year = Number.parseInt((_d = fields.year) != null ? _d : "", 10);
-  if (Number.isInteger(year)) candidate.year = year;
-  const venue = cleanLatex((_f = (_e = fields.journal) != null ? _e : fields.booktitle) != null ? _f : "");
-  if (venue) candidate.venue = venue;
-  const abstract = cleanLatex((_g = fields.abstract) != null ? _g : "");
-  if (abstract) candidate.abstract = abstract;
-  const checked = validateInput(candidate);
-  return checked.ok ? checked.input : void 0;
-}
-function bibToInputs(text) {
-  const inputs = [];
-  let skipped = 0;
-  for (const entry of parseBibEntries(text)) {
-    const input = bibEntryToInput(entry);
-    if (input) inputs.push(input);
-    else skipped++;
-  }
-  return { inputs, skipped };
-}
-var SKIPPED_ENTRY_TYPES, ARXIV_DOI_PREFIX, ITEM_TYPES;
-var init_digest_bib = __esm({
-  "src/services/digest-bib.ts"() {
-    "use strict";
-    init_digest_import();
-    SKIPPED_ENTRY_TYPES = /* @__PURE__ */ new Set(["comment", "string", "preamble"]);
-    ARXIV_DOI_PREFIX = "10.48550/arXiv.";
-    ITEM_TYPES = {
-      article: "journalArticle",
-      inproceedings: "conferencePaper",
-      conference: "conferencePaper",
-      proceedings: "book",
-      book: "book",
-      incollection: "bookSection",
-      inbook: "bookSection",
-      phdthesis: "thesis",
-      mastersthesis: "thesis",
-      techreport: "report"
-    };
-  }
-});
-
-// src/services/digest-store.ts
-function normaliseId(value) {
-  return value.trim().toLowerCase();
-}
-function emptyData() {
-  return { version: 1, records: {}, invalid: [] };
-}
-var DAY_MS, MAX_INVALID_LINES, DigestStore;
-var init_digest_store = __esm({
-  "src/services/digest-store.ts"() {
-    "use strict";
-    DAY_MS = 24 * 60 * 60 * 1e3;
-    MAX_INVALID_LINES = 500;
-    DigestStore = class {
-      constructor(files, path2, now = () => /* @__PURE__ */ new Date()) {
-        this.files = files;
-        this.path = path2;
-        this.now = now;
-        this.data = emptyData();
-      }
-      /**
-       * Loads the store from disk. A missing file yields an empty store.
-       * @throws Error when the file exists but is not a valid store, so that a
-       * damaged file is never silently overwritten.
-       */
-      async load() {
-        if (!await this.files.exists(this.path)) {
-          this.data = emptyData();
-          return;
-        }
-        const text = await this.files.read(this.path);
-        let parsed;
-        try {
-          parsed = JSON.parse(text);
-        } catch (e) {
-          throw new Error(`Digest store is not valid JSON: ${e.message}`);
-        }
-        const candidate = parsed;
-        if (!candidate || typeof candidate.records !== "object" || !candidate.records) {
-          throw new Error("Digest store has an unexpected shape.");
-        }
-        this.data = {
-          version: 1,
-          records: candidate.records,
-          invalid: Array.isArray(candidate.invalid) ? candidate.invalid : []
-        };
-      }
-      /** Writes the store to disk. */
-      async save() {
-        await this.files.write(this.path, JSON.stringify(this.data));
-      }
-      /** Records in one state, oldest first. */
-      list(status) {
-        return Object.values(this.data.records).filter((record) => record.status === status).sort((a, b) => a.added_at.localeCompare(b.added_at));
-      }
-      /** Looks a record up by its key. */
-      get(key) {
-        return this.data.records[normaliseId(key)];
-      }
-      /** Number of records in each state. */
-      counts() {
-        const counts = {
-          unchecked: 0,
-          accepted: 0,
-          rejected: 0
-        };
-        for (const record of Object.values(this.data.records)) counts[record.status]++;
-        return counts;
-      }
-      /** The stored record that has the same key or the same DOI, in any state. */
-      findDuplicate(input) {
-        const byKey = this.data.records[normaliseId(input.key)];
-        if (byKey) return byKey;
-        if (!input.doi) return void 0;
-        const doi = normaliseId(input.doi);
-        return Object.values(this.data.records).find(
-          (record) => record.doi !== void 0 && normaliseId(record.doi) === doi
-        );
-      }
-      /**
-       * Adds a paper as unchecked.
-       * @returns false when it duplicates a stored record and was not added.
-       */
-      add(input, batch) {
-        if (this.findDuplicate(input)) return false;
-        const record = {
-          ...input,
-          status: "unchecked",
-          added_at: this.now().toISOString()
-        };
-        if (batch) record.batch = batch;
-        this.data.records[normaliseId(input.key)] = record;
-        return true;
-      }
-      /** Marks a paper as rejected with a reason id. */
-      reject(key, reason) {
-        const record = this.require(key);
-        record.status = "rejected";
-        record.reject_reason = reason;
-        record.decided_at = this.now().toISOString();
-      }
-      /** Marks a paper as accepted and stores what was written to Zotero. */
-      accept(key, decision) {
-        const record = this.require(key);
-        record.status = "accepted";
-        record.directions = decision.directions;
-        record.collections = decision.collections;
-        if (decision.zoteroKey) record.zotero_key = decision.zoteroKey;
-        else record.manual_import = true;
-        record.decided_at = this.now().toISOString();
-      }
-      /** Returns a decided paper to the unchecked state and clears the decision. */
-      restore(key) {
-        const record = this.require(key);
-        record.status = "unchecked";
-        delete record.reject_reason;
-        delete record.decided_at;
-        delete record.directions;
-        delete record.collections;
-        delete record.zotero_key;
-        delete record.manual_import;
-      }
-      /** Import batches that still have unchecked papers. */
-      batches() {
-        const names = /* @__PURE__ */ new Set();
-        for (const record of this.list("unchecked")) {
-          if (record.batch) names.add(record.batch);
-        }
-        return Array.from(names).sort();
-      }
-      /**
-       * Deletes the still-unchecked papers of one import batch.
-       * @returns the number of papers removed.
-       */
-      withdrawBatch(batch) {
-        return this.deleteWhere(
-          (record) => record.status === "unchecked" && record.batch === batch
-        );
-      }
-      /**
-       * Deletes decided papers older than the retention period. Unchecked papers
-       * are never deleted here.
-       * @returns the number of papers removed.
-       */
-      cleanup(retentionDays) {
-        if (!(retentionDays > 0)) return 0;
-        const cutoff = this.now().getTime() - retentionDays * DAY_MS;
-        return this.deleteWhere((record) => {
-          if (record.status === "unchecked" || !record.decided_at) return false;
-          const decided = Date.parse(record.decided_at);
-          return !Number.isNaN(decided) && decided < cutoff;
-        });
-      }
-      /** Lines that failed validation and have not been cleared yet. */
-      invalidLines() {
-        return this.data.invalid;
-      }
-      /** Keeps a line that failed validation so the user can inspect it. */
-      addInvalid(raw, reason, file) {
-        this.data.invalid.push({ raw, reason, file, at: this.now().toISOString() });
-        if (this.data.invalid.length > MAX_INVALID_LINES) {
-          this.data.invalid = this.data.invalid.slice(-MAX_INVALID_LINES);
-        }
-      }
-      /** Discards all kept invalid lines. */
-      clearInvalid() {
-        this.data.invalid = [];
-      }
-      require(key) {
-        const record = this.get(key);
-        if (!record) throw new Error(`Paper not found in digest store: ${key}`);
-        return record;
-      }
-      deleteWhere(predicate) {
-        let removed = 0;
-        for (const [id, record] of Object.entries(this.data.records)) {
-          if (predicate(record)) {
-            delete this.data.records[id];
-            removed++;
-          }
-        }
-        return removed;
-      }
-    };
-  }
-});
-
-// src/services/digest-translate.ts
-var CHILD_ITEM_TYPES, TranslationClient;
-var init_digest_translate = __esm({
-  "src/services/digest-translate.ts"() {
-    "use strict";
-    CHILD_ITEM_TYPES = /* @__PURE__ */ new Set(["note", "attachment", "annotation"]);
-    TranslationClient = class {
-      constructor(http, getBaseUrl) {
-        this.http = http;
-        this.getBaseUrl = getBaseUrl;
-      }
-      endpoint(path2) {
-        return this.getBaseUrl().trim().replace(/\/+$/, "") + path2;
-      }
-      /** True when the server answers at all, whatever the HTTP status. */
-      async ping() {
-        try {
-          await this.http({ url: this.endpoint("/"), method: "GET" });
-          return true;
-        } catch (e) {
-          return false;
-        }
-      }
-      /** Resolves an identifier to the first top-level item the server returns. */
-      async search(identifier) {
-        let response;
-        try {
-          response = await this.http({
-            url: this.endpoint("/search"),
-            method: "POST",
-            contentType: "text/plain",
-            headers: { "Content-Type": "text/plain" },
-            body: identifier
-          });
-        } catch (e) {
-          return {
-            ok: false,
-            unreachable: true,
-            reason: `Translation server not reachable: ${e.message}`
-          };
-        }
-        if (response.status === 300) {
-          return { ok: false, reason: "Lookup returned several candidates" };
-        }
-        if (response.status === 501) {
-          return { ok: false, reason: `Lookup found nothing for ${identifier}` };
-        }
-        if (response.status !== 200) {
-          return {
-            ok: false,
-            reason: `Lookup failed (HTTP ${response.status}) for ${identifier}`
-          };
-        }
-        let parsed;
-        try {
-          parsed = JSON.parse(response.text);
-        } catch (e) {
-          return { ok: false, reason: "Lookup returned a response that is not JSON" };
-        }
-        const items = Array.isArray(parsed) ? parsed : [];
-        const item = items.find(
-          (candidate) => typeof candidate === "object" && candidate !== null && typeof candidate.itemType === "string" && !CHILD_ITEM_TYPES.has(candidate.itemType)
-        );
-        if (!item)
-          return { ok: false, reason: `Lookup found nothing for ${identifier}` };
-        return { ok: true, item };
-      }
-    };
-  }
-});
-
-// src/services/digest-zotero.ts
-function buildCollectionList(raw) {
-  var _a, _b;
-  const nodes = /* @__PURE__ */ new Map();
-  for (const entry of Array.isArray(raw) ? raw : []) {
-    const data = (_a = entry == null ? void 0 : entry.data) != null ? _a : entry;
-    const key = (_b = entry == null ? void 0 : entry.key) != null ? _b : data == null ? void 0 : data.key;
-    if (typeof key !== "string" || typeof (data == null ? void 0 : data.name) !== "string") continue;
-    const parent = typeof data.parentCollection === "string" ? data.parentCollection : null;
-    nodes.set(key, { key, name: data.name, parent });
-  }
-  const resolve2 = (node, seen) => {
-    const parent = node.parent ? nodes.get(node.parent) : void 0;
-    if (!parent || seen.has(parent.key)) return [node.name];
-    seen.add(parent.key);
-    return [...resolve2(parent, seen), node.name];
-  };
-  return Array.from(nodes.values()).map((node) => {
-    const names = resolve2(node, /* @__PURE__ */ new Set([node.key]));
-    return {
-      key: node.key,
-      name: node.name,
-      path: names.join(" / "),
-      depth: names.length - 1
-    };
-  }).sort((a, b) => a.path.localeCompare(b.path));
-}
-function directionTags(prefix, directions) {
-  return directions.map((id) => ({ tag: prefix + id }));
-}
-function prepareLookupItem(item, tags4, collectionKeys) {
-  const prepared = { ...item };
-  for (const field of NON_API_FIELDS) delete prepared[field];
-  prepared.tags = tags4;
-  prepared.collections = [...collectionKeys];
-  return prepared;
-}
-async function acceptRecord(deps, record, tags4, collectionKeys) {
-  if (!record.doi) return { ok: false, reason: "This paper has no DOI to look up" };
-  const found = await deps.lookup(record.doi);
-  if (!found.ok) return { ok: false, reason: found.reason };
-  return deps.createItem(prepareLookupItem(found.item, tags4, collectionKeys));
-}
-var APP_NAME, BASE_HEADERS, NON_API_FIELDS, ZoteroLocalClient;
-var init_digest_zotero = __esm({
-  "src/services/digest-zotero.ts"() {
-    "use strict";
-    init_digest_types();
-    APP_NAME = "Obsidian Paper Digest";
-    BASE_HEADERS = {
-      "Zotero-API-Version": "3",
-      "Zotero-Allowed-Request": "1",
-      "User-Agent": "obsidian/zotero"
-    };
-    NON_API_FIELDS = [
-      "key",
-      "version",
-      "attachments",
-      "notes",
-      "seeAlso",
-      "id",
-      "itemID"
-    ];
-    ZoteroLocalClient = class {
-      constructor(http, getPort, keys) {
-        this.http = http;
-        this.getPort = getPort;
-        this.keys = keys;
-      }
-      url(path2) {
-        return `http://127.0.0.1:${this.getPort()}${path2}`;
-      }
-      /**
-       * Probes Zotero and reads its collections. The same request also yields
-       * the server id that write requests must carry.
-       */
-      async status() {
-        let response;
-        try {
-          response = await this.http({
-            url: this.url("/api/users/0/collections"),
-            method: "GET",
-            headers: BASE_HEADERS
-          });
-        } catch (e) {
-          return { state: "offline" };
-        }
-        if (response.status === 403) return { state: "disabled" };
-        if (response.status !== 200) {
-          return {
-            state: "error",
-            message: `Zotero answered HTTP ${response.status}`
-          };
-        }
-        this.serverId = getHeader(response.headers, "Zotero-Server-ID");
-        try {
-          return {
-            state: "online",
-            collections: buildCollectionList(JSON.parse(response.text))
-          };
-        } catch (e) {
-          return {
-            state: "error",
-            message: "Zotero returned an unreadable collection list"
-          };
-        }
-      }
-      /**
-       * Asks Zotero for a write key; Zotero shows an approval prompt.
-       * @throws Error when the request is denied or writes are not supported.
-       */
-      async authorize() {
-        var _a;
-        const response = await this.http({
-          url: this.url("/api/local/authorize"),
-          method: "POST",
-          contentType: "application/json",
-          headers: {
-            ...BASE_HEADERS,
-            "Content-Type": "application/json",
-            "Zotero-Server-ID": (_a = this.serverId) != null ? _a : ""
-          },
-          body: JSON.stringify({ appName: APP_NAME })
-        });
-        if (response.status === 404) {
-          throw new Error("This Zotero version does not support local writes");
-        }
-        if (response.status === 403) {
-          throw new Error(
-            response.text.includes("not enabled") ? "Zotero local API is not enabled" : "Write access was denied in Zotero"
-          );
-        }
-        if (response.status !== 200) {
-          throw new Error(`Zotero authorization failed (HTTP ${response.status})`);
-        }
-        const body = JSON.parse(response.text);
-        if (!body.key) throw new Error("Zotero returned no write key");
-        if (body.remember) await this.keys.set(body.key);
-        return body.key;
-      }
-      postItem(item, key) {
-        var _a;
-        return this.http({
-          url: this.url("/api/users/0/items"),
-          method: "POST",
-          contentType: "application/json",
-          headers: {
-            ...BASE_HEADERS,
-            "Content-Type": "application/json",
-            "Zotero-API-Key": key,
-            "Zotero-Server-ID": (_a = this.serverId) != null ? _a : ""
-          },
-          body: JSON.stringify([item])
-        });
-      }
-      /** Creates one item and returns its Zotero key. */
-      async createItem(item) {
-        var _a;
-        try {
-          if (!this.serverId) {
-            const status = await this.status();
-            if (status.state !== "online") {
-              return { ok: false, reason: "Zotero is not reachable" };
-            }
-          }
-          let key = (_a = await this.keys.get()) != null ? _a : await this.authorize();
-          let response = await this.postItem(item, key);
-          if (response.status === 401) {
-            await this.keys.set(null);
-            key = await this.authorize();
-            response = await this.postItem(item, key);
-          }
-          if (response.status === 403) {
-            return { ok: false, reason: "Zotero local API is not enabled" };
-          }
-          if (response.status !== 200) {
-            return {
-              ok: false,
-              reason: `Zotero refused the item (HTTP ${response.status}): ${response.text.slice(0, 200)}`
-            };
-          }
-          return this.readWriteResult(response.text);
-        } catch (e) {
-          return { ok: false, reason: e.message };
-        }
-      }
-      readWriteResult(text) {
-        var _a, _b, _c, _d, _e;
-        const body = JSON.parse(text);
-        const key = (_d = (_a = body.success) == null ? void 0 : _a["0"]) != null ? _d : (_c = (_b = body.successful) == null ? void 0 : _b["0"]) == null ? void 0 : _c.key;
-        if (key) return { ok: true, key };
-        const failure = (_e = body.failed) == null ? void 0 : _e["0"];
-        return {
-          ok: false,
-          reason: (failure == null ? void 0 : failure.message) ? `Zotero rejected the item: ${failure.message}` : "Zotero did not report a created item"
-        };
       }
     };
   }
@@ -5433,6 +5526,7 @@ var init_digest_view = __esm({
     init_digest_zotero();
     init_paper_hub();
     init_vault_library();
+    init_zotero_connector();
     init_connector_modal();
     VIEW_TYPE_DIGEST = "zotero-paper-digest";
     SECRET_ID = "zotero-digest-local-api-key";
@@ -5478,6 +5572,7 @@ var init_digest_view = __esm({
         this.libraryEditingCore = false;
         this.libraryListScroll = 0;
         this.libraryDetailScroll = 0;
+        this.vaultListenersRegistered = false;
         this.plugin = plugin;
         this.svc = getDigestServices(plugin);
         this.scope = new import_obsidian6.Scope(this.app.scope);
@@ -5513,8 +5608,61 @@ var init_digest_view = __esm({
         }
         return this.fallbackLibrary;
       }
+      ensureVaultListeners() {
+        var _a, _b;
+        if (this.vaultListenersRegistered) return;
+        this.vaultListenersRegistered = true;
+        const refreshIfLibraryActive = () => {
+          if (this.hubTab !== "library" || this.libraryEditingCore) return;
+          void this.reloadLibrary().then(() => this.renderLibraryResultsOnly());
+        };
+        if (typeof ((_a = this.app.vault) == null ? void 0 : _a.on) === "function") {
+          this.registerEvent(
+            this.app.vault.on("create", (file) => {
+              if (file.path.toLowerCase().endsWith(".md")) {
+                refreshIfLibraryActive();
+              }
+            })
+          );
+          this.registerEvent(
+            this.app.vault.on("modify", (file) => {
+              if (file.path.toLowerCase().endsWith(".md")) {
+                refreshIfLibraryActive();
+              }
+            })
+          );
+          this.registerEvent(
+            this.app.vault.on("delete", (file) => {
+              if (file.path.toLowerCase().endsWith(".md")) {
+                refreshIfLibraryActive();
+              }
+            })
+          );
+        }
+        if (typeof ((_b = this.app.metadataCache) == null ? void 0 : _b.on) === "function") {
+          this.registerEvent(
+            this.app.metadataCache.on("changed", (file) => {
+              if (file.path.toLowerCase().endsWith(".md")) {
+                refreshIfLibraryActive();
+              }
+            })
+          );
+        }
+      }
+      async importFromZotero() {
+        const connector = new ZoteroConnectorService(
+          this.app,
+          Object.assign({}, DEFAULT_SETTINGS, this.plugin.settings)
+        );
+        const triggered = await connector.triggerInteractiveImport();
+        if (triggered) {
+          await this.reloadLibrary();
+          this.render();
+        }
+      }
       /** Renders from the store only; importing is left to an explicit open or Refresh. */
       async onOpen() {
+        this.ensureVaultListeners();
         if (this.hubTab === "library") {
           await this.reloadLibrary();
           this.render();
@@ -5524,6 +5672,7 @@ var init_digest_view = __esm({
       }
       /** Opens the Hub directly on the Vault Paper Library tab, optionally pre-filtered by venue. */
       async openLibrary(venueFilter) {
+        this.ensureVaultListeners();
         this.hubTab = "library";
         if (venueFilter !== void 0) {
           this.libraryVenueFilter = venueFilter.trim();
@@ -5534,6 +5683,7 @@ var init_digest_view = __esm({
       }
       /** Switches between Library and Digest tabs. */
       async switchHubTab(tab) {
+        this.ensureVaultListeners();
         if (this.hubTab === tab) return;
         this.hubTab = tab;
         this.libraryEditingCore = false;
@@ -5960,9 +6110,16 @@ var init_digest_view = __esm({
             cls: "zotero-digest-meta",
             text: `${this.libraryEntries.length} paper${this.libraryEntries.length === 1 ? "" : "s"}`
           });
+          const importBtn = right2.createEl("button", {
+            cls: "mod-cta zotero-library-import-btn",
+            text: "+ Import from Zotero",
+            attr: { type: "button" }
+          });
+          importBtn.onclick = () => void this.importFromZotero();
           const refreshBtn = right2.createEl("button", {
             cls: "zotero-library-refresh-btn",
-            text: "\u21BB Refresh"
+            text: "\u21BB Refresh",
+            attr: { type: "button" }
           });
           refreshBtn.onclick = async () => {
             await this.reloadLibrary();
@@ -6106,10 +6263,23 @@ var init_digest_view = __esm({
           cls: "zotero-digest-list zotero-library-list"
         });
         if (this.libraryEntries.length === 0) {
-          list.createDiv({
-            cls: "zotero-digest-empty",
-            text: "No matching papers in Vault."
+          const hasActiveFilter = Boolean(
+            this.libraryQuery.trim() || this.libraryVenueFilter || this.libraryQuickFilter !== "all"
+          );
+          const emptyEl = list.createDiv({
+            cls: "zotero-digest-empty zotero-library-empty"
           });
+          emptyEl.createDiv({
+            text: hasActiveFilter ? "No matching papers in Vault." : "No papers in Vault yet."
+          });
+          if (!hasActiveFilter) {
+            const emptyImportBtn = emptyEl.createEl("button", {
+              cls: "mod-cta zotero-library-import-btn",
+              text: "+ Import from Zotero",
+              attr: { type: "button" }
+            });
+            emptyImportBtn.onclick = () => void this.importFromZotero();
+          }
         } else {
           let selectedRow = null;
           for (const entry of this.libraryEntries) {
@@ -7621,10 +7791,9 @@ var oneDark = [oneDarkTheme, /* @__PURE__ */ (0, import_language3.syntaxHighligh
 
 // src/settings.ts
 init_types();
-init_paper_hub();
 
 // src/services/zotero.ts
-var import_obsidian2 = require("obsidian");
+var import_obsidian = require("obsidian");
 var BBT_RPC_HEADERS = {
   "Content-Type": "application/json",
   "User-Agent": "obsidian/zotero",
@@ -7798,7 +7967,7 @@ var ZoteroService = class {
   }
   async sendRpc(method, params) {
     try {
-      const text = await (0, import_obsidian2.request)({
+      const text = await (0, import_obsidian.request)({
         url: `http://127.0.0.1:${this.port}/better-bibtex/json-rpc`,
         method: "POST",
         headers: BBT_RPC_HEADERS,
@@ -7814,81 +7983,8 @@ var ZoteroService = class {
   }
 };
 
-// src/services/zotero-connector.ts
-var import_obsidian3 = require("obsidian");
-init_types();
-init_paths();
-var ZoteroConnectorService = class {
-  constructor(app, setting) {
-    this.app = app;
-    this.settings = setting;
-  }
-  getConnectorPlugin() {
-    var _a, _b;
-    const plugins = this.app.plugins;
-    return (_b = (_a = plugins == null ? void 0 : plugins.getPlugin) == null ? void 0 : _a.call(plugins, "obsidian-zotero-desktop-connector")) != null ? _b : null;
-  }
-  async triggerZoteroIntegrationImport(citationKey) {
-    var _a, _b;
-    const plugin = this.getConnectorPlugin();
-    const fmt = (_b = (_a = plugin == null ? void 0 : plugin.settings) == null ? void 0 : _a.exportFormats) == null ? void 0 : _b[0];
-    if (plugin && fmt && fmt.name && plugin.runImport) {
-      await plugin.runImport(fmt.name, String(citationKey));
-      new import_obsidian3.Notice("Triggered Zotero Integration Import");
-    } else {
-      new import_obsidian3.Notice("Obsidian Zotero Desktop Connector plugin not found or configured.");
-    }
-  }
-  detectTemplatePath() {
-    var _a, _b;
-    const plugin = this.getConnectorPlugin();
-    const fmt = (_b = (_a = plugin == null ? void 0 : plugin.settings) == null ? void 0 : _a.exportFormats) == null ? void 0 : _b[0];
-    const raw = (fmt == null ? void 0 : fmt.templatePath) || (fmt == null ? void 0 : fmt.templateFile);
-    if (typeof raw === "string" && raw.trim().length > 0) {
-      return normalizePath(raw.trim());
-    }
-    return null;
-  }
-  async loadTemplateContent(explicitPath) {
-    var _a, _b, _c;
-    const candidate = (explicitPath == null ? void 0 : explicitPath.trim()) || ((_b = (_a = this.settings.zoteroTemplate) == null ? void 0 : _a.vaultPath) == null ? void 0 : _b.trim()) || this.detectTemplatePath();
-    const resolvedPath = candidate ? normalizePath(candidate) : null;
-    if (resolvedPath) {
-      const existing = this.app.vault.getAbstractFileByPath(resolvedPath);
-      if (existing instanceof import_obsidian3.TFile) {
-        const content = await this.app.vault.read(existing);
-        return { path: resolvedPath, content, fromVault: true };
-      }
-    }
-    const fallback = ((_c = this.settings.zoteroTemplate) == null ? void 0 : _c.content) || DEFAULT_ZOTERO_TEMPLATE;
-    return { path: resolvedPath, content: fallback, fromVault: false };
-  }
-  async saveTemplateToVault(path2, content) {
-    const raw = path2.trim();
-    if (!raw) {
-      throw new Error("Template vault path cannot be empty.");
-    }
-    const withExt = /\.[^/\\]+$/.test(raw) ? raw : `${raw}.md`;
-    const normalized = normalizePath(withExt);
-    const folders = normalized.split("/").slice(0, -1).filter(Boolean);
-    let current = "";
-    for (const segment of folders) {
-      current = current ? `${current}/${segment}` : segment;
-      if (!this.app.vault.getAbstractFileByPath(current)) {
-        await this.app.vault.createFolder(current);
-      }
-    }
-    const existing = this.app.vault.getAbstractFileByPath(normalized);
-    if (existing instanceof import_obsidian3.TFile) {
-      await this.app.vault.modify(existing, content);
-    } else {
-      await this.app.vault.create(normalized, content);
-    }
-    return normalized;
-  }
-};
-
 // src/settings.ts
+init_zotero_connector();
 init_paths();
 function addSettingIconAction(parent, icon, tooltip, onClick) {
   if (typeof import_obsidian9.ExtraButtonComponent === "function") {
@@ -8021,8 +8117,6 @@ var ZoteroSettingTab = class extends import_obsidian9.PluginSettingTab {
   // -------------------------------------------------------------------------
   renderGeneralSettings(container) {
     const ws = this.plugin.settings.paperWorkspace;
-    let updateS3Preview = () => {
-    };
     const layoutCard = container.createDiv({ cls: "zotero-setting-card" });
     layoutCard.createEl("h3", {
       text: "Paper Workspace Layout",
@@ -8041,7 +8135,6 @@ var ZoteroSettingTab = class extends import_obsidian9.PluginSettingTab {
           ws[key] = val.trim();
           if (afterSave) afterSave(ws[key]);
           await this.plugin.saveSettings();
-          updateS3Preview();
         });
         text.inputEl.addClass("zotero-workspace-path-input");
       });
@@ -8054,7 +8147,6 @@ var ZoteroSettingTab = class extends import_obsidian9.PluginSettingTab {
           if (afterSave) afterSave(defaultVal);
           textRef == null ? void 0 : textRef.setValue(defaultVal);
           await this.plugin.saveSettings();
-          updateS3Preview();
         }
       );
     };
@@ -8103,41 +8195,6 @@ var ZoteroSettingTab = class extends import_obsidian9.PluginSettingTab {
       "atomicNotesFolder",
       DEFAULT_PAPER_WORKSPACE.atomicNotesFolder
     );
-    const s3Card = container.createDiv({ cls: "zotero-setting-card" });
-    s3Card.createEl("h3", {
-      text: "S3 Sync Path Mapping",
-      cls: "zotero-card-title"
-    });
-    s3Card.createDiv({
-      text: "Optional S3 bucket URI or key prefix mirrored by your vault sync (e.g. Remotely Save / rclone). Populates {{s3.*}} placeholders in webhooks.",
-      cls: "setting-item-description zotero-desc-tight"
-    });
-    new import_obsidian9.Setting(s3Card).setName("S3 URI / Key Prefix").setDesc("Example: s3://my-research-bucket/obsidian-vault").addText((text) => {
-      text.setPlaceholder("s3://bucket/prefix").setValue(ws.s3Prefix || "").onChange(async (value) => {
-        ws.s3Prefix = value.trim();
-        await this.plugin.saveSettings();
-        updateS3Preview();
-      });
-      text.inputEl.addClass("zotero-workspace-path-input");
-    });
-    const previewBox = s3Card.createDiv({ cls: "zotero-s3-preview" });
-    updateS3Preview = () => {
-      previewBox.empty();
-      const sample = resolvePaperPaths(ws, "smith2024");
-      const rows = [
-        ["{{s3.zotero_note}}", sample.s3.literatureNote],
-        ["{{s3.report1}}", sample.s3.report1],
-        ["{{s3.report2}}", sample.s3.report2],
-        ["{{s3.takeaway}}", sample.s3.takeaway],
-        ["{{s3.core_note}}", sample.s3.coreNote]
-      ];
-      for (const [token, resolved] of rows) {
-        const line = previewBox.createDiv({ cls: "zotero-s3-preview-row" });
-        line.createSpan({ cls: "zotero-s3-preview-token", text: token });
-        line.createSpan({ cls: "zotero-s3-preview-val", text: resolved });
-      }
-    };
-    updateS3Preview();
     const zoteroConnCard = container.createDiv({ cls: "zotero-setting-card" });
     zoteroConnCard.createEl("h3", {
       text: "Zotero Connection & Keys",
@@ -8473,7 +8530,7 @@ var ZoteroSettingTab = class extends import_obsidian9.PluginSettingTab {
     const topMeta = card.createDiv({ cls: "zotero-prompt-meta-bar" });
     topMeta.createEl("h3", { text: entry.name, cls: "zotero-card-title zotero-no-margin" });
     const chipsWrap = topMeta.createDiv({ cls: "zotero-placeholder-chips" });
-    for (const token of [`{{prompt.${entry.id}}}`, `{{s3.prompt.${entry.id}}}`]) {
+    for (const token of [`{{prompt.${entry.id}}}`, `{{path.prompt.${entry.id}}}`]) {
       const chip = chipsWrap.createEl("button", {
         cls: "zotero-placeholder-chip",
         text: token,
@@ -8696,7 +8753,7 @@ var ZoteroSettingTab = class extends import_obsidian9.PluginSettingTab {
         method: "POST",
         icon: "send",
         headers: [],
-        bodyTemplate: '{\n  "citekey": "{{citekey}}",\n  "zotero_s3": "{{s3.zotero_note}}",\n  "report1_s3": "{{s3.report1}}",\n  "report2_s3": "{{s3.report2}}",\n  "takeaway_s3": "{{s3.takeaway}}"\n}',
+        bodyTemplate: '{\n  "citekey": "{{citekey}}",\n  "zotero_note": "{{path.zotero_note}}",\n  "report1": "{{path.report1}}",\n  "report2": "{{path.report2}}",\n  "takeaway": "{{path.takeaway}}"\n}',
         hidden: false,
         contentType: "json",
         inputVariables: []
@@ -9186,18 +9243,13 @@ var WebhookEditModal = class extends import_obsidian9.Modal {
     });
     const quickTokens = [
       "{{citekey}}",
-      "{{s3.zotero_note}}",
-      "{{s3.report1}}",
-      "{{s3.report2}}",
-      "{{s3.takeaway}}",
-      "{{s3.core_note}}",
       "{{path.zotero_note}}",
       "{{path.report1}}",
       "{{path.report2}}",
       "{{path.takeaway}}",
       "{{path.core_note}}",
       ...this.prompts.map((p) => `{{prompt.${p.id}}}`),
-      ...this.prompts.map((p) => `{{s3.prompt.${p.id}}}`),
+      ...this.prompts.map((p) => `{{path.prompt.${p.id}}}`),
       "{{filename}}",
       "{{content}}"
     ];
@@ -17507,6 +17559,7 @@ var ObsidianService = class {
 };
 
 // src/ui/highlights.ts
+init_zotero_connector();
 var HighlightModal = class extends import_obsidian12.Modal {
   constructor(app, settings, citationKey, imageMap = {}, onUpdate) {
     super(app);
@@ -17717,6 +17770,7 @@ var HighlightModal = class extends import_obsidian12.Modal {
 // src/ui/assistant.ts
 var import_obsidian14 = require("obsidian");
 init_vault_library();
+init_zotero_connector();
 
 // src/utils/parser.ts
 function parseImageMap(rawSource) {
@@ -18596,11 +18650,6 @@ var WebhookService = class {
         variables["{{path.report2}}"] = paths.report2;
         variables["{{path.takeaway}}"] = paths.takeaway;
         variables["{{path.core_note}}"] = paths.coreNote;
-        variables["{{s3.zotero_note}}"] = paths.s3.literatureNote;
-        variables["{{s3.report1}}"] = paths.s3.report1;
-        variables["{{s3.report2}}"] = paths.s3.report2;
-        variables["{{s3.takeaway}}"] = paths.s3.takeaway;
-        variables["{{s3.core_note}}"] = paths.s3.coreNote;
         const promptEntries = settings.prompts || [];
         const resolvedPrompts = await Promise.all(
           promptEntries.map(async (prompt) => {
@@ -18608,13 +18657,12 @@ var WebhookService = class {
             const vPath = ((_a2 = prompt.vaultPath) == null ? void 0 : _a2.trim()) ? normalizePath(prompt.vaultPath.trim()) : "";
             const vaultFile = vPath ? this.app.vault.getAbstractFileByPath(vPath) : null;
             const promptContent = vaultFile instanceof import_obsidian15.TFile ? await this.app.vault.read(vaultFile) : prompt.content;
-            const s3Uri = vPath ? buildS3Uri(settings.paperWorkspace.s3Prefix, vPath) : "";
-            return { id: prompt.id, content: promptContent, s3Uri };
+            return { id: prompt.id, content: promptContent, path: vPath };
           })
         );
         for (const item of resolvedPrompts) {
           variables[`{{prompt.${item.id}}}`] = String((_c = item.content) != null ? _c : "");
-          variables[`{{s3.prompt.${item.id}}}`] = String((_d = item.s3Uri) != null ? _d : "");
+          variables[`{{path.prompt.${item.id}}}`] = String((_d = item.path) != null ? _d : "");
         }
       }
       if (extraVariables) {
@@ -20884,6 +20932,7 @@ var ZoteroGKPlugin = class extends import_obsidian25.Plugin {
       DEFAULT_PAPER_WORKSPACE,
       data == null ? void 0 : data.paperWorkspace
     );
+    delete this.settings.paperWorkspace["s3Prefix"];
     this.settings.zoteroTemplate = Object.assign(
       { vaultPath: "", content: DEFAULT_ZOTERO_TEMPLATE },
       data == null ? void 0 : data.zoteroTemplate

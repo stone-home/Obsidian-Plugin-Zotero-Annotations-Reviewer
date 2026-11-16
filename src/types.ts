@@ -48,7 +48,6 @@ export interface PaperWorkspaceConfig {
 	coreNotePath: string;
 	highlightNotesFolder: string;
 	atomicNotesFolder: string;
-	s3Prefix: string;
 }
 
 export interface PromptTemplateEntry {
@@ -74,7 +73,6 @@ export const DEFAULT_PAPER_WORKSPACE: PaperWorkspaceConfig = {
 	coreNotePath: '002-Literature/104-Paper Notes/{{citekey}}.md',
 	highlightNotesFolder: '001-Fleeting',
 	atomicNotesFolder: '003-Permanent',
-	s3Prefix: '',
 };
 
 export const DEFAULT_ZOTERO_TEMPLATE: string = [
@@ -90,11 +88,10 @@ export const DEFAULT_ZOTERO_TEMPLATE: string = [
 	'  {%- endif %}',
 	'short-name: "{{shortTitle}}"',
 	'authors:',
-	'{%- set authorList = authors.split(",") -%}',
-	'{%- if authorList.length > 0 %}',
-	'{%- for author in authorList -%}',
+	'{%- if authors %}',
+	'{%- for author in authors.split(",") %}',
 	'  - {{author | trim | replace(" ", "-") | replace(".", "")}}',
-	'{%- endfor -%}',
+	'{%- endfor %}',
 	'{%- endif %}',
 	'create: {{date | format("YYYY-MM-DD")}}',
 	'year: {{date | format("YYYY")}}',
@@ -115,7 +112,7 @@ export const DEFAULT_ZOTERO_TEMPLATE: string = [
 	'{%- endif %}',
 	'key: {{itemKey}}',
 	'code: "{% for att in attachments %}{% if att.title == \'code\' %}{{ att.url | replace(\'"\', \'\\\\"\') }}{% endif %}{% endfor %}"',
-	'venue: "{% set currentVenue = publicationTitle if itemType == \'journalArticle\' else (conferenceName if itemType == \'conferencePaper\' else \'\') %}{% if currentVenue and currentVenue | trim %}[[{{ currentVenue | trim | replace(\'\\"\', \'\\\\\\"\') }}]]{% endif %}"',
+	'venue: "{% set currentVenue = publicationTitle if itemType == \'journalArticle\' else ((conferenceName or proceedingsTitle) if itemType == \'conferencePaper\' else \'\') %}{% if currentVenue and currentVenue | trim %}[[{{ currentVenue | trim | replace(\'\\"\', \'\\\\\\"\') }}]]{% endif %}"',
 	'---',
 	'',
 	'```zotero-assistant',

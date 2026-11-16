@@ -14,13 +14,6 @@ export interface ResolvedPaperPaths {
 	report2: string;
 	takeaway: string;
 	coreNote: string;
-	s3: {
-		literatureNote: string;
-		report1: string;
-		report2: string;
-		takeaway: string;
-		coreNote: string;
-	};
 }
 
 export interface TakeawaySummary {
@@ -124,13 +117,6 @@ export function resolveCitekeyTemplate(pattern: string, citekey: string): string
 	return normalized;
 }
 
-export function buildS3Uri(s3Prefix: string, vaultRelativePath: string): string {
-	const cleanRel = normalizePath(vaultRelativePath).replace(/^\/+/, '');
-	const prefix = s3Prefix.trim().replace(/\/+$/, '');
-	if (!prefix) return cleanRel;
-	return cleanRel ? `${prefix}/${cleanRel}` : prefix;
-}
-
 export function resolvePaperPaths(workspace: PaperWorkspaceConfig, citekey: string): ResolvedPaperPaths {
 	const cleanKey = citekey.trim();
 	const literatureNote = resolveCitekeyTemplate(workspace.literatureNotePath, cleanKey);
@@ -146,13 +132,6 @@ export function resolvePaperPaths(workspace: PaperWorkspaceConfig, citekey: stri
 		report2,
 		takeaway,
 		coreNote,
-		s3: {
-			literatureNote: buildS3Uri(workspace.s3Prefix, literatureNote),
-			report1: buildS3Uri(workspace.s3Prefix, report1),
-			report2: buildS3Uri(workspace.s3Prefix, report2),
-			takeaway: buildS3Uri(workspace.s3Prefix, takeaway),
-			coreNote: buildS3Uri(workspace.s3Prefix, coreNote),
-		},
 	};
 }
 

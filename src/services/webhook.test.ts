@@ -289,7 +289,7 @@ describe('WebhookService', () => {
 		}));
 	});
 
-	describe('with getSettings (Paper Workspace, S3 & Prompt placeholders)', () => {
+	describe('with getSettings (Paper Workspace & Prompt placeholders)', () => {
 		let settings: MyPluginSettings;
 		let settingsService: WebhookService;
 
@@ -298,7 +298,6 @@ describe('WebhookService', () => {
 				...DEFAULT_SETTINGS,
 				paperWorkspace: {
 					...DEFAULT_SETTINGS.paperWorkspace,
-					s3Prefix: 's3://research-bucket/obsidian-vault/',
 				},
 				prompts: [
 					{
@@ -311,14 +310,14 @@ describe('WebhookService', () => {
 					{
 						id: 'report1',
 						name: 'Report 1',
-						vaultPath: '002-Literature/100-Prompts/report1.md',
+						vaultPath: '  \\002-Literature\\100-Prompts\\report1.md  ',
 						content: 'Line 1 with "quotes"\nLine 2 with LaTeX $\\frac{\\alpha}{\\beta}$',
 						builtIn: true,
 					},
 					{
 						id: 'inline_only',
 						name: 'Inline Only',
-						vaultPath: '',
+						vaultPath: '   ',
 						content: 'Inline custom prompt',
 						builtIn: false,
 					},
@@ -327,7 +326,7 @@ describe('WebhookService', () => {
 			settingsService = new WebhookService(app, () => settings);
 		});
 
-		it('resolves {{citekey}}, {{path.*}}, {{s3.*}}, {{prompt.<id>}}, and {{s3.prompt.<id>}} with s3:// prefix', async () => {
+		it('resolves {{citekey}}, {{path.*}}, {{prompt.<id>}}, and {{path.prompt.<id>}} while omitting removed {{s3.*}} variables', async () => {
 			const litFile = makeVaultFile('002-Literature/vaswani2017.md');
 			const vaultPromptFile = makeVaultFile('002-Literature/100-Prompts/synthesize.md');
 			const vaultPromptText =
@@ -353,7 +352,8 @@ describe('WebhookService', () => {
 				contentType: 'json',
 				headers: [
 					{ key: 'X-Citekey', value: '{{citekey}}', type: 'text' },
-					{ key: 'X-S3-Takeaway', value: '{{s3.takeaway}}', type: 'text' },
+					{ key: 'X-Takeaway-Path', value: '{{path.takeaway}}', type: 'text' },
+					{ key: 'X-Prompt-Path', value: '{{path.prompt.synthesize}}', type: 'text' },
 					{ key: 'X-Inline-Prompt', value: '{{prompt.inline_only}}', type: 'text' },
 				],
 				bodyTemplate: JSON.stringify({
@@ -365,19 +365,16 @@ describe('WebhookService', () => {
 						takeaway: '{{path.takeaway}}',
 						coreNote: '{{path.core_note}}',
 					},
-					s3: [
-						'{{s3.zotero_note}}',
-						'{{s3.report1}}',
-						'{{s3.report2}}',
-						'{{s3.takeaway}}',
-						'{{s3.core_note}}',
-					],
+					artifactList: ['{{path.zotero_note}}', '{{path.core_note}}'],
 					prompts: {
 						fromVault: '{{prompt.synthesize}}',
 						fromFallback: '{{prompt.report1}}',
-						s3VaultPrompt: '{{s3.prompt.synthesize}}',
-						s3EmptyPath: '{{s3.prompt.inline_only}}',
+						fromInline: '{{prompt.inline_only}}',
+						vaultPromptPath: '{{path.prompt.synthesize}}',
+						normalizedPromptPath: '{{path.prompt.report1}}',
+						emptyPromptPath: '{{path.prompt.inline_only}}',
 					},
+					legacyS3Placeholder: '{{s3.takeaway}}',
 					retryCount: 2,
 				}),
 				hidden: false,
@@ -388,9 +385,10 @@ describe('WebhookService', () => {
 			expect(requestUrl).toHaveBeenCalledTimes(1);
 			const req = (requestUrl as jest.Mock).mock.calls[0][0];
 			expect(req.headers['X-Citekey']).toBe('vaswani2017');
-			expect(req.headers['X-S3-Takeaway']).toBe(
-				's3://research-bucket/obsidian-vault/002-Literature/101-Takeaways/Takeaway-vaswani2017.md'
+			expect(req.headers['X-Takeaway-Path']).toBe(
+				'002-Literature/101-Takeaways/Takeaway-vaswani2017.md'
 			);
+			expect(req.headers['X-Prompt-Path']).toBe('002-Literature/100-Prompts/synthesize.md');
 			expect(req.headers['X-Inline-Prompt']).toBe('Inline custom prompt');
 
 			const parsed = JSON.parse(req.body);
@@ -402,30 +400,24 @@ describe('WebhookService', () => {
 				takeaway: '002-Literature/101-Takeaways/Takeaway-vaswani2017.md',
 				coreNote: '002-Literature/104-Paper Notes/vaswani2017.md',
 			});
-			expect(parsed.s3).toEqual([
-				's3://research-bucket/obsidian-vault/002-Literature/vaswani2017.md',
-				's3://research-bucket/obsidian-vault/002-Literature/102-Analysis Report/Deep Research-vaswani2017.md',
-				's3://research-bucket/obsidian-vault/002-Literature/103-External Analysis Report/External Research-vaswani2017.md',
-				's3://research-bucket/obsidian-vault/002-Literature/101-Takeaways/Takeaway-vaswani2017.md',
-				's3://research-bucket/obsidian-vault/002-Literature/104-Paper Notes/vaswani2017.md',
+			expect(parsed.artifactList).toEqual([
+				'002-Literature/vaswani2017.md',
+				'002-Literature/104-Paper Notes/vaswani2017.md',
 			]);
-			expect(parsed.prompts.fromVault).toBe(vaultPromptText);
-			expect(parsed.prompts.fromFallback).toBe(
-				'Line 1 with "quotes"\nLine 2 with LaTeX $\\frac{\\alpha}{\\beta}$'
-			);
-			expect(parsed.prompts.s3VaultPrompt).toBe(
-				's3://research-bucket/obsidian-vault/002-Literature/100-Prompts/synthesize.md'
-			);
-			expect(parsed.prompts.s3EmptyPath).toBe('');
+			expect(parsed.prompts).toEqual({
+				fromVault: vaultPromptText,
+				fromFallback: 'Line 1 with "quotes"\nLine 2 with LaTeX $\\frac{\\alpha}{\\beta}$',
+				fromInline: 'Inline custom prompt',
+				vaultPromptPath: '002-Literature/100-Prompts/synthesize.md',
+				normalizedPromptPath: '002-Literature/100-Prompts/report1.md',
+				emptyPromptPath: '',
+			});
+			expect(parsed.legacyS3Placeholder).toBe('{{s3.takeaway}}');
 			expect(parsed.retryCount).toBe(2);
 			expect(console.group).toHaveBeenCalled();
 		});
 
-		it('falls back to file path basename when frontmatter is absent and s3Prefix is empty', async () => {
-			settings.paperWorkspace = {
-				...settings.paperWorkspace,
-				s3Prefix: '',
-			};
+		it('falls back to file path basename when frontmatter is absent and escapes raw JSON fallback', async () => {
 			const bareFile = new TFile();
 			Object.assign(bareFile, { path: '002-Literature/dean2008.md' });
 
@@ -443,7 +435,7 @@ describe('WebhookService', () => {
 				headers: [],
 				// Intentionally unquoted trailing token so JSON.parse fails and fillStringTemplate(..., true) runs
 				bodyTemplate:
-					'{"citekey":"{{citekey}}","s3":"{{s3.zotero_note}}","prompt":"{{prompt.report1}}",raw:true}',
+					'{"citekey":"{{citekey}}","zotero":"{{path.zotero_note}}","promptPath":"{{path.prompt.report1}}","emptyPath":"{{path.prompt.inline_only}}","prompt":"{{prompt.report1}}",raw:true}',
 				hidden: false,
 			};
 
@@ -451,7 +443,9 @@ describe('WebhookService', () => {
 
 			const req = (requestUrl as jest.Mock).mock.calls[0][0];
 			expect(req.body).toContain('"citekey":"dean2008"');
-			expect(req.body).toContain('"s3":"002-Literature/dean2008.md"');
+			expect(req.body).toContain('"zotero":"002-Literature/dean2008.md"');
+			expect(req.body).toContain('"promptPath":"002-Literature/100-Prompts/report1.md"');
+			expect(req.body).toContain('"emptyPath":""');
 			expect(req.body).toContain(
 				'Line 1 with \\"quotes\\"\\nLine 2 with LaTeX $\\\\frac{\\\\alpha}{\\\\beta}$'
 			);

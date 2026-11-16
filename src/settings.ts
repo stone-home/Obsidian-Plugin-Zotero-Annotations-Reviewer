@@ -42,7 +42,6 @@ import {
 	WebhookInputVariable,
 	WebhookProfile,
 } from './types';
-import { resolvePaperPaths } from './services/paper-hub';
 import { ZoteroService } from './services/zotero';
 import { ZoteroConnectorService } from './services/zotero-connector';
 import { normalizePath } from './utils/paths';
@@ -226,7 +225,6 @@ export class ZoteroSettingTab extends PluginSettingTab {
 	// -------------------------------------------------------------------------
 	renderGeneralSettings(container: HTMLElement): void {
 		const ws = this.plugin.settings.paperWorkspace;
-		let updateS3Preview: () => void = () => {};
 
 		// === CARD 1: PAPER WORKSPACE LAYOUT ===
 		const layoutCard = container.createDiv({ cls: 'zotero-setting-card' });
@@ -256,7 +254,6 @@ export class ZoteroSettingTab extends PluginSettingTab {
 						ws[key] = val.trim();
 						if (afterSave) afterSave(ws[key]);
 						await this.plugin.saveSettings();
-						updateS3Preview();
 					});
 				text.inputEl.addClass('zotero-workspace-path-input');
 			});
@@ -269,7 +266,6 @@ export class ZoteroSettingTab extends PluginSettingTab {
 					if (afterSave) afterSave(defaultVal);
 					textRef?.setValue(defaultVal);
 					await this.plugin.saveSettings();
-					updateS3Preview();
 				}
 			);
 		};
@@ -320,51 +316,7 @@ export class ZoteroSettingTab extends PluginSettingTab {
 			DEFAULT_PAPER_WORKSPACE.atomicNotesFolder
 		);
 
-		// === CARD 2: S3 SYNC PATH MAPPING ===
-		const s3Card = container.createDiv({ cls: 'zotero-setting-card' });
-		s3Card.createEl('h3', {
-			text: 'S3 Sync Path Mapping',
-			cls: 'zotero-card-title',
-		});
-		s3Card.createDiv({
-			text: 'Optional S3 bucket URI or key prefix mirrored by your vault sync (e.g. Remotely Save / rclone). Populates {{s3.*}} placeholders in webhooks.',
-			cls: 'setting-item-description zotero-desc-tight',
-		});
-
-		new Setting(s3Card)
-			.setName('S3 URI / Key Prefix')
-			.setDesc('Example: s3://my-research-bucket/obsidian-vault')
-			.addText((text) => {
-				text.setPlaceholder('s3://bucket/prefix')
-					.setValue(ws.s3Prefix || '')
-					.onChange(async (value) => {
-						ws.s3Prefix = value.trim();
-						await this.plugin.saveSettings();
-						updateS3Preview();
-					});
-				text.inputEl.addClass('zotero-workspace-path-input');
-			});
-
-		const previewBox = s3Card.createDiv({ cls: 'zotero-s3-preview' });
-		updateS3Preview = () => {
-			previewBox.empty();
-			const sample = resolvePaperPaths(ws, 'smith2024');
-			const rows: Array<[string, string]> = [
-				['{{s3.zotero_note}}', sample.s3.literatureNote],
-				['{{s3.report1}}', sample.s3.report1],
-				['{{s3.report2}}', sample.s3.report2],
-				['{{s3.takeaway}}', sample.s3.takeaway],
-				['{{s3.core_note}}', sample.s3.coreNote],
-			];
-			for (const [token, resolved] of rows) {
-				const line = previewBox.createDiv({ cls: 'zotero-s3-preview-row' });
-				line.createSpan({ cls: 'zotero-s3-preview-token', text: token });
-				line.createSpan({ cls: 'zotero-s3-preview-val', text: resolved });
-			}
-		};
-		updateS3Preview();
-
-		// === CARD 3: ZOTERO CONNECTION & KEYS ===
+		// === CARD 2: ZOTERO CONNECTION & KEYS ===
 		const zoteroConnCard = container.createDiv({ cls: 'zotero-setting-card' });
 		zoteroConnCard.createEl('h3', {
 			text: 'Zotero Connection & Keys',
@@ -812,7 +764,7 @@ export class ZoteroSettingTab extends PluginSettingTab {
 		topMeta.createEl('h3', { text: entry.name, cls: 'zotero-card-title zotero-no-margin' });
 
 		const chipsWrap = topMeta.createDiv({ cls: 'zotero-placeholder-chips' });
-		for (const token of [`{{prompt.${entry.id}}}`, `{{s3.prompt.${entry.id}}}`]) {
+		for (const token of [`{{prompt.${entry.id}}}`, `{{path.prompt.${entry.id}}}`]) {
 			const chip = chipsWrap.createEl('button', {
 				cls: 'zotero-placeholder-chip',
 				text: token,
@@ -1086,7 +1038,7 @@ export class ZoteroSettingTab extends PluginSettingTab {
 					icon: 'send',
 					headers: [],
 					bodyTemplate:
-						'{\n  "citekey": "{{citekey}}",\n  "zotero_s3": "{{s3.zotero_note}}",\n  "report1_s3": "{{s3.report1}}",\n  "report2_s3": "{{s3.report2}}",\n  "takeaway_s3": "{{s3.takeaway}}"\n}',
+						'{\n  "citekey": "{{citekey}}",\n  "zotero_note": "{{path.zotero_note}}",\n  "report1": "{{path.report1}}",\n  "report2": "{{path.report2}}",\n  "takeaway": "{{path.takeaway}}"\n}',
 					hidden: false,
 					contentType: 'json',
 					inputVariables: [],
@@ -1795,18 +1747,13 @@ export class WebhookEditModal extends Modal {
 
 		const quickTokens = [
 			'{{citekey}}',
-			'{{s3.zotero_note}}',
-			'{{s3.report1}}',
-			'{{s3.report2}}',
-			'{{s3.takeaway}}',
-			'{{s3.core_note}}',
 			'{{path.zotero_note}}',
 			'{{path.report1}}',
 			'{{path.report2}}',
 			'{{path.takeaway}}',
 			'{{path.core_note}}',
 			...this.prompts.map((p) => `{{prompt.${p.id}}}`),
-			...this.prompts.map((p) => `{{s3.prompt.${p.id}}}`),
+			...this.prompts.map((p) => `{{path.prompt.${p.id}}}`),
 			'{{filename}}',
 			'{{content}}',
 		];

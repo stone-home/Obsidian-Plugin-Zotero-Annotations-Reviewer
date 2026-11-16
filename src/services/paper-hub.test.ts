@@ -1,4 +1,5 @@
-import { App, TFile } from 'obsidian';
+import { App, Notice, TFile } from 'obsidian';
+import yaml from 'js-yaml';
 import {
 	DEFAULT_PAPER_WORKSPACE,
 	DEFAULT_SETTINGS,
@@ -7,7 +8,6 @@ import {
 	PromptTemplateEntry,
 } from '../types';
 import {
-	buildS3Uri,
 	CoreNoteData,
 	extractCodeUrlFromReport,
 	extractTakeawaySummary,
@@ -20,6 +20,11 @@ import {
 	unwrapTakeawayMarkdown,
 } from './paper-hub';
 import { ZoteroConnectorService } from './zotero-connector';
+
+jest.mock('obsidian', () => ({
+	...jest.requireActual('obsidian'),
+	Notice: jest.fn(),
+}));
 
 function makeVaultFile(path: string, mtime = 1000): TFile {
 	const file = new TFile();
@@ -48,60 +53,100 @@ describe('paper-hub pure helpers', () => {
 		});
 	});
 
-	describe('buildS3Uri', () => {
-		it('preserves s3://bucket/prefix without collapsing double slashes', () => {
-			expect(
-				buildS3Uri('s3://my-bucket/obsidian-vault/', '/002-Literature\\smith2024.md')
-			).toBe('s3://my-bucket/obsidian-vault/002-Literature/smith2024.md');
-			expect(buildS3Uri('s3://my-bucket', '002-Literature/smith2024.md')).toBe(
-				's3://my-bucket/002-Literature/smith2024.md'
+	describe('DEFAULT_ZOTERO_TEMPLATE Nunjucks & YAML contracts', () => {
+		function simulateNunjucksAuthorsBlock(template: string, authorsValue: string): string {
+			const match = template.match(
+				/authors:[\s\S]*?create: \{\{date \| format\("YYYY-MM-DD"\)\}\}/
 			);
+			if (!match) {
+				throw new Error('Could not locate authors..create block in DEFAULT_ZOTERO_TEMPLATE');
+			}
+			const rawBlock = match[0];
+
+			// Apply Nunjucks tag whitespace trimming: {%- strips preceding whitespace, -%} strips following whitespace
+			const parts = rawBlock.split(/(\{%-?\s*[\s\S]*?\s*-?%\})/);
+			for (let i = 1; i < parts.length; i += 2) {
+				const tag = parts[i];
+				if (tag.startsWith('{%-')) {
+					parts[i - 1] = parts[i - 1].replace(/\s+$/, '');
+				}
+				if (tag.endsWith('-%}')) {
+					parts[i + 1] = parts[i + 1].replace(/^\s+/, '');
+				}
+			}
+			expect(parts).toHaveLength(9);
+
+			const renderAuthorExpr = (text: string, author: string): string =>
+				text.replace(
+					/\{\{\s*author\s*\|\s*trim\s*\|\s*replace\(" ", "-"\)\s*\|\s*replace\("\.", ""\)\s*\}\}/g,
+					author.trim().replace(/ /g, '-').replace(/\./g, '')
+				);
+
+			let rendered = parts[0];
+			if (authorsValue) {
+				rendered += parts[2];
+				for (const item of authorsValue.split(',')) {
+					rendered += renderAuthorExpr(parts[4], item);
+				}
+				rendered += parts[6];
+			}
+			rendered += parts[8].replace('{{date | format("YYYY-MM-DD")}}', '"2024-05-01"');
+			return rendered;
+		}
+
+		it('omits trailing -%} in authors loop tags and renders valid YAML list or null with create on its own line', () => {
+			const authorsSectionMatch = DEFAULT_ZOTERO_TEMPLATE.match(
+				/authors:[\s\S]*?create: \{\{date \| format\("YYYY-MM-DD"\)\}\}/
+			);
+			expect(authorsSectionMatch).not.toBeNull();
+			expect(authorsSectionMatch![0]).not.toContain('-%}');
+			expect(DEFAULT_ZOTERO_TEMPLATE).not.toMatch(/\{%-?\s*for\s+author[^%]*-%\}/);
+			expect(DEFAULT_ZOTERO_TEMPLATE).toContain('{%- if authors %}');
+			expect(DEFAULT_ZOTERO_TEMPLATE).toContain('{%- for author in authors.split(",") %}');
+			expect(DEFAULT_ZOTERO_TEMPLATE).toContain('{%- endfor %}\n{%- endif %}\ncreate:');
+
+			const renderedWithAuthors = simulateNunjucksAuthorsBlock(
+				DEFAULT_ZOTERO_TEMPLATE,
+				'Kaiyuan Tian, Linbo. Qiao'
+			);
+			expect(renderedWithAuthors).not.toContain('authors:-');
+			expect(renderedWithAuthors).toBe(
+				'authors:\n  - Kaiyuan-Tian\n  - Linbo-Qiao\ncreate: "2024-05-01"'
+			);
+			expect(yaml.load(renderedWithAuthors)).toEqual({
+				authors: ['Kaiyuan-Tian', 'Linbo-Qiao'],
+				create: '2024-05-01',
+			});
+
+			const renderedEmptyAuthors = simulateNunjucksAuthorsBlock(DEFAULT_ZOTERO_TEMPLATE, '');
+			expect(renderedEmptyAuthors).toBe('authors:\ncreate: "2024-05-01"');
+			expect(yaml.load(renderedEmptyAuthors)).toEqual({
+				authors: null,
+				create: '2024-05-01',
+			});
 		});
 
-		it('handles plain folder prefixes, empty prefixes, and empty relative paths', () => {
-			expect(buildS3Uri('vault-backup/main/', '002-Literature/smith2024.md')).toBe(
-				'vault-backup/main/002-Literature/smith2024.md'
+		it('resolves conferencePaper venue from (conferenceName or proceedingsTitle)', () => {
+			expect(DEFAULT_ZOTERO_TEMPLATE).toContain(
+				"((conferenceName or proceedingsTitle) if itemType == 'conferencePaper' else '')"
 			);
-			expect(buildS3Uri('   ', '/002-Literature/smith2024.md')).toBe(
-				'002-Literature/smith2024.md'
-			);
-			expect(buildS3Uri('s3://my-bucket/prefix/', '')).toBe('s3://my-bucket/prefix');
 		});
 	});
 
 	describe('resolvePaperPaths', () => {
-		it('resolves all five workspace paths and corresponding S3 URIs', () => {
-			const resolved = resolvePaperPaths(
-				{
-					...DEFAULT_PAPER_WORKSPACE,
-					s3Prefix: 's3://research-vault/notes',
-				},
-				'vaswani2017'
-			);
+		it('resolves all five vault-relative workspace paths without S3 fields', () => {
+			const resolved = resolvePaperPaths(DEFAULT_PAPER_WORKSPACE, ' vaswani2017 ');
 
-			expect(resolved.citekey).toBe('vaswani2017');
-			expect(resolved.literatureNote).toBe('002-Literature/vaswani2017.md');
-			expect(resolved.report1).toBe(
-				'002-Literature/102-Analysis Report/Deep Research-vaswani2017.md'
-			);
-			expect(resolved.report2).toBe(
-				'002-Literature/103-External Analysis Report/External Research-vaswani2017.md'
-			);
-			expect(resolved.takeaway).toBe(
-				'002-Literature/101-Takeaways/Takeaway-vaswani2017.md'
-			);
-			expect(resolved.coreNote).toBe('002-Literature/104-Paper Notes/vaswani2017.md');
-			expect(resolved.s3).toEqual({
-				literatureNote: 's3://research-vault/notes/002-Literature/vaswani2017.md',
-				report1:
-					's3://research-vault/notes/002-Literature/102-Analysis Report/Deep Research-vaswani2017.md',
+			expect(resolved).toEqual({
+				citekey: 'vaswani2017',
+				literatureNote: '002-Literature/vaswani2017.md',
+				report1: '002-Literature/102-Analysis Report/Deep Research-vaswani2017.md',
 				report2:
-					's3://research-vault/notes/002-Literature/103-External Analysis Report/External Research-vaswani2017.md',
-				takeaway:
-					's3://research-vault/notes/002-Literature/101-Takeaways/Takeaway-vaswani2017.md',
-				coreNote:
-					's3://research-vault/notes/002-Literature/104-Paper Notes/vaswani2017.md',
+					'002-Literature/103-External Analysis Report/External Research-vaswani2017.md',
+				takeaway: '002-Literature/101-Takeaways/Takeaway-vaswani2017.md',
+				coreNote: '002-Literature/104-Paper Notes/vaswani2017.md',
 			});
+			expect('s3' in (resolved as unknown as Record<string, unknown>)).toBe(false);
 		});
 	});
 
@@ -312,7 +357,7 @@ describe('PaperHubService', () => {
 
 		settings = {
 			...DEFAULT_SETTINGS,
-			paperWorkspace: { ...DEFAULT_PAPER_WORKSPACE, s3Prefix: 's3://bucket/vault' },
+			paperWorkspace: { ...DEFAULT_PAPER_WORKSPACE },
 			prompts: DEFAULT_SETTINGS.prompts.map((p) => ({ ...p })),
 		};
 
@@ -574,7 +619,7 @@ describe('PaperHubService', () => {
 	});
 });
 
-describe('ZoteroConnectorService template management', () => {
+describe('ZoteroConnectorService template management and interactive import', () => {
 	let app: App;
 	let settings: MyPluginSettings;
 	let connector: ZoteroConnectorService;
@@ -582,6 +627,7 @@ describe('ZoteroConnectorService template management', () => {
 	let vaultContents: Map<string, string>;
 
 	beforeEach(() => {
+		(Notice as unknown as jest.Mock).mockClear();
 		app = new App();
 		vaultFiles = new Map();
 		vaultContents = new Map();
@@ -618,6 +664,81 @@ describe('ZoteroConnectorService template management', () => {
 		};
 
 		connector = new ZoteroConnectorService(app, settings);
+	});
+
+	it('triggerInteractiveImport executes exact zdc-exp-<format> command when registered', async () => {
+		const runImport = jest.fn();
+		((app as any).plugins.getPlugin as jest.Mock).mockReturnValue({
+			settings: { exportFormats: [{ name: 'Literature' }] },
+			runImport,
+		});
+		const executeCommandById = jest.fn().mockReturnValue(true);
+		(app as any).commands = {
+			commands: {
+				'obsidian-zotero-desktop-connector:zdc-exp-Other': {},
+				'obsidian-zotero-desktop-connector:zdc-exp-Literature': {},
+			},
+			executeCommandById,
+		};
+
+		await expect(connector.triggerInteractiveImport()).resolves.toBe(true);
+		expect(executeCommandById).toHaveBeenCalledTimes(1);
+		expect(executeCommandById).toHaveBeenCalledWith(
+			'obsidian-zotero-desktop-connector:zdc-exp-Literature'
+		);
+		expect(runImport).not.toHaveBeenCalled();
+		expect(Notice).not.toHaveBeenCalled();
+	});
+
+	it('triggerInteractiveImport falls back to first zdc-exp-* command when exact format command is absent', async () => {
+		const runImport = jest.fn();
+		((app as any).plugins.getPlugin as jest.Mock).mockReturnValue({
+			settings: { exportFormats: [{ name: 'RenamedFormat' }] },
+			runImport,
+		});
+		const executeCommandById = jest.fn().mockReturnValue(true);
+		(app as any).commands = {
+			commands: {
+				'editor:toggle-bold': {},
+				'obsidian-zotero-desktop-connector:zdc-exp-Default': {},
+			},
+			executeCommandById,
+		};
+
+		await expect(connector.triggerInteractiveImport()).resolves.toBe(true);
+		expect(executeCommandById).toHaveBeenCalledTimes(1);
+		expect(executeCommandById).toHaveBeenCalledWith(
+			'obsidian-zotero-desktop-connector:zdc-exp-Default'
+		);
+		expect(runImport).not.toHaveBeenCalled();
+		expect(Notice).not.toHaveBeenCalled();
+	});
+
+	it('triggerInteractiveImport falls back to plugin.runImport(fmt.name) without citekey when no zdc-exp command exists', async () => {
+		const runImport = jest.fn().mockResolvedValue(undefined);
+		((app as any).plugins.getPlugin as jest.Mock).mockReturnValue({
+			settings: { exportFormats: [{ name: 'Markdown' }] },
+			runImport,
+		});
+		(app as any).commands = {
+			commands: { 'editor:open-search': {} },
+			executeCommandById: jest.fn(),
+		};
+
+		await expect(connector.triggerInteractiveImport()).resolves.toBe(true);
+		expect(runImport).toHaveBeenCalledTimes(1);
+		expect(runImport).toHaveBeenCalledWith('Markdown');
+		expect(Notice).not.toHaveBeenCalled();
+	});
+
+	it('triggerInteractiveImport shows Notice and returns false when connector plugin is missing or unconfigured', async () => {
+		((app as any).plugins.getPlugin as jest.Mock).mockReturnValue(null);
+		(app as any).commands = undefined;
+
+		await expect(connector.triggerInteractiveImport()).resolves.toBe(false);
+		expect(Notice).toHaveBeenCalledWith(
+			'Obsidian Zotero Desktop Connector plugin not found or configured.'
+		);
 	});
 
 	it('detectTemplatePath resolves templatePath, templateFile, or null when unconfigured', () => {

@@ -12,7 +12,7 @@ interface ZoteroDesktopConnectorPlugin {
 	settings?: {
 		exportFormats?: ZoteroExportFormat[];
 	};
-	runImport?: (name: string, citekey: string) => Promise<void>;
+	runImport?: (name: string, citekey?: string) => Promise<void>;
 }
 
 export class ZoteroConnectorService {
@@ -39,6 +39,44 @@ export class ZoteroConnectorService {
 		} else {
 			new Notice('Obsidian Zotero Desktop Connector plugin not found or configured.');
 		}
+	}
+
+	async triggerInteractiveImport(): Promise<boolean> {
+		const plugin = this.getConnectorPlugin();
+		const fmt = plugin?.settings?.exportFormats?.[0];
+		const commands = (
+			this.app as unknown as {
+				commands?: {
+					commands?: Record<string, unknown>;
+					executeCommandById?: (id: string) => boolean;
+				};
+			}
+		).commands;
+
+		if (commands?.executeCommandById && commands.commands) {
+			if (fmt?.name) {
+				const exactId = `obsidian-zotero-desktop-connector:zdc-exp-${fmt.name}`;
+				if (commands.commands[exactId]) {
+					commands.executeCommandById(exactId);
+					return true;
+				}
+			}
+			const found = Object.keys(commands.commands).find((k) =>
+				k.startsWith('obsidian-zotero-desktop-connector:zdc-exp-')
+			);
+			if (found) {
+				commands.executeCommandById(found);
+				return true;
+			}
+		}
+
+		if (plugin && fmt?.name && plugin.runImport) {
+			await plugin.runImport(fmt.name);
+			return true;
+		}
+
+		new Notice('Obsidian Zotero Desktop Connector plugin not found or configured.');
+		return false;
 	}
 
 	detectTemplatePath(): string | null {
