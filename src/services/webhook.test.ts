@@ -1,6 +1,6 @@
 import { WebhookService } from './webhook';
 import { App, TFile, requestUrl } from 'obsidian';
-import { WebhookProfile } from '../types';
+import { DEFAULT_SETTINGS, MyPluginSettings, WebhookProfile } from '../types';
 
 // Mock requestUrl from obsidian
 jest.mock('obsidian', () => ({
@@ -8,6 +8,14 @@ jest.mock('obsidian', () => ({
 	requestUrl: jest.fn(),
 	Notice: jest.fn() // Silence notices
 }));
+
+function makeVaultFile(path: string): TFile {
+	const file = new TFile();
+	const name = path.split('/').pop() || path;
+	const basename = name.replace(/\.md$/i, '');
+	Object.assign(file, { path, name, basename, extension: 'md' });
+	return file;
+}
 
 describe('WebhookService', () => {
 	let app: App;
@@ -17,6 +25,9 @@ describe('WebhookService', () => {
 	beforeAll(() => {
 		jest.spyOn(console, 'warn').mockImplementation(() => {});
 		jest.spyOn(console, 'error').mockImplementation(() => {});
+		jest.spyOn(console, 'group').mockImplementation(() => {});
+		jest.spyOn(console, 'groupEnd').mockImplementation(() => {});
+		jest.spyOn(console, 'log').mockImplementation(() => {});
 	});
 
 	// 2. Restore console logs after tests finish (Critical!)
@@ -276,5 +287,192 @@ describe('WebhookService', () => {
 		expect(requestUrl).toHaveBeenCalledWith(expect.objectContaining({
 			headers: expect.objectContaining({ 'Authorization': 'resolved-secret' })
 		}));
+	});
+
+	describe('with getSettings (Paper Workspace, S3 & Prompt placeholders)', () => {
+		let settings: MyPluginSettings;
+		let settingsService: WebhookService;
+
+		beforeEach(() => {
+			settings = {
+				...DEFAULT_SETTINGS,
+				paperWorkspace: {
+					...DEFAULT_SETTINGS.paperWorkspace,
+					s3Prefix: 's3://research-bucket/obsidian-vault/',
+				},
+				prompts: [
+					{
+						id: 'synthesize',
+						name: 'Synthesize Takeaway',
+						vaultPath: '002-Literature/100-Prompts/synthesize.md',
+						content: 'Fallback synthesize prompt',
+						builtIn: true,
+					},
+					{
+						id: 'report1',
+						name: 'Report 1',
+						vaultPath: '002-Literature/100-Prompts/report1.md',
+						content: 'Line 1 with "quotes"\nLine 2 with LaTeX $\\frac{\\alpha}{\\beta}$',
+						builtIn: true,
+					},
+					{
+						id: 'inline_only',
+						name: 'Inline Only',
+						vaultPath: '',
+						content: 'Inline custom prompt',
+						builtIn: false,
+					},
+				],
+			};
+			settingsService = new WebhookService(app, () => settings);
+		});
+
+		it('resolves {{citekey}}, {{path.*}}, {{s3.*}}, {{prompt.<id>}}, and {{s3.prompt.<id>}} with s3:// prefix', async () => {
+			const litFile = makeVaultFile('002-Literature/vaswani2017.md');
+			const vaultPromptFile = makeVaultFile('002-Literature/100-Prompts/synthesize.md');
+			const vaultPromptText =
+				'# Vault Prompt\nUse "exact quotes" and $\\sum_{i=1}^{n} x_i$ in output.';
+
+			(app.metadataCache.getFileCache as jest.Mock).mockReturnValue({
+				frontmatter: { 'citation-key': 'vaswani2017' },
+			});
+			(app.vault.getAbstractFileByPath as jest.Mock).mockImplementation((p: string) =>
+				p === '002-Literature/100-Prompts/synthesize.md' ? vaultPromptFile : null
+			);
+			(app.vault.read as jest.Mock).mockImplementation(async (f: TFile) =>
+				f === vaultPromptFile ? vaultPromptText : 'Paper markdown body'
+			);
+			(requestUrl as jest.Mock).mockResolvedValue({ status: 200 });
+
+			const profile: WebhookProfile = {
+				id: 'paper-pipeline',
+				name: 'Paper Pipeline',
+				icon: 'rocket',
+				url: 'https://n8n.example.com/webhook/paper',
+				method: 'POST',
+				contentType: 'json',
+				headers: [
+					{ key: 'X-Citekey', value: '{{citekey}}', type: 'text' },
+					{ key: 'X-S3-Takeaway', value: '{{s3.takeaway}}', type: 'text' },
+					{ key: 'X-Inline-Prompt', value: '{{prompt.inline_only}}', type: 'text' },
+				],
+				bodyTemplate: JSON.stringify({
+					citekey: '{{citekey}}',
+					paths: {
+						zotero: '{{path.zotero_note}}',
+						report1: '{{path.report1}}',
+						report2: '{{path.report2}}',
+						takeaway: '{{path.takeaway}}',
+						coreNote: '{{path.core_note}}',
+					},
+					s3: [
+						'{{s3.zotero_note}}',
+						'{{s3.report1}}',
+						'{{s3.report2}}',
+						'{{s3.takeaway}}',
+						'{{s3.core_note}}',
+					],
+					prompts: {
+						fromVault: '{{prompt.synthesize}}',
+						fromFallback: '{{prompt.report1}}',
+						s3VaultPrompt: '{{s3.prompt.synthesize}}',
+						s3EmptyPath: '{{s3.prompt.inline_only}}',
+					},
+					retryCount: 2,
+				}),
+				hidden: false,
+			};
+
+			await settingsService.triggerWebhook(profile, litFile, undefined, true);
+
+			expect(requestUrl).toHaveBeenCalledTimes(1);
+			const req = (requestUrl as jest.Mock).mock.calls[0][0];
+			expect(req.headers['X-Citekey']).toBe('vaswani2017');
+			expect(req.headers['X-S3-Takeaway']).toBe(
+				's3://research-bucket/obsidian-vault/002-Literature/101-Takeaways/Takeaway-vaswani2017.md'
+			);
+			expect(req.headers['X-Inline-Prompt']).toBe('Inline custom prompt');
+
+			const parsed = JSON.parse(req.body);
+			expect(parsed.citekey).toBe('vaswani2017');
+			expect(parsed.paths).toEqual({
+				zotero: '002-Literature/vaswani2017.md',
+				report1: '002-Literature/102-Analysis Report/Deep Research-vaswani2017.md',
+				report2: '002-Literature/103-External Analysis Report/External Research-vaswani2017.md',
+				takeaway: '002-Literature/101-Takeaways/Takeaway-vaswani2017.md',
+				coreNote: '002-Literature/104-Paper Notes/vaswani2017.md',
+			});
+			expect(parsed.s3).toEqual([
+				's3://research-bucket/obsidian-vault/002-Literature/vaswani2017.md',
+				's3://research-bucket/obsidian-vault/002-Literature/102-Analysis Report/Deep Research-vaswani2017.md',
+				's3://research-bucket/obsidian-vault/002-Literature/103-External Analysis Report/External Research-vaswani2017.md',
+				's3://research-bucket/obsidian-vault/002-Literature/101-Takeaways/Takeaway-vaswani2017.md',
+				's3://research-bucket/obsidian-vault/002-Literature/104-Paper Notes/vaswani2017.md',
+			]);
+			expect(parsed.prompts.fromVault).toBe(vaultPromptText);
+			expect(parsed.prompts.fromFallback).toBe(
+				'Line 1 with "quotes"\nLine 2 with LaTeX $\\frac{\\alpha}{\\beta}$'
+			);
+			expect(parsed.prompts.s3VaultPrompt).toBe(
+				's3://research-bucket/obsidian-vault/002-Literature/100-Prompts/synthesize.md'
+			);
+			expect(parsed.prompts.s3EmptyPath).toBe('');
+			expect(parsed.retryCount).toBe(2);
+			expect(console.group).toHaveBeenCalled();
+		});
+
+		it('falls back to file path basename when frontmatter is absent and s3Prefix is empty', async () => {
+			settings.paperWorkspace = {
+				...settings.paperWorkspace,
+				s3Prefix: '',
+			};
+			const bareFile = new TFile();
+			Object.assign(bareFile, { path: '002-Literature/dean2008.md' });
+
+			(app.metadataCache.getFileCache as jest.Mock).mockReturnValue(null);
+			(app.vault.getAbstractFileByPath as jest.Mock).mockReturnValue(null);
+			(requestUrl as jest.Mock).mockResolvedValue({ status: 200 });
+
+			const profile: WebhookProfile = {
+				id: 'raw-json-escape',
+				name: 'Raw JSON Escape',
+				icon: 'code',
+				url: 'https://api.example.com/raw',
+				method: 'POST',
+				contentType: 'json',
+				headers: [],
+				// Intentionally unquoted trailing token so JSON.parse fails and fillStringTemplate(..., true) runs
+				bodyTemplate:
+					'{"citekey":"{{citekey}}","s3":"{{s3.zotero_note}}","prompt":"{{prompt.report1}}",raw:true}',
+				hidden: false,
+			};
+
+			await settingsService.triggerWebhook(profile, bareFile);
+
+			const req = (requestUrl as jest.Mock).mock.calls[0][0];
+			expect(req.body).toContain('"citekey":"dean2008"');
+			expect(req.body).toContain('"s3":"002-Literature/dean2008.md"');
+			expect(req.body).toContain(
+				'Line 1 with \\"quotes\\"\\nLine 2 with LaTeX $\\\\frac{\\\\alpha}{\\\\beta}$'
+			);
+		});
+
+		it('logs (none) body when debugMode is enabled on GET requests', async () => {
+			(requestUrl as jest.Mock).mockResolvedValue({ status: 200 });
+			const profile: WebhookProfile = {
+				id: 'debug-get',
+				name: 'Debug GET',
+				icon: 'bug',
+				url: 'https://api.example.com/ping',
+				method: 'GET',
+				contentType: 'text',
+				headers: [],
+				bodyTemplate: '',
+				hidden: false,
+			};
+
+			await settingsService.triggerWebhook(profile, mockFile, undefined, true);
+			expect(console.log).toHaveBeenCalledWith('Body:', '(none)');
+		});
 	});
 });

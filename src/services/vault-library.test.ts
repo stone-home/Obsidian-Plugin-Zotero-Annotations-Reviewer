@@ -1,0 +1,582 @@
+import { App, TFile } from 'obsidian';
+import {
+	DEFAULT_PAPER_WORKSPACE,
+	DEFAULT_SETTINGS,
+	MyPluginSettings,
+} from '../types';
+import {
+	PaperHubService,
+	parseCoreNoteContent,
+	resolvePaperPaths,
+	serializeCoreNoteContent,
+	TakeawayCandidate,
+} from './paper-hub';
+import {
+	normalizeVenueSeries,
+	scoreLibraryMatch,
+	VaultLibraryService,
+	VaultPaperEntry,
+} from './vault-library';
+
+function makeVaultFile(path: string, mtime = 1000): TFile {
+	const file = new TFile();
+	const name = path.split('/').pop() || path;
+	const basename = name.replace(/\.md$/i, '');
+	Object.assign(file, {
+		path,
+		name,
+		basename,
+		extension: path.split('.').pop() || 'md',
+		stat: { mtime, ctime: mtime, size: 128 },
+	});
+	return file;
+}
+
+describe('vault-library pure helpers', () => {
+	describe('normalizeVenueSeries', () => {
+		it('normalizes wiki-links, Series suffixes, parenthetical conference acronyms, and org prefixes', () => {
+			expect(normalizeVenueSeries('')).toBe('');
+			expect(normalizeVenueSeries('  ""  ')).toBe('');
+			expect(normalizeVenueSeries('[[OSDI]]')).toBe('OSDI');
+			expect(normalizeVenueSeries('[[OSDI Series]]')).toBe('OSDI');
+			expect(normalizeVenueSeries('[[CFP/OSDI/OSDI Series|OSDI 2024]]')).toBe('OSDI');
+			expect(
+				normalizeVenueSeries(
+					"Proceedings of the 18th USENIX Symposium on Operating Systems Design and Implementation (OSDI '24)"
+				)
+			).toBe('OSDI');
+			expect(
+				normalizeVenueSeries(
+					'Proceedings of the 2025 International Conference on Management of Data (ACM SIGMOD 2025)'
+				)
+			).toBe('SIGMOD');
+			expect(normalizeVenueSeries('IEEE TPDS 2025')).toBe('TPDS');
+			expect(normalizeVenueSeries('Journal of Systems Research 2024')).toBe(
+				'Journal of Systems Research'
+			);
+			expect(normalizeVenueSeries('[[SOSP]] 2023')).toBe('SOSP');
+		});
+	});
+
+	describe('scoreLibraryMatch', () => {
+		const sampleEntry: VaultPaperEntry = {
+			file: makeVaultFile('002-Literature/dean2008.md'),
+			citekey: 'dean2008',
+			title: 'MapReduce: Simplified Data Processing on Large Clusters',
+			authors: ['Jeffrey-Dean', 'Sanjay-Ghemawat'],
+			year: '2008',
+			venue: 'Communications of the ACM',
+			venueSeries: 'CACM',
+			doi: '10.1145/1327452.1327492',
+			url: '',
+			codeUrl: '',
+			projects: ['[[DistSys]]'],
+			linkedNotes: [],
+			tags: ['topic/mapreduce'],
+			coreNoteBody: 'Deterministic task re-execution handles stragglers.',
+			tldr: 'Functional map and reduce primitives scale across commodity clusters.',
+			novelty: 'Backup tasks mitigate tail latency.',
+			limitation: 'Materializes intermediate state to local disk.',
+			hasCoreNote: true,
+			hasTakeaway: true,
+			hasReport1: false,
+			hasReport2: false,
+		};
+
+		it('returns 1 for empty queries, positive multi-field scores for matching tokens, and 0 when any token misses', () => {
+			expect(scoreLibraryMatch(sampleEntry, '   ')).toBe(1);
+
+			const exactKeyScore = scoreLibraryMatch(sampleEntry, 'dean2008');
+			const partialKeyScore = scoreLibraryMatch(sampleEntry, 'dean');
+			expect(exactKeyScore).toBeGreaterThan(partialKeyScore);
+
+			const multiTokenScore = scoreLibraryMatch(
+				sampleEntry,
+				'mapreduce cacm ghemawat 2008 distsys stragglers'
+			);
+			expect(multiTokenScore).toBeGreaterThan(20);
+
+			expect(scoreLibraryMatch(sampleEntry, 'mapreduce quantum-computing')).toBe(0);
+		});
+	});
+});
+
+describe('VaultLibraryService', () => {
+	let app: App;
+	let settings: MyPluginSettings;
+	let paperHub: PaperHubService;
+	let library: VaultLibraryService;
+	let vaultFiles: Map<string, TFile>;
+	let vaultContents: Map<string, string>;
+	let frontmatters: Map<string, Record<string, any>>;
+
+	const registerFile = (
+		path: string,
+		fm?: Record<string, any>,
+		content = '',
+		mtime = 1000
+	): TFile => {
+		const f = makeVaultFile(path, mtime);
+		vaultFiles.set(path, f);
+		vaultContents.set(path, content);
+		if (fm) frontmatters.set(path, fm);
+		return f;
+	};
+
+	beforeEach(() => {
+		app = new App();
+		vaultFiles = new Map();
+		vaultContents = new Map();
+		frontmatters = new Map();
+
+		settings = {
+			...DEFAULT_SETTINGS,
+			paperWorkspace: { ...DEFAULT_PAPER_WORKSPACE },
+			prompts: DEFAULT_SETTINGS.prompts.map((p) => ({ ...p })),
+		};
+
+		(app.vault.getAbstractFileByPath as jest.Mock).mockImplementation(
+			(p: string) => vaultFiles.get(p) ?? null
+		);
+		(app.vault.getMarkdownFiles as jest.Mock).mockImplementation(() =>
+			Array.from(vaultFiles.values()).filter((f) => f.path.endsWith('.md'))
+		);
+		(app.vault.read as jest.Mock).mockImplementation(
+			async (f: TFile) => vaultContents.get(f.path) ?? ''
+		);
+		(app.vault.modify as jest.Mock).mockImplementation(
+			async (f: TFile, content: string) => {
+				vaultContents.set(f.path, content);
+			}
+		);
+		(app.vault as any).create = jest
+			.fn()
+			.mockImplementation(async (p: string, content: string) => {
+				const f = makeVaultFile(p);
+				vaultFiles.set(p, f);
+				vaultContents.set(p, content);
+				return f;
+			});
+		(app as any).fileManager = {
+			processFrontMatter: jest.fn(
+				async (file: TFile, fn: (fm: Record<string, any>) => void) => {
+					const fm = frontmatters.get(file.path) ?? {};
+					fn(fm);
+					frontmatters.set(file.path, fm);
+				}
+			),
+		};
+		(app.metadataCache.getFileCache as jest.Mock).mockImplementation((f: TFile) => {
+			const fm = frontmatters.get(f.path);
+			return fm ? { frontmatter: fm } : null;
+		});
+
+		paperHub = new PaperHubService(app, () => settings);
+		library = new VaultLibraryService(app, () => settings, paperHub);
+	});
+
+	it('getLiteratureFolderPrefix handles placeholder paths, plain directories, and root patterns', () => {
+		expect(library.getLiteratureFolderPrefix()).toBe('002-Literature/');
+
+		settings.paperWorkspace.literatureNotePath = '002-Literature';
+		expect(library.getLiteratureFolderPrefix()).toBe('002-Literature/');
+
+		settings.paperWorkspace.literatureNotePath = '{{citekey}}.md';
+		expect(library.getLiteratureFolderPrefix()).toBe('');
+	});
+
+	it('isPrimaryLiteratureFile accepts primary literature notes and excludes Report 1/2, Takeaway, Core Note, Fleeting, Permanent, CFP, and Prompts', () => {
+		const primary = registerFile('002-Literature/osdi2024.md', {
+			'citation-key': 'osdi2024',
+			type: 'literature',
+		});
+		const outsideTyped = registerFile('Archive/classic1999.md', { type: 'literature' });
+		const outsideUntyped = registerFile('Archive/random.md', { title: 'Random' });
+		const nonMd = makeVaultFile('002-Literature/slides.pdf');
+		const paperNoteInLit = registerFile('002-Literature/inline-paper-note.md', {
+			type: 'paper-note',
+		});
+		const cfpSeriesInLit = registerFile('002-Literature/OSDI Series.md', {
+			'cfp-series': true,
+		});
+
+		const report1 = registerFile(
+			'002-Literature/102-Analysis Report/Deep Research-osdi2024.md',
+			{ type: 'literature' }
+		);
+		const report2 = registerFile(
+			'002-Literature/103-External Analysis Report/External Research-osdi2024.md'
+		);
+		const takeaway = registerFile('002-Literature/101-Takeaways/Takeaway-osdi2024.md');
+		const coreNote = registerFile('002-Literature/104-Paper Notes/osdi2024.md');
+		const highlightNote = registerFile('001-Fleeting/hl-1.md');
+		const legacyFleeting = registerFile('Fleeting Notes/hl-2.md');
+		const permanentNote = registerFile('003-Permanent/A - Sys - Cache - Lease.md');
+		const cfpNote = registerFile('CFP/OSDI/OSDI 2025.md');
+		const promptNote = registerFile('002-Literature/100-Prompts/synthesize.md');
+
+		expect(library.isPrimaryLiteratureFile(primary)).toBe(true);
+		expect(library.isPrimaryLiteratureFile(outsideTyped)).toBe(true);
+
+		expect(library.isPrimaryLiteratureFile(outsideUntyped)).toBe(false);
+		expect(library.isPrimaryLiteratureFile(nonMd)).toBe(false);
+		expect(library.isPrimaryLiteratureFile(paperNoteInLit)).toBe(false);
+		expect(library.isPrimaryLiteratureFile(cfpSeriesInLit)).toBe(false);
+		expect(library.isPrimaryLiteratureFile(report1)).toBe(false);
+		expect(library.isPrimaryLiteratureFile(report2)).toBe(false);
+		expect(library.isPrimaryLiteratureFile(takeaway)).toBe(false);
+		expect(library.isPrimaryLiteratureFile(coreNote)).toBe(false);
+		expect(library.isPrimaryLiteratureFile(highlightNote)).toBe(false);
+		expect(library.isPrimaryLiteratureFile(legacyFleeting)).toBe(false);
+		expect(library.isPrimaryLiteratureFile(permanentNote)).toBe(false);
+		expect(library.isPrimaryLiteratureFile(cfpNote)).toBe(false);
+		expect(library.isPrimaryLiteratureFile(promptNote)).toBe(false);
+	});
+
+	it('listLiteraturePapers and searchPapers sort and filter across venue, Core Note, Takeaway, and query text', async () => {
+		registerFile(
+			'002-Literature/alpha2024.md',
+			{
+				'citation-key': 'alpha2024',
+				title: 'Alpha Kernel Bypass',
+				authors: ['Alice-Smith'],
+				year: 2024,
+				venue: "Proceedings of the 18th USENIX Symposium (OSDI '24)",
+				projects: ['[[KernelProj]]'],
+				tags: ['topic/networking'],
+			},
+			'',
+			2000
+		);
+		const alphaPaths = resolvePaperPaths(settings.paperWorkspace, 'alpha2024');
+		registerFile(
+			alphaPaths.coreNote,
+			{},
+			serializeCoreNoteContent({
+				citekey: 'alpha2024',
+				source: '[[002-Literature/alpha2024|alpha2024]]',
+				projects: ['[[SharedProj]]'],
+				linkedNotes: ['[[A - Net - RPC - ZeroCopy]]'],
+				body: 'Zero-copy ring buffers cut tail latency.',
+			})
+		);
+		registerFile(
+			alphaPaths.takeaway,
+			{},
+			'## 📊 Research Profile\n- 💊 **TL;DR**:: Sub-microsecond RPC over RDMA.'
+		);
+
+		// Same year, older mtime, different venue
+		registerFile(
+			'002-Literature/beta2024.md',
+			{
+				'citation-key': 'beta2024',
+				title: 'Beta Consensus Protocol',
+				authors: 'Bob-Jones',
+				year: 2024,
+				venue: '[[SOSP Series]]',
+			},
+			'',
+			1000
+		);
+		// Same year & mtime as gamma -> sorted alphabetically by title
+		registerFile(
+			'002-Literature/gamma2022.md',
+			{
+				'citation-key': 'gamma2022',
+				title: 'Zeta Storage Engine',
+				year: 2022,
+				venue: '[[OSDI]]',
+			},
+			'',
+			500
+		);
+		registerFile(
+			'002-Literature/delta2022.md',
+			{
+				'citation-key': 'delta2022',
+				title: 'Delta Log Structured Merge',
+				year: 2022,
+				venue: '[[OSDI Series]]',
+			},
+			'',
+			500
+		);
+
+		const all = await library.listLiteraturePapers();
+		expect(all.map((e) => e.citekey)).toEqual([
+			'alpha2024',
+			'beta2024',
+			'delta2022',
+			'gamma2022',
+		]);
+		expect(all[0].venueSeries).toBe('OSDI');
+		expect(all[0].projects).toEqual(['[[KernelProj]]', '[[SharedProj]]']);
+		expect(all[0].hasCoreNote).toBe(true);
+		expect(all[0].hasTakeaway).toBe(true);
+		expect(all[0].tldr).toBe('Sub-microsecond RPC over RDMA.');
+
+		const osdiOnly = await library.searchPapers('', { venue: 'OSDI' });
+		expect(osdiOnly.map((e) => e.citekey)).toEqual(['alpha2024', 'delta2022', 'gamma2022']);
+
+		const withCoreAndTakeaway = await library.searchPapers('rdma zero-copy', {
+			venue: 'OSDI',
+			hasCoreNote: true,
+			hasTakeaway: true,
+		});
+		expect(withCoreAndTakeaway.map((e) => e.citekey)).toEqual(['alpha2024']);
+	});
+
+	it('findSameVenuePapers groups variant venue formats and formats short labels', () => {
+		const current = registerFile('002-Literature/curr2025.md', {
+			'citation-key': 'curr2025',
+			venue: "Proceedings of the 19th USENIX Symposium (OSDI '25)",
+			year: 2025,
+		});
+		registerFile('002-Literature/peer1.md', {
+			'citation-key': 'peer1',
+			'short-name': 'Spanner',
+			venue: '[[OSDI Series]]',
+			year: 2024,
+		});
+		registerFile('002-Literature/peer2.md', {
+			'citation-key': 'peer2',
+			authors: ['Leslie-Lamport'],
+			venue: '[[OSDI]]',
+			year: 2022,
+		});
+		registerFile('002-Literature/otherVenue.md', {
+			'citation-key': 'otherVenue',
+			venue: '[[NSDI]]',
+			year: 2024,
+		});
+		const noVenue = registerFile('002-Literature/novenue.md', {
+			'citation-key': 'novenue',
+		});
+
+		const sameVenue = library.findSameVenuePapers(current);
+		expect(sameVenue.map((r) => ({ citekey: r.citekey, shortLabel: r.shortLabel }))).toEqual([
+			{ citekey: 'peer1', shortLabel: 'Spanner 2024' },
+			{ citekey: 'peer2', shortLabel: 'Lamport 2022' },
+		]);
+
+		expect(library.findSameVenuePapers(noVenue)).toEqual([]);
+		expect(library.findSameVenuePapers(noVenue, 'NSDI').map((r) => r.citekey)).toEqual([
+			'otherVenue',
+		]);
+	});
+
+	it('matchCandidatesAgainstVault finds exact and L2/L3 overlap Atomic Notes and matches cited vault papers by citekey and DOI', () => {
+		const exactAtomic = registerFile(
+			'003-Permanent/A - Systems - Caching - Lease Eviction.md'
+		);
+		const overlapAtomic = registerFile(
+			'003-Permanent/A - Storage - Consensus - Quorum Lease Read.md'
+		);
+
+		registerFile('002-Literature/current2025.md', {
+			'citation-key': 'current2025',
+			title: 'Current Paper',
+			year: 2025,
+			doi: '10.1145/000000',
+		});
+		const citedByKey = registerFile('002-Literature/ongaro2014.md', {
+			'citation-key': 'ongaro2014',
+			title: 'In Search of an Understandable Consensus Algorithm',
+			year: 2014,
+		});
+		const citedByDoi = registerFile('002-Literature/corbett2012.md', {
+			'citation-key': 'corbett2012',
+			title: 'Spanner: Google Globally-Distributed Database',
+			year: 2012,
+			doi: 'https://doi.org/10.1145/2491245',
+		});
+		registerFile('002-Literature/unrelated2020.md', {
+			'citation-key': 'unrelated2020',
+			title: 'Unrelated Paper',
+			year: 2020,
+			doi: '10.1145/888888',
+		});
+
+		const candidates: TakeawayCandidate[] = [
+			{
+				index: 1,
+				heading: '[[A - Systems - Caching - Lease Eviction]]',
+				linkTitle: 'A - Systems - Caching - Lease Eviction',
+				linkStatus: 'Existing',
+				storyline: '',
+				evidence: '',
+				brief: '',
+				relatedPapers: 'ongaro2014, current2025',
+				tags: [],
+			},
+			{
+				index: 2,
+				heading: '[[A - Distributed - Consensus - Quorum Lease Protocol]]',
+				linkTitle: 'A - Distributed - Consensus - Quorum Lease Protocol',
+				linkStatus: 'Proposed',
+				storyline: '',
+				evidence: '',
+				brief: '',
+				relatedPapers: '',
+				tags: [],
+			},
+			{
+				index: 3,
+				heading: '[[A - Compilers - Register Allocation - Graph Coloring]]',
+				linkTitle: 'A - Compilers - Register Allocation - Graph Coloring',
+				linkStatus: 'Proposed',
+				storyline: '',
+				evidence: '',
+				brief: '',
+				relatedPapers: '',
+				tags: [],
+			},
+		];
+
+		const result = library.matchCandidatesAgainstVault(
+			candidates,
+			['Builds upon TrueTime (10.1145/2491245) and current2025 self-reference.'],
+			'@current2025'
+		);
+
+		expect(result.candidateMatches[0]).toEqual({
+			candidate: candidates[0],
+			matchedFile: exactAtomic,
+			matchType: 'exact',
+			overlapScore: 1,
+		});
+		expect(result.candidateMatches[1].matchedFile).toBe(overlapAtomic);
+		expect(result.candidateMatches[1].matchType).toBe('overlap');
+		expect(result.candidateMatches[1].overlapScore).toBeGreaterThanOrEqual(0.5);
+
+		expect(result.candidateMatches[2]).toEqual({
+			candidate: candidates[2],
+			matchedFile: null,
+			matchType: 'none',
+			overlapScore: 0,
+		});
+
+		expect(result.citedPapers).toEqual([
+			{
+				file: citedByKey,
+				citekey: 'ongaro2014',
+				title: 'In Search of an Understandable Consensus Algorithm',
+				year: '2014',
+				matchedBy: 'citekey',
+			},
+			{
+				file: citedByDoi,
+				citekey: 'corbett2012',
+				title: 'Spanner: Google Globally-Distributed Database',
+				year: '2012',
+				matchedBy: 'doi',
+			},
+		]);
+	});
+
+	it('connectCandidateToVault supports reuse (with and without evidence) and create modes while updating CoreNote.linkedNotes', async () => {
+		const litFile = registerFile('002-Literature/smith2024.md', {
+			'citation-key': 'smith2024',
+		});
+		const existingAtomic = registerFile(
+			'003-Permanent/A - Systems - Caching - Lease Eviction.md',
+			{ type: 'permanent' },
+			'# A - Systems - Caching - Lease Eviction\n\nExisting permanent note.'
+		);
+
+		const reuseCandidate: TakeawayCandidate = {
+			index: 1,
+			heading: '[[A - Systems - Caching - Lease Eviction]]',
+			linkTitle: 'A - Systems - Caching - Lease Eviction',
+			linkStatus: 'Existing',
+			storyline: 'Bounds cache staleness',
+			evidence: '99.9% hit ratio on read bursts',
+			brief: 'Short leases avoid per-read quorum checks.',
+			relatedPapers: '',
+			tags: ['systems/cache', '#leases'],
+		};
+
+		// 1. Reuse with appendEvidence = true
+		const reused = await library.connectCandidateToVault({
+			literatureFile: litFile,
+			citekey: 'smith2024',
+			candidate: reuseCandidate,
+			mode: 'reuse',
+			targetFile: existingAtomic,
+			appendEvidence: true,
+		});
+		expect(reused).toBe(existingAtomic);
+		const updatedExistingText = vaultContents.get(existingAtomic.path)!;
+		expect(updatedExistingText).toContain(
+			'### Evidence from [[002-Literature/smith2024|smith2024]]'
+		);
+		expect(updatedExistingText).toContain('- **Tags**: #systems/cache #leases');
+
+		// Calling reuse again is idempotent (does not duplicate evidence block or linkedNotes)
+		await library.connectCandidateToVault({
+			literatureFile: litFile,
+			citekey: 'smith2024',
+			candidate: reuseCandidate,
+			mode: 'reuse',
+			targetFile: existingAtomic,
+			appendEvidence: true,
+		});
+		expect(
+			vaultContents
+				.get(existingAtomic.path)!
+				.split('### Evidence from [[002-Literature/smith2024|smith2024]]').length - 1
+		).toBe(1);
+
+		// 2. Reuse with appendEvidence = false on another note
+		const silentAtomic = registerFile(
+			'003-Permanent/A - Systems - RPC - Batching.md',
+			{ type: 'permanent' },
+			'# Batching'
+		);
+		await library.connectCandidateToVault({
+			literatureFile: litFile,
+			citekey: 'smith2024',
+			candidate: { ...reuseCandidate, linkTitle: 'A - Systems - RPC - Batching' },
+			mode: 'reuse',
+			targetFile: silentAtomic,
+			appendEvidence: false,
+		});
+		expect(vaultContents.get(silentAtomic.path)).toBe('# Batching');
+
+		// 3. Create mode sanitizes filename, writes permanent frontmatter, and updates CoreNote.linkedNotes
+		const createdAtomic = await library.connectCandidateToVault({
+			literatureFile: litFile,
+			citekey: 'smith2024',
+			candidate: {
+				index: 2,
+				heading: '[[A - Systems - Storage: Write/Amplification?]]',
+				linkTitle: 'A - Systems - Storage: Write/Amplification?',
+				linkStatus: 'Proposed',
+				storyline: 'Reduces compaction I/O',
+				evidence: '3x lower write amplification',
+				brief: 'Tiered compaction amortizes SSTable merges.',
+				relatedPapers: '',
+				tags: ['storage/lsm'],
+			},
+			mode: 'create',
+		});
+
+		expect(createdAtomic.path).toBe(
+			'003-Permanent/A - Systems - Storage- Write-Amplification-.md'
+		);
+		const createdText = vaultContents.get(createdAtomic.path)!;
+		expect(createdText).toContain('type: permanent');
+		expect(createdText).toContain('sources:\n  - "[[002-Literature/smith2024|smith2024]]"');
+		expect(createdText).toContain('tags:\n  - storage/lsm');
+		expect(createdText).toContain('Tiered compaction amortizes SSTable merges.');
+
+		const coreNotePath = resolvePaperPaths(settings.paperWorkspace, 'smith2024').coreNote;
+		const savedCore = parseCoreNoteContent(vaultContents.get(coreNotePath)!);
+		expect(savedCore.linkedNotes).toEqual([
+			'[[A - Systems - Caching - Lease Eviction]]',
+			'[[A - Systems - RPC - Batching]]',
+			'[[A - Systems - Storage- Write-Amplification-]]',
+		]);
+	});
+});
