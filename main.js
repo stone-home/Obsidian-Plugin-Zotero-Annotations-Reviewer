@@ -346,8 +346,18 @@ dv.table(["File"], dv.pages('"Fleeting Notes"')
       metadataMapping: [
         { label: "Title", zoteroProp: "title", noteProp: "title", enabled: true },
         { label: "Date", zoteroProp: "date", noteProp: "date", enabled: true },
-        { label: "Publication", zoteroProp: "publication", noteProp: "publication", enabled: true },
-        { label: "Authors", zoteroProp: "creators", noteProp: "authors", enabled: true },
+        {
+          label: "Publication",
+          zoteroProp: "publication",
+          noteProp: "publication",
+          enabled: true
+        },
+        {
+          label: "Authors",
+          zoteroProp: "creators",
+          noteProp: "authors",
+          enabled: true
+        },
         { label: "DOI", zoteroProp: "doi", noteProp: "doi", enabled: true }
       ],
       assistantScript: DEFAULT_ASSISTANT_SCRIPT,
@@ -432,9 +442,13 @@ var init_zotero_connector = __esm({
         this.settings = setting;
       }
       getConnectorPlugin() {
-        var _a, _b;
+        var _a;
         const plugins = this.app.plugins;
-        return (_b = (_a = plugins == null ? void 0 : plugins.getPlugin) == null ? void 0 : _a.call(plugins, "obsidian-zotero-desktop-connector")) != null ? _b : null;
+        const raw = (_a = plugins == null ? void 0 : plugins.getPlugin) == null ? void 0 : _a.call(plugins, "obsidian-zotero-desktop-connector");
+        if (typeof raw === "object" && raw !== null) {
+          return raw;
+        }
+        return null;
       }
       async triggerZoteroIntegrationImport(citationKey) {
         var _a, _b;
@@ -444,7 +458,9 @@ var init_zotero_connector = __esm({
           await plugin.runImport(fmt.name, String(citationKey));
           new import_obsidian2.Notice("Triggered Zotero Integration Import");
         } else {
-          new import_obsidian2.Notice("Obsidian Zotero Desktop Connector plugin not found or configured.");
+          new import_obsidian2.Notice(
+            "Obsidian Zotero Desktop Connector plugin not found or configured."
+          );
         }
       }
       async triggerInteractiveImport() {
@@ -4326,12 +4342,16 @@ function toStringList(value) {
   return [];
 }
 function extractThoughtSnippet(markdown) {
-  const thoughtSection = markdown.match(/(?:^|\r?\n)##\s+Thoughts\s*\r?\n([\s\S]*?)(?=\r?\n##\s+|$)/i);
+  const thoughtSection = markdown.match(
+    /(?:^|\r?\n)##\s+Thoughts\s*\r?\n([\s\S]*?)(?=\r?\n##\s+|$)/i
+  );
   if (thoughtSection) {
     const cleaned = thoughtSection[1].split(/\r?\n/).map((line) => line.trim()).filter((line) => line.length > 0 && !/^Comment at\s+/i.test(line)).join(" ");
     if (cleaned) return cleaned;
   }
-  const highlightSection = markdown.match(/```ad-quote\s*\r?\n(?:title:[^\r\n]*\r?\n)?([\s\S]*?)```/i);
+  const highlightSection = markdown.match(
+    /```ad-quote\s*\r?\n(?:title:[^\r\n]*\r?\n)?([\s\S]*?)```/i
+  );
   if (highlightSection) {
     return highlightSection[1].trim().replace(/\s+/g, " ").slice(0, 180);
   }
@@ -4351,7 +4371,10 @@ function resolveCitekeyTemplate(pattern, citekey) {
 }
 function resolvePaperPaths(workspace, citekey) {
   const cleanKey = citekey.trim();
-  const literatureNote = resolveCitekeyTemplate(workspace.literatureNotePath, cleanKey);
+  const literatureNote = resolveCitekeyTemplate(
+    workspace.literatureNotePath,
+    cleanKey
+  );
   const report1 = resolveCitekeyTemplate(workspace.report1Path, cleanKey);
   const report2 = resolveCitekeyTemplate(workspace.report2Path, cleanKey);
   const takeaway = resolveCitekeyTemplate(workspace.takeawayPath, cleanKey);
@@ -4482,7 +4505,9 @@ function parseTakeawayCandidates(raw) {
       linkTitle = strippedHeading || `A - Concept - Candidate ${item.index}`;
     }
     const rawTags = extractBulletValue(block, "Potential Tags") || extractBulletValue(block, "Tags");
-    const tags4 = rawTags ? rawTags.split(/[,;]+|\s+(?=#)/).map((t) => t.trim().replace(/^#/, "")).filter((t) => Boolean(t) && t !== "-" && !["none", "n/a"].includes(t.toLowerCase())) : [];
+    const tags4 = rawTags ? rawTags.split(/[,;]+|\s+(?=#)/).map((t) => t.trim().replace(/^#/, "")).filter(
+      (t) => Boolean(t) && t !== "-" && !["none", "n/a"].includes(t.toLowerCase())
+    ) : [];
     return {
       index: item.index,
       heading: item.heading,
@@ -4552,7 +4577,9 @@ function parseCoreNoteContent(raw, fallbackCitekey = "") {
   } catch (e) {
     fm = {};
   }
-  const citekey = String((_b = (_a = fm["citation-key"]) != null ? _a : fm["citekey"]) != null ? _b : fallbackCitekey).trim();
+  const citekey = String(
+    (_b = (_a = fm["citation-key"]) != null ? _a : fm["citekey"]) != null ? _b : fallbackCitekey
+  ).trim();
   const source = String((_c = fm["source"]) != null ? _c : citekey ? `[[${citekey}]]` : "").trim();
   const projects = toStringList(fm["projects"]);
   const linkedNotes = toStringList((_d = fm["linked-notes"]) != null ? _d : fm["linkedNotes"]);
@@ -4611,7 +4638,15 @@ var init_paper_hub = __esm({
     init_js_yaml();
     init_types();
     init_paths();
-    INVALID_URL_TOKENS = /* @__PURE__ */ new Set(["null", "none", "n/a", "na", "unknown", "tbd", "-"]);
+    INVALID_URL_TOKENS = /* @__PURE__ */ new Set([
+      "null",
+      "none",
+      "n/a",
+      "na",
+      "unknown",
+      "tbd",
+      "-"
+    ]);
     PaperHubService = class {
       constructor(app, getSettings) {
         this.app = app;
@@ -4681,9 +4716,12 @@ var init_paper_hub = __esm({
         const highlightPrefix = highlightFolder ? `${highlightFolder}/` : "";
         const fleetingFiles = this.app.vault.getMarkdownFiles().filter((candidate) => {
           if (candidate.path === file.path) return false;
-          if (highlightPrefix && !candidate.path.startsWith(highlightPrefix)) return false;
+          if (highlightPrefix && !candidate.path.startsWith(highlightPrefix))
+            return false;
           const candKey = this.getCitekeyForFile(candidate);
-          return Boolean(candKey && candKey.replace(/^@/, "").toLowerCase() === cleanCitekey);
+          return Boolean(
+            candKey && candKey.replace(/^@/, "").toLowerCase() === cleanCitekey
+          );
         });
         const [coreNoteRaw, takeawayRaw, report2Raw, fleetingContents] = await Promise.all([
           coreNoteFile ? this.app.vault.read(coreNoteFile) : Promise.resolve(""),
@@ -4700,7 +4738,9 @@ var init_paper_hub = __esm({
           body: ""
         };
         const fm = (_b = (_a = this.app.metadataCache.getFileCache(file)) == null ? void 0 : _a.frontmatter) != null ? _b : {};
-        const litProjects = toStringList(fm[settings.projectFrontmatterKey || "projects"]);
+        const litProjects = toStringList(
+          fm[settings.projectFrontmatterKey || "projects"]
+        );
         const projects = Array.from(/* @__PURE__ */ new Set([...litProjects, ...coreNote.projects]));
         const fmCodeUrl = normalizeHttpUrl(fm["code"]);
         const report2CodeUrl = report2Raw ? extractCodeUrlFromReport(report2Raw) : null;
@@ -4807,12 +4847,17 @@ var init_paper_hub = __esm({
           } catch (e) {
           }
         }
-        const headingRe = new RegExp(`^###\\s+Candidate\\s+${candidateIndex}\\b[^\\r\\n]*`, "im");
+        const headingRe = new RegExp(
+          `^###\\s+Candidate\\s+${candidateIndex}\\b[^\\r\\n]*`,
+          "im"
+        );
         const headingMatch = headingRe.exec(md);
         if (!headingMatch) return false;
         const sectionBodyStart = headingMatch.index + headingMatch[0].length;
         const afterHeading = md.slice(sectionBodyStart);
-        const nextBoundary = afterHeading.match(/\r?\n(?:###\s+Candidate\s+\d+\b|##\s+)/i);
+        const nextBoundary = afterHeading.match(
+          /\r?\n(?:###\s+Candidate\s+\d+\b|##\s+)/i
+        );
         const sectionBodyEnd = nextBoundary && nextBoundary.index !== void 0 ? sectionBodyStart + nextBoundary.index : md.length;
         let sectionBody = md.slice(sectionBodyStart, sectionBodyEnd);
         const linkLineRe = /^[ \t]*[-*][ \t]*(?:\*\*)?Link(?:\*\*)?[ \t]*[:：][ \t]*.+$/im;
@@ -4843,11 +4888,14 @@ var init_paper_hub = __esm({
         const savedFile = await this.writeVaultFile(targetPath, markdown);
         const extractedCodeUrl = kind === "report2" ? extractCodeUrlFromReport(markdown) : null;
         if (extractedCodeUrl && literatureFile && ((_a = this.app.fileManager) == null ? void 0 : _a.processFrontMatter)) {
-          await this.app.fileManager.processFrontMatter(literatureFile, (frontmatter) => {
-            if (!frontmatter["code"] || !String(frontmatter["code"]).trim()) {
-              frontmatter["code"] = extractedCodeUrl;
+          await this.app.fileManager.processFrontMatter(
+            literatureFile,
+            (frontmatter) => {
+              if (!frontmatter["code"] || !String(frontmatter["code"]).trim()) {
+                frontmatter["code"] = extractedCodeUrl;
+              }
             }
-          });
+          );
         }
         return { file: savedFile, extractedCodeUrl };
       }
@@ -4873,12 +4921,18 @@ var init_paper_hub = __esm({
           body: patch.body !== void 0 ? patch.body : current.body,
           ...nextExtra && Object.keys(nextExtra).length > 0 ? { extraFrontmatter: nextExtra } : {}
         };
-        const saved = await this.writeVaultFile(paths.coreNote, serializeCoreNoteContent(merged));
+        const saved = await this.writeVaultFile(
+          paths.coreNote,
+          serializeCoreNoteContent(merged)
+        );
         if (patch.projects !== void 0 && literatureFile && ((_a = this.app.fileManager) == null ? void 0 : _a.processFrontMatter)) {
           const projKey = settings.projectFrontmatterKey || "projects";
-          await this.app.fileManager.processFrontMatter(literatureFile, (frontmatter) => {
-            frontmatter[projKey] = [...merged.projects];
-          });
+          await this.app.fileManager.processFrontMatter(
+            literatureFile,
+            (frontmatter) => {
+              frontmatter[projKey] = [...merged.projects];
+            }
+          );
         }
         return saved;
       }
@@ -4901,9 +4955,12 @@ var init_paper_hub = __esm({
           const codeLineRe = /^code[ \t]*:.*$/m;
           const nextFmBody = codeLineRe.test(fmBody) ? fmBody.replace(codeLineRe, () => `code: "${escaped}"`) : `${fmBody}
 code: "${escaped}"`;
-          await this.app.vault.modify(literatureFile, `---
+          await this.app.vault.modify(
+            literatureFile,
+            `---
 ${nextFmBody}
----${rest}`);
+---${rest}`
+          );
         } else {
           await this.app.vault.modify(
             literatureFile,
@@ -5048,7 +5105,9 @@ ${raw}`
         ).replace(/\/+$/, "");
         const defaultFile = entry.kind === "template" ? `${entry.id.replace(/^tpl-/, "")}-note-template.md` : `prompt-${entry.id}.md`;
         const rawPath = (entry.vaultPath || `${folder}/${defaultFile}`).trim();
-        const targetPath = normalizePath(rawPath.endsWith(".md") ? rawPath : `${rawPath}.md`);
+        const targetPath = normalizePath(
+          rawPath.endsWith(".md") ? rawPath : `${rawPath}.md`
+        );
         await this.writeVaultFile(targetPath, content);
         return targetPath;
       }
@@ -5134,7 +5193,9 @@ function normalizeVenueSeries(rawVenue) {
     return pureSeriesFromAcronym(parenMatch[1]);
   }
   let cleaned = text.replace(/\bSeries\b/gi, "").replace(/\b\d+(?:st|nd|rd|th)\b/gi, "").replace(/\b(?:19|20)\d{2}\b/g, "").replace(/['’]\d{2}\b/g, "").replace(/\s+/g, " ").replace(/^[\s,.:;\-–—/]+|[\s,.:;\-–—/]+$/g, "").trim();
-  const orgPrefix = cleaned.match(/^(?:ACM|IEEE|USENIX)\s+([A-Z][A-Za-z0-9-]{1,14})$/);
+  const orgPrefix = cleaned.match(
+    /^(?:ACM|IEEE|USENIX)\s+([A-Z][A-Za-z0-9-]{1,14})$/
+  );
   if (orgPrefix) {
     cleaned = orgPrefix[1];
   }
@@ -5209,7 +5270,9 @@ var init_vault_library = __esm({
           ...((_a = s.zoteroTemplate) == null ? void 0 : _a.vaultPath) ? [folderPrefixFromPattern(s.zoteroTemplate.vaultPath)] : [],
           ...(s.prompts || []).map((p) => folderPrefixFromPattern(p.vaultPath))
         ];
-        return Array.from(new Set(candidates.filter((p) => Boolean(p) && p !== litPrefix)));
+        return Array.from(
+          new Set(candidates.filter((p) => Boolean(p) && p !== litPrefix))
+        );
       }
       isPrimaryLiteratureFile(file) {
         var _a;
@@ -5238,10 +5301,18 @@ var init_vault_library = __esm({
             const fm = (_b = (_a = this.app.metadataCache.getFileCache(file)) == null ? void 0 : _a.frontmatter) != null ? _b : {};
             const citekey = this.paperHub.getCitekeyForFile(file) || fileBasename(file);
             const paths = resolvePaperPaths(settings.paperWorkspace, citekey);
-            const coreRawFile = this.app.vault.getAbstractFileByPath(paths.coreNote);
-            const takeawayRawFile = this.app.vault.getAbstractFileByPath(paths.takeaway);
-            const report1RawFile = this.app.vault.getAbstractFileByPath(paths.report1);
-            const report2RawFile = this.app.vault.getAbstractFileByPath(paths.report2);
+            const coreRawFile = this.app.vault.getAbstractFileByPath(
+              paths.coreNote
+            );
+            const takeawayRawFile = this.app.vault.getAbstractFileByPath(
+              paths.takeaway
+            );
+            const report1RawFile = this.app.vault.getAbstractFileByPath(
+              paths.report1
+            );
+            const report2RawFile = this.app.vault.getAbstractFileByPath(
+              paths.report2
+            );
             const coreFile = coreRawFile instanceof import_obsidian4.TFile ? coreRawFile : null;
             const takeawayFile = takeawayRawFile instanceof import_obsidian4.TFile ? takeawayRawFile : null;
             const hasReport1 = report1RawFile instanceof import_obsidian4.TFile;
@@ -5278,7 +5349,9 @@ var init_vault_library = __esm({
               doi: String((_h = fm["doi"]) != null ? _h : "").trim(),
               url: String((_i = fm["url"]) != null ? _i : "").trim(),
               codeUrl: String((_j = fm["code"]) != null ? _j : "").trim(),
-              projects: Array.from(/* @__PURE__ */ new Set([...fmProjects, ...coreData.projects])),
+              projects: Array.from(
+                /* @__PURE__ */ new Set([...fmProjects, ...coreData.projects])
+              ),
               linkedNotes: coreData.linkedNotes,
               tags: toStringArray(fm["tags"]),
               coreNoteBody: coreData.body,
@@ -5327,13 +5400,16 @@ var init_vault_library = __esm({
         const settings = this.getSettings();
         const acronymKey = settings.cfpAcronymKey || "conference-acronym";
         const currentFm = (_b = (_a = this.app.metadataCache.getFileCache(currentFile)) == null ? void 0 : _a.frontmatter) != null ? _b : {};
-        const rawSeries = (explicitSeries == null ? void 0 : explicitSeries.trim()) || String((_e = (_d = (_c = currentFm[acronymKey]) != null ? _c : currentFm["venue"]) != null ? _d : currentFm["publication"]) != null ? _e : "");
+        const rawSeries = (explicitSeries == null ? void 0 : explicitSeries.trim()) || String(
+          (_e = (_d = (_c = currentFm[acronymKey]) != null ? _c : currentFm["venue"]) != null ? _d : currentFm["publication"]) != null ? _e : ""
+        );
         const targetSeries = normalizeVenueSeries(rawSeries);
         if (!targetSeries) return [];
         const targetLower = targetSeries.toLowerCase();
         const refs = [];
         for (const file of this.app.vault.getMarkdownFiles()) {
-          if (file.path === currentFile.path || !this.isPrimaryLiteratureFile(file)) continue;
+          if (file.path === currentFile.path || !this.isPrimaryLiteratureFile(file))
+            continue;
           const fm = (_g = (_f = this.app.metadataCache.getFileCache(file)) == null ? void 0 : _f.frontmatter) != null ? _g : {};
           const candSeries = normalizeVenueSeries(
             String((_j = (_i = (_h = fm[acronymKey]) != null ? _h : fm["venue"]) != null ? _i : fm["publication"]) != null ? _j : "")
@@ -5448,7 +5524,10 @@ var init_vault_library = __esm({
             if (!citekey || citekey.toLowerCase() === cleanCurrentKey) continue;
             const keyLower = citekey.toLowerCase();
             const escapedKey = keyLower.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-            const keyRegex = new RegExp(`(?:^|[^a-z0-9])${escapedKey}(?:$|[^a-z0-9])`, "i");
+            const keyRegex = new RegExp(
+              `(?:^|[^a-z0-9])${escapedKey}(?:$|[^a-z0-9])`,
+              "i"
+            );
             const doi = String((_c = fm["doi"]) != null ? _c : "").trim().replace(/^https?:\/\/doi\.org\//i, "").toLowerCase();
             const keyMatched = keyLower.length >= 3 && keyRegex.test(corpusLower);
             const doiMatched = !keyMatched && doi.length >= 7 && corpusLower.includes(doi);
@@ -5468,7 +5547,13 @@ var init_vault_library = __esm({
       }
       async connectCandidateToVault(params) {
         var _a, _b;
-        const { literatureFile, citekey, candidate, mode, appendEvidence = true } = params;
+        const {
+          literatureFile,
+          citekey,
+          candidate,
+          mode,
+          appendEvidence = true
+        } = params;
         const litPathNoExt = literatureFile.path.replace(/\.md$/i, "");
         const sourceLink = `[[${litPathNoExt}|${citekey}]]`;
         const priorBasenames = /* @__PURE__ */ new Set();
@@ -5485,10 +5570,13 @@ var init_vault_library = __esm({
         const cleanCandTitle = (candidate.linkTitle.split("/").pop() || candidate.linkTitle).replace(/\.md$/i, "").trim();
         const candLinkPathNoExt = candidate.linkPath ? normalizePath(candidate.linkPath.trim()).replace(/\.md$/i, "") : "";
         const evidenceLines = [`### Evidence from ${sourceLink}`];
-        if (candidate.storyline) evidenceLines.push(`- **Storyline**: ${candidate.storyline}`);
+        if (candidate.storyline)
+          evidenceLines.push(`- **Storyline**: ${candidate.storyline}`);
         if (candidate.brief) evidenceLines.push(`- **Brief**: ${candidate.brief}`);
-        if (candidate.evidence) evidenceLines.push(`- **Evidence**: ${candidate.evidence}`);
-        if (candidate.validation) evidenceLines.push(`- **Validation**: ${candidate.validation}`);
+        if (candidate.evidence)
+          evidenceLines.push(`- **Evidence**: ${candidate.evidence}`);
+        if (candidate.validation)
+          evidenceLines.push(`- **Validation**: ${candidate.validation}`);
         if (candidate.tags.length > 0) {
           const tagLine = candidate.tags.map((t) => `#${t.replace(/^#/, "")}`).join(" ");
           evidenceLines.push(`- **Tags**: ${tagLine}`);
@@ -5526,7 +5614,9 @@ ${evidenceBlock}
           const folder = normalizePath(
             this.getSettings().paperWorkspace.atomicNotesFolder || "003-Permanent"
           );
-          const targetPath = normalizePath(folder ? `${folder}/${rawName}.md` : `${rawName}.md`);
+          const targetPath = normalizePath(
+            folder ? `${folder}/${rawName}.md` : `${rawName}.md`
+          );
           const existing = this.app.vault.getAbstractFileByPath(targetPath);
           if (existing instanceof import_obsidian4.TFile) {
             resolvedTarget = existing;
@@ -5559,7 +5649,9 @@ ${evidenceBlock}
               )
             );
             if (cleanTags.length > 0) {
-              const fmMatch = rendered.match(/^---\r?\n([\s\S]*?)\r?\n---([\s\S]*)$/);
+              const fmMatch = rendered.match(
+                /^---\r?\n([\s\S]*?)\r?\n---([\s\S]*)$/
+              );
               if (fmMatch) {
                 let fmPart = fmMatch[1];
                 const bodyPart = fmMatch[2];
@@ -5573,7 +5665,9 @@ ${cleanTags.map((t) => `  - ${t}`).join("\n")}`;
                   const listMatch = listTagsRe.exec(fmPart);
                   if (listMatch) {
                     const existingTags = new Set(
-                      listMatch[1].split(/\r?\n/).map((line) => line.replace(/^[ \t]*-[ \t]*/, "").trim()).filter(Boolean)
+                      listMatch[1].split(/\r?\n/).map(
+                        (line) => line.replace(/^[ \t]*-[ \t]*/, "").trim()
+                      ).filter(Boolean)
                     );
                     const toInsert = cleanTags.filter((t) => !existingTags.has(t)).map((t) => `  - ${t}`);
                     if (toInsert.length > 0) {
@@ -5649,7 +5743,11 @@ ${extraBlocks.join("\n\n")}
         const nextLinks = prunedLinks.some(
           (entry) => extractWikiBasename(entry) === newBasename
         ) ? prunedLinks : [...prunedLinks, atomicWikiLink];
-        await this.paperHub.saveCoreNote(citekey, { linkedNotes: nextLinks }, literatureFile);
+        await this.paperHub.saveCoreNote(
+          citekey,
+          { linkedNotes: nextLinks },
+          literatureFile
+        );
         return resolvedTarget;
       }
     };
@@ -5719,7 +5817,10 @@ var init_connector_modal = __esm({
         this.literatureFile = literatureFile;
         this.onUpdated = onUpdated;
         this.state = null;
-        this.matchResult = { candidateMatches: [], citedPapers: [] };
+        this.matchResult = {
+          candidateMatches: [],
+          citedPapers: []
+        };
         this.selectedIndex = 0;
         this.appendEvidence = true;
         this.mdComponent = new import_obsidian5.Component();
@@ -5727,7 +5828,9 @@ var init_connector_modal = __esm({
       async onOpen() {
         var _a;
         this.mdComponent.load();
-        (_a = this.modalEl) == null ? void 0 : _a.addClass("zotero-connector-modal-shell");
+        (_a = this.modalEl) == null ? void 0 : _a.addClass(
+          "zotero-connector-modal-shell"
+        );
         this.contentEl.addClass("zotero-connector-modal");
         await this.refreshState();
       }
@@ -5742,9 +5845,11 @@ var init_connector_modal = __esm({
           return;
         }
         const report1Raw = this.state.report1File ? await this.app.vault.read(this.state.report1File) : "";
-        const reportTexts = [this.state.takeawayRaw, this.state.report2Raw, report1Raw].filter(
-          Boolean
-        );
+        const reportTexts = [
+          this.state.takeawayRaw,
+          this.state.report2Raw,
+          report1Raw
+        ].filter(Boolean);
         this.matchResult = this.plugin.vaultLibrary.matchCandidatesAgainstVault(
           this.state.takeawayCandidates,
           reportTexts,
@@ -5804,7 +5909,11 @@ var init_connector_modal = __esm({
         const leftPane = columns.createDiv({ cls: "zotero-connector-left" });
         const rightPane = columns.createDiv({ cls: "zotero-connector-right" });
         this.renderLeftPane(leftPane, state, candidateMatches, citedPapers);
-        await this.renderRightPane(rightPane, state, (_a = candidateMatches[this.selectedIndex]) != null ? _a : null);
+        await this.renderRightPane(
+          rightPane,
+          state,
+          (_a = candidateMatches[this.selectedIndex]) != null ? _a : null
+        );
       }
       renderEmptyState(container, state) {
         const box = container.createDiv({ cls: "zotero-connector-empty" });
@@ -5831,8 +5940,13 @@ var init_connector_modal = __esm({
             await this.notifyUpdated();
             this.close();
           } catch (err) {
-            console.error("[ConnectorModal] Failed to create/open Takeaway.md", err);
-            new import_obsidian5.Notice(`Failed to open Takeaway.md: ${(_a = err == null ? void 0 : err.message) != null ? _a : String(err)}`);
+            console.error(
+              "[ConnectorModal] Failed to create/open Takeaway.md",
+              err
+            );
+            new import_obsidian5.Notice(
+              `Failed to open Takeaway.md: ${(_a = err == null ? void 0 : err.message) != null ? _a : String(err)}`
+            );
           }
         };
         const copyPromptBtn = actions.createEl("button", {
@@ -5850,10 +5964,14 @@ var init_connector_modal = __esm({
             }
           } catch (err) {
             console.error("[ConnectorModal] Failed to copy prompt", err);
-            new import_obsidian5.Notice(`Failed to copy prompt: ${(_b = err == null ? void 0 : err.message) != null ? _b : String(err)}`);
+            new import_obsidian5.Notice(
+              `Failed to copy prompt: ${(_b = err == null ? void 0 : err.message) != null ? _b : String(err)}`
+            );
           }
         };
-        const visibleHooks = (this.plugin.settings.webhooks || []).filter((h) => !h.hidden);
+        const visibleHooks = (this.plugin.settings.webhooks || []).filter(
+          (h) => !h.hidden
+        );
         for (const hook of visibleHooks) {
           const hookBtn = actions.createEl("button", {
             cls: "zotero-connector-btn",
@@ -5871,7 +5989,9 @@ var init_connector_modal = __esm({
               );
             } catch (err) {
               console.error("[ConnectorModal] Webhook trigger failed", err);
-              new import_obsidian5.Notice(`Webhook failed: ${(_a = err == null ? void 0 : err.message) != null ? _a : String(err)}`);
+              new import_obsidian5.Notice(
+                `Webhook failed: ${(_a = err == null ? void 0 : err.message) != null ? _a : String(err)}`
+              );
             }
           };
         }
@@ -5897,7 +6017,9 @@ var init_connector_modal = __esm({
               void this.renderContent();
             };
             const topRow = item.createDiv({ cls: "zotero-connector-item-top" });
-            const leftMeta = topRow.createDiv({ cls: "zotero-connector-item-meta" });
+            const leftMeta = topRow.createDiv({
+              cls: "zotero-connector-item-meta"
+            });
             leftMeta.createSpan({
               cls: "zotero-connector-item-index",
               text: `#${match.candidate.index}`
@@ -5938,7 +6060,9 @@ var init_connector_modal = __esm({
             text: "No cited papers matched existing Literature notes."
           });
         } else {
-          const citedList = leftPane.createDiv({ cls: "zotero-connector-cited-list" });
+          const citedList = leftPane.createDiv({
+            cls: "zotero-connector-cited-list"
+          });
           for (const cited of citedPapers) {
             const row = citedList.createDiv({ cls: "zotero-connector-cited-row" });
             const info = row.createDiv({ cls: "zotero-connector-cited-info" });
@@ -5952,9 +6076,11 @@ var init_connector_modal = __esm({
               void this.app.workspace.getLeaf(false).openFile(cited.file);
               this.close();
             };
-            const metaParts = [cited.citekey, cited.year, `via ${cited.matchedBy}`].filter(
-              Boolean
-            );
+            const metaParts = [
+              cited.citekey,
+              cited.year,
+              `via ${cited.matchedBy}`
+            ].filter(Boolean);
             info.createDiv({
               cls: "zotero-connector-item-sub",
               text: metaParts.join(" \xB7 ")
@@ -5981,8 +6107,13 @@ var init_connector_modal = __esm({
                 await this.notifyUpdated();
                 await this.refreshState();
               } catch (err) {
-                console.error("[ConnectorModal] Failed to link cited paper", err);
-                new import_obsidian5.Notice(`Failed to link paper: ${(_a = err == null ? void 0 : err.message) != null ? _a : String(err)}`);
+                console.error(
+                  "[ConnectorModal] Failed to link cited paper",
+                  err
+                );
+                new import_obsidian5.Notice(
+                  `Failed to link paper: ${(_a = err == null ? void 0 : err.message) != null ? _a : String(err)}`
+                );
               }
             };
           }
@@ -6053,8 +6184,12 @@ var init_connector_modal = __esm({
           matchedFile && this.isNoteLinked(getBasename(matchedFile)) || this.isNoteLinked(candidate.linkTitle)
         );
         if (matchedFile) {
-          const previewWrap = rightPane.createDiv({ cls: "zotero-connector-preview-card" });
-          const previewHead = previewWrap.createDiv({ cls: "zotero-connector-preview-head" });
+          const previewWrap = rightPane.createDiv({
+            cls: "zotero-connector-preview-card"
+          });
+          const previewHead = previewWrap.createDiv({
+            cls: "zotero-connector-preview-head"
+          });
           previewHead.createSpan({
             text: `${isLinked ? "Linked" : "Matched"} (${matchType === "exact" ? "Exact Title" : "Concept Overlap"}): ${matchedFile.path}`
           });
@@ -6095,7 +6230,9 @@ var init_connector_modal = __esm({
             text: `Target: ${targetDisplayPath}`
           });
         }
-        const appendRow = rightPane.createEl("label", { cls: "zotero-connector-checkbox-row" });
+        const appendRow = rightPane.createEl("label", {
+          cls: "zotero-connector-checkbox-row"
+        });
         const checkbox = appendRow.createEl("input", {
           attr: { type: "checkbox" }
         });
@@ -6109,7 +6246,9 @@ var init_connector_modal = __esm({
         const actions = rightPane.createDiv({ cls: "zotero-connector-actions" });
         const openVaultNotePicker = (replaced, noticeLabel) => {
           var _a, _b;
-          const atomicBase = (normalizePath(((_b = (_a = this.plugin.settings.paperWorkspace) == null ? void 0 : _a.atomicNotesFolder) == null ? void 0 : _b.trim()) || "003-Permanent").replace(/\/+$/, "") || "003-Permanent") + "/";
+          const atomicBase = (normalizePath(
+            ((_b = (_a = this.plugin.settings.paperWorkspace) == null ? void 0 : _a.atomicNotesFolder) == null ? void 0 : _b.trim()) || "003-Permanent"
+          ).replace(/\/+$/, "") || "003-Permanent") + "/";
           new VaultMarkdownSuggestModal(
             this.app,
             async (chosenFile) => {
@@ -6129,7 +6268,10 @@ var init_connector_modal = __esm({
                 await this.notifyUpdated();
                 await this.refreshState();
               } catch (err) {
-                console.error("[ConnectorModal] Failed to link chosen vault note", err);
+                console.error(
+                  "[ConnectorModal] Failed to link chosen vault note",
+                  err
+                );
                 new import_obsidian5.Notice(
                   `Failed to link note: ${(_a2 = err == null ? void 0 : err.message) != null ? _a2 : String(err)}`
                 );
@@ -6542,7 +6684,8 @@ var init_digest_view = __esm({
       }
       ensureLibrarySelection() {
         var _a, _b;
-        if (this.libraryEntries.some((e) => e.citekey === this.selectedLibraryKey)) return;
+        if (this.libraryEntries.some((e) => e.citekey === this.selectedLibraryKey))
+          return;
         this.selectedLibraryKey = (_b = (_a = this.libraryEntries[0]) == null ? void 0 : _a.citekey) != null ? _b : "";
       }
       selectedLibraryEntry() {
@@ -6891,7 +7034,10 @@ var init_digest_view = __esm({
           ".zotero-digest-collections",
           this.collectionScroll
         );
-        this.libraryListScroll = scrollOf(".zotero-library-list", this.libraryListScroll);
+        this.libraryListScroll = scrollOf(
+          ".zotero-library-list",
+          this.libraryListScroll
+        );
         this.libraryDetailScroll = scrollOf(
           ".zotero-library-detail",
           this.libraryDetailScroll
@@ -7144,13 +7290,18 @@ var init_digest_view = __esm({
                 text: metaParts.join(" \xB7 ")
               });
             }
-            const badgeRow = textCol.createDiv({ cls: "zotero-library-row-badges" });
+            const badgeRow = textCol.createDiv({
+              cls: "zotero-library-row-badges"
+            });
             badgeRow.createSpan({
               cls: "zotero-library-citekey-pill",
               text: entry.citekey
             });
             if (entry.hasCoreNote) {
-              badgeRow.createSpan({ cls: "zotero-library-mini-badge is-core", text: "Core" });
+              badgeRow.createSpan({
+                cls: "zotero-library-mini-badge is-core",
+                text: "Core"
+              });
             }
             if (entry.hasTakeaway) {
               badgeRow.createSpan({
@@ -7159,10 +7310,16 @@ var init_digest_view = __esm({
               });
             }
             if (entry.hasReport1) {
-              badgeRow.createSpan({ cls: "zotero-library-mini-badge", text: "R1" });
+              badgeRow.createSpan({
+                cls: "zotero-library-mini-badge",
+                text: "R1"
+              });
             }
             if (entry.hasReport2) {
-              badgeRow.createSpan({ cls: "zotero-library-mini-badge", text: "R2" });
+              badgeRow.createSpan({
+                cls: "zotero-library-mini-badge",
+                text: "R2"
+              });
             }
           }
           list.scrollTop = this.libraryListScroll;
@@ -7183,7 +7340,9 @@ var init_digest_view = __esm({
           });
           return;
         }
-        const headerCard = detail.createDiv({ cls: "zotero-digest-card zotero-library-card" });
+        const headerCard = detail.createDiv({
+          cls: "zotero-digest-card zotero-library-card"
+        });
         headerCard.createEl("h3", { cls: "zotero-digest-title", text: entry.title });
         if (entry.authors.length > 0) {
           headerCard.createDiv({
@@ -7191,7 +7350,9 @@ var init_digest_view = __esm({
             text: entry.authors.map((a) => a.replace(/-/g, " ")).join(", ")
           });
         }
-        const metaRow = headerCard.createDiv({ cls: "zotero-digest-meta zotero-library-meta-row" });
+        const metaRow = headerCard.createDiv({
+          cls: "zotero-digest-meta zotero-library-meta-row"
+        });
         if (entry.venueSeries || entry.venue) {
           const venueBtn = metaRow.createEl("button", {
             cls: "zotero-library-venue-pill",
@@ -7264,10 +7425,14 @@ var init_digest_view = __esm({
             this.renderLibraryResultsOnly();
           }).open();
         };
-        const coreCard = detail.createDiv({ cls: "zotero-digest-card zotero-library-core-card" });
+        const coreCard = detail.createDiv({
+          cls: "zotero-digest-card zotero-library-core-card"
+        });
         const coreHead = coreCard.createDiv({ cls: "zotero-library-section-head" });
         coreHead.createSpan({ cls: "zotero-digest-panel-title", text: "Core Note" });
-        const coreHeadActions = coreHead.createDiv({ cls: "zotero-library-section-actions" });
+        const coreHeadActions = coreHead.createDiv({
+          cls: "zotero-library-section-actions"
+        });
         if (entry.hasCoreNote) {
           const openCoreBtn = coreHeadActions.createEl("button", {
             cls: "zotero-library-inline-btn",
@@ -7324,7 +7489,9 @@ var init_digest_view = __esm({
           });
           const addProfileField = (label, val) => {
             if (!val) return;
-            const row = profileCard.createDiv({ cls: "zotero-library-profile-row" });
+            const row = profileCard.createDiv({
+              cls: "zotero-library-profile-row"
+            });
             row.createSpan({ cls: "zotero-library-profile-key", text: label });
             const valEl = row.createDiv({ cls: "zotero-library-profile-val" });
             void renderMarkdownContent(this.app, val, valEl, entry.file.path, this);
@@ -7354,7 +7521,10 @@ var init_digest_view = __esm({
               });
               chip.onclick = (ev) => {
                 ev.preventDefault();
-                void this.app.workspace.openLinkText(target.trim(), entry.file.path);
+                void this.app.workspace.openLinkText(
+                  target.trim(),
+                  entry.file.path
+                );
               };
             }
           };
@@ -7702,7 +7872,9 @@ function renderTable(parent, head, rows) {
   const body = table.createEl("tbody");
   rows.forEach((row) => {
     const tr = body.createEl("tr");
-    row.forEach((text, i) => tr.createEl("td").createEl(i === 0 ? "code" : "span", { text }));
+    row.forEach(
+      (text, i) => tr.createEl("td").createEl(i === 0 ? "code" : "span", { text })
+    );
   });
 }
 function renderFormatHelp(container) {
@@ -7762,7 +7934,11 @@ var init_digest_settings = __esm({
     init_digest_view();
     TEST_IDENTIFIER = "10.48550/arXiv.1706.03762";
     JSONL_FIELDS = [
-      ["key", "yes", "Non-empty string. Use the DOI, else the URL, else another stable id."],
+      [
+        "key",
+        "yes",
+        "Non-empty string. Use the DOI, else the URL, else another stable id."
+      ],
       ["title", "yes", "Non-empty string."],
       ["doi", "no", "Bare DOI such as 10.1234/abc, without https://doi.org/."],
       ["url", "no", "Absolute http(s) URL."],
@@ -7779,7 +7955,10 @@ var init_digest_settings = __esm({
         "Used when doi or url is missing: DOI 10.48550/arXiv.<id> and URL https://arxiv.org/abs/<id>. A version suffix such as v2 is removed."
       ],
       ["url", "URL. Also the key when there is no DOI."],
-      ["title", "Title, with LaTeX markup removed. The citation key is used when it is empty."],
+      [
+        "title",
+        "Title, with LaTeX markup removed. The citation key is used when it is empty."
+      ],
       ["year", "Year, when it is a number."],
       ["journal or booktitle", "Venue."],
       ["abstract", "Abstract, with LaTeX markup removed."],
@@ -7818,12 +7997,24 @@ var init_cfp_manual_modal = __esm({
         contentEl.empty();
         contentEl.addClass("zotero-modal-wide");
         contentEl.createEl("h2", { text: "Add manual CFP" });
-        new import_obsidian8.Setting(contentEl).setName("Acronym").setDesc("Short name used as note filename (e.g. CHIL 2026).").addText((t) => t.setValue(this.acronym).setPlaceholder("CHIL 2026").onChange((v) => this.acronym = v));
-        new import_obsidian8.Setting(contentEl).setName("Full name").setDesc("Full conference or journal name.").addText((t) => t.setValue(this.fullName).setPlaceholder("Conference on Health, Inference, and Learning").onChange((v) => this.fullName = v));
-        new import_obsidian8.Setting(contentEl).setName("Location").setDesc('City, country or "N/A".').addText((t) => t.setValue(this.location).setPlaceholder("Seattle, WA, USA").onChange((v) => this.location = v));
-        new import_obsidian8.Setting(contentEl).setName("Start date (optional)").setDesc("e.g. Jun 28, 2026").addText((t) => t.setValue(this.start).setPlaceholder("Jun 28, 2026").onChange((v) => this.start = v));
-        new import_obsidian8.Setting(contentEl).setName("End date (optional)").setDesc("e.g. Jun 30, 2026").addText((t) => t.setValue(this.end).setPlaceholder("Jun 30, 2026").onChange((v) => this.end = v));
-        new import_obsidian8.Setting(contentEl).setName("Submission deadline").setDesc("Required for sorting (e.g. Feb 4, 2026).").addText((t) => t.setValue(this.submissionDdl).setPlaceholder("Feb 4, 2026").onChange((v) => this.submissionDdl = v));
+        new import_obsidian8.Setting(contentEl).setName("Acronym").setDesc("Short name used as note filename (e.g. CHIL 2026).").addText(
+          (t) => t.setValue(this.acronym).setPlaceholder("CHIL 2026").onChange((v) => this.acronym = v)
+        );
+        new import_obsidian8.Setting(contentEl).setName("Full name").setDesc("Full conference or journal name.").addText(
+          (t) => t.setValue(this.fullName).setPlaceholder("Conference on Health, Inference, and Learning").onChange((v) => this.fullName = v)
+        );
+        new import_obsidian8.Setting(contentEl).setName("Location").setDesc('City, country or "N/A".').addText(
+          (t) => t.setValue(this.location).setPlaceholder("Seattle, WA, USA").onChange((v) => this.location = v)
+        );
+        new import_obsidian8.Setting(contentEl).setName("Start date (optional)").setDesc("e.g. Jun 28, 2026").addText(
+          (t) => t.setValue(this.start).setPlaceholder("Jun 28, 2026").onChange((v) => this.start = v)
+        );
+        new import_obsidian8.Setting(contentEl).setName("End date (optional)").setDesc("e.g. Jun 30, 2026").addText(
+          (t) => t.setValue(this.end).setPlaceholder("Jun 30, 2026").onChange((v) => this.end = v)
+        );
+        new import_obsidian8.Setting(contentEl).setName("Submission deadline").setDesc("Required for sorting (e.g. Feb 4, 2026).").addText(
+          (t) => t.setValue(this.submissionDdl).setPlaceholder("Feb 4, 2026").onChange((v) => this.submissionDdl = v)
+        );
         const footer = contentEl.createDiv({ cls: "zotero-modal-footer" });
         new import_obsidian8.ButtonComponent(footer).setButtonText("Cancel").onClick(() => this.close());
         new import_obsidian8.ButtonComponent(footer).setButtonText("Save").setCta().onClick(() => {
@@ -7856,7 +8047,7 @@ __export(main_exports, {
   default: () => ZoteroGKPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian25 = require("obsidian");
+var import_obsidian26 = require("obsidian");
 init_types();
 
 // src/settings.ts
@@ -8622,12 +8813,20 @@ var ZoteroService = class {
   async getRawMetadata(citationKey) {
     const key = this.normalizeCitationKey(citationKey);
     const libraryId = await this.resolveLibraryId(key);
-    return await this.sendRpc("item.export", [[key], this.BBT_JSON_TRANSLATOR_ID, libraryId]);
+    return await this.sendRpc("item.export", [
+      [key],
+      this.BBT_JSON_TRANSLATOR_ID,
+      libraryId
+    ]);
   }
   async getItemMetadata(citationKey) {
     const key = this.normalizeCitationKey(citationKey);
     const libraryId = await this.resolveLibraryId(key);
-    const result = await this.sendRpc("item.export", [[key], this.BBT_JSON_TRANSLATOR_ID, libraryId]);
+    const result = await this.sendRpc("item.export", [
+      [key],
+      this.BBT_JSON_TRANSLATOR_ID,
+      libraryId
+    ]);
     if (!result) return null;
     return this.parseItemMetadata(result);
   }
@@ -8643,7 +8842,7 @@ var ZoteroService = class {
     return String(citationKey).replace(/^@/, "");
   }
   parseItemMetadata(rawExport) {
-    var _a, _b;
+    var _a;
     let data = rawExport;
     if (typeof rawExport === "string") {
       try {
@@ -8659,12 +8858,16 @@ var ZoteroService = class {
         return null;
       }
     }
-    const item = data.items ? data.items[0] : null;
-    if (!item) return null;
-    const creators = ((_a = item.creators) == null ? void 0 : _a.map((c) => c.name || `${c.firstName || ""} ${c.lastName || ""}`.trim())) || [];
+    if (typeof data !== "object" || data === null) return null;
+    const exportPayload = data;
+    const item = Array.isArray(exportPayload.items) ? exportPayload.items[0] : null;
+    if (!item || typeof item !== "object") return null;
+    const creators = Array.isArray(item.creators) ? item.creators.map(
+      (c) => c.name || `${c.firstName || ""} ${c.lastName || ""}`.trim()
+    ) : [];
     const pubName = item.publicationTitle || item.proceedingsTitle || item.conferenceName || "";
     return {
-      key: item.key,
+      key: (_a = item.key) != null ? _a : "",
       itemType: item.itemType || "unknown",
       title: item.title || "",
       creators,
@@ -8673,7 +8876,10 @@ var ZoteroService = class {
       doi: item.DOI || "",
       url: item.url || "",
       abstract: item.abstractNote || "",
-      tags: ((_b = item.tags) == null ? void 0 : _b.map((t) => t.tag)) || [],
+      tags: Array.isArray(item.tags) ? item.tags.map((t) => {
+        var _a2;
+        return (_a2 = t.tag) != null ? _a2 : "";
+      }) : [],
       zoteroNotes: [],
       volume: item.volume,
       issue: item.issue,
@@ -8681,27 +8887,37 @@ var ZoteroService = class {
       publisher: item.publisher
     };
   }
-  parseAnnotations(attachments, citationKey) {
-    var _a;
+  parseAnnotations(rawAttachments, citationKey) {
+    var _a, _b, _c, _d;
+    if (!Array.isArray(rawAttachments)) return [];
     const results = [];
-    for (const att of attachments) {
+    for (const rawAtt of rawAttachments) {
+      if (typeof rawAtt !== "object" || rawAtt === null) continue;
+      const att = rawAtt;
       const attachmentItemKey = this.resolveAttachmentItemKey(att);
       const attachmentTitle = this.resolveAttachmentTitle(att);
       const openBase = typeof att.open === "string" ? att.open : null;
       if (!att.annotations || !Array.isArray(att.annotations)) continue;
-      for (const ann of att.annotations) {
+      for (const rawAnn of att.annotations) {
+        if (typeof rawAnn !== "object" || rawAnn === null) continue;
+        const ann = rawAnn;
         const pageLabel = ann.annotationPageLabel || ann.page || "?";
         results.push({
-          key: ann.key,
+          key: (_a = ann.key) != null ? _a : "",
           citationKey,
-          type: this.mapAnnotationType(ann.annotationType),
+          type: this.mapAnnotationType((_b = ann.annotationType) != null ? _b : ""),
           text: ann.annotationText || "",
           comment: ann.annotationComment || "",
           color: ann.annotationColor || "#aaaaaa",
           pageLabel,
-          link: this.buildAnnotationLink(openBase, attachmentItemKey, pageLabel, ann.key),
+          link: this.buildAnnotationLink(
+            openBase,
+            attachmentItemKey,
+            pageLabel,
+            (_c = ann.key) != null ? _c : ""
+          ),
           attachmentTitle,
-          position: (_a = ann.annotationPosition) != null ? _a : ann.position,
+          position: (_d = ann.annotationPosition) != null ? _d : ann.position,
           date: ann.dateAdded || ann.dateModified || ann.date || ""
         });
       }
@@ -8749,19 +8965,19 @@ var ZoteroService = class {
     return "unknown";
   }
   async resolveLibraryId(citationKey) {
-    var _a, _b;
+    var _a, _b, _c;
     const searchRes = await this.sendRpc("item.search", [citationKey]);
-    if (!searchRes || searchRes.length === 0) {
+    if (!Array.isArray(searchRes) || searchRes.length === 0) {
       throw new Error(`Citation Key '${citationKey}' not found.`);
     }
     const firstHit = searchRes[0];
-    const libraryName = typeof firstHit === "object" && firstHit.library ? firstHit.library : "";
+    const libraryName = typeof firstHit === "object" && firstHit !== null && typeof firstHit.library === "string" && firstHit.library ? (_a = firstHit.library) != null ? _a : "" : "";
     const libs = await this.fetchLibraryMap();
     if (libraryName && libs[libraryName] !== void 0) {
       return libs[libraryName];
     }
     if (!libraryName) {
-      return (_b = (_a = libs["My Library"]) != null ? _a : libs[""]) != null ? _b : 1;
+      return (_c = (_b = libs["My Library"]) != null ? _b : libs[""]) != null ? _c : 1;
     }
     return "*";
   }
@@ -8770,9 +8986,12 @@ var ZoteroService = class {
     const groups = await this.sendRpc("user.groups", []);
     this.libraryCache = { "": 1, "My Library": 1 };
     if (Array.isArray(groups)) {
-      for (const g of groups) {
-        if ((g == null ? void 0 : g.name) != null && (g == null ? void 0 : g.id) != null) {
-          this.libraryCache[g.name] = g.id;
+      for (const rawGroup of groups) {
+        if (typeof rawGroup === "object" && rawGroup !== null) {
+          const g = rawGroup;
+          if (g.name != null && typeof g.id === "number") {
+            this.libraryCache[g.name] = g.id;
+          }
         }
       }
     }
@@ -8998,7 +9217,11 @@ var ZoteroSettingTab = class extends import_obsidian9.PluginSettingTab {
     else if (this.activeTab === "cfp") this.renderCFPSettings(bodyEl);
     else if (this.activeTab === "digest") {
       Promise.resolve().then(() => (init_digest_settings(), digest_settings_exports)).then(
-        (digest) => digest.renderDigestSettings(bodyEl, this.plugin, () => this.display())
+        (digest) => digest.renderDigestSettings(
+          bodyEl,
+          this.plugin,
+          () => this.display()
+        )
       ).catch((e) => console.error("[Paper Digest] settings failed", e));
     }
   }
@@ -9046,7 +9269,10 @@ var ZoteroSettingTab = class extends import_obsidian9.PluginSettingTab {
             await this.plugin.saveSettings();
           });
           labelInput.inputEl.addClass("zotero-workspace-label-input");
-          labelInput.inputEl.setAttribute("aria-label", `${name} button label`);
+          labelInput.inputEl.setAttribute(
+            "aria-label",
+            `${name} button label`
+          );
           labelInput.inputEl.setAttribute("title", "Button label");
         });
       }
@@ -9063,17 +9289,22 @@ var ZoteroSettingTab = class extends import_obsidian9.PluginSettingTab {
         text.inputEl.addClass("zotero-workspace-path-input");
       });
       const resetTooltip = (options == null ? void 0 : options.labelKey) && options.defaultLabel ? `Reset to default (${options.defaultLabel} \xB7 ${defaultVal})` : `Reset to default (${defaultVal})`;
-      addSettingIconAction(setting.controlEl, "rotate-ccw", resetTooltip, async () => {
-        var _a, _b;
-        if ((options == null ? void 0 : options.labelKey) && options.defaultLabel) {
-          ws[options.labelKey] = options.defaultLabel;
-          (_a = labelRef.current) == null ? void 0 : _a.setValue(options.defaultLabel);
+      addSettingIconAction(
+        setting.controlEl,
+        "rotate-ccw",
+        resetTooltip,
+        async () => {
+          var _a, _b;
+          if ((options == null ? void 0 : options.labelKey) && options.defaultLabel) {
+            ws[options.labelKey] = options.defaultLabel;
+            (_a = labelRef.current) == null ? void 0 : _a.setValue(options.defaultLabel);
+          }
+          ws[key] = defaultVal;
+          if (options == null ? void 0 : options.afterSave) options.afterSave(defaultVal);
+          (_b = rowRef.current) == null ? void 0 : _b.setValue(defaultVal);
+          await this.plugin.saveSettings();
         }
-        ws[key] = defaultVal;
-        if (options == null ? void 0 : options.afterSave) options.afterSave(defaultVal);
-        (_b = rowRef.current) == null ? void 0 : _b.setValue(defaultVal);
-        await this.plugin.saveSettings();
-      });
+      );
     };
     addPathRow(
       "Zotero Note",
@@ -9186,7 +9417,10 @@ var ZoteroSettingTab = class extends import_obsidian9.PluginSettingTab {
       })
     );
     const projectCard = container.createDiv({ cls: "zotero-setting-card" });
-    projectCard.createEl("h3", { text: "Project Linker", cls: "zotero-card-title" });
+    projectCard.createEl("h3", {
+      text: "Project Linker",
+      cls: "zotero-card-title"
+    });
     new import_obsidian9.Setting(projectCard).setName("Projects Folder").setDesc("Folder containing your project notes.").addText(
       (text) => text.setValue(this.plugin.settings.projectsFolder).onChange(async (value) => {
         this.plugin.settings.projectsFolder = value;
@@ -9277,7 +9511,9 @@ var ZoteroSettingTab = class extends import_obsidian9.PluginSettingTab {
         await this.plugin.saveSettings();
       })
     );
-    const scriptHeaderRow = customJsCard.createDiv({ cls: "zotero-legacy-script-bar" });
+    const scriptHeaderRow = customJsCard.createDiv({
+      cls: "zotero-legacy-script-bar"
+    });
     scriptHeaderRow.createSpan({
       text: "Available params: dv, input",
       cls: "setting-item-description"
@@ -9412,7 +9648,9 @@ var ZoteroSettingTab = class extends import_obsidian9.PluginSettingTab {
     });
     const tplList = templatesCard.createDiv({ cls: "zotero-template-file-list" });
     const zotDefaultPath = currentFolder ? `${currentFolder}/zotero-note-template.md` : "zotero-note-template.md";
-    const resolvedZotPath = normalizePath(((_b = tplConfig.vaultPath) == null ? void 0 : _b.trim()) || zotDefaultPath);
+    const resolvedZotPath = normalizePath(
+      ((_b = tplConfig.vaultPath) == null ? void 0 : _b.trim()) || zotDefaultPath
+    );
     const zotRow = tplList.createDiv({ cls: "zotero-template-file-row" });
     const zotInfo = zotRow.createDiv({ cls: "zotero-template-file-info" });
     zotInfo.createDiv({
@@ -9560,7 +9798,9 @@ var ZoteroSettingTab = class extends import_obsidian9.PluginSettingTab {
         });
       }
       addActionBtn(actions, "Reset", () => {
-        const builtInDefault = this.plugin.paperHub.getBuiltInDefaultContent(entry.id);
+        const builtInDefault = this.plugin.paperHub.getBuiltInDefaultContent(
+          entry.id
+        );
         if (!builtInDefault) return;
         new ConfirmActionModal(
           this.app,
@@ -9643,8 +9883,13 @@ Write your prompt instructions here.
       const entryPath = normalizePath(((_d = entry.vaultPath) == null ? void 0 : _d.trim()) || fallbackPath);
       const row = promptList.createDiv({ cls: "zotero-template-file-row" });
       const info = row.createDiv({ cls: "zotero-template-file-info" });
-      const titleLine = info.createDiv({ cls: "zotero-template-file-title-line" });
-      titleLine.createSpan({ cls: "zotero-template-file-name", text: entry.name });
+      const titleLine = info.createDiv({
+        cls: "zotero-template-file-title-line"
+      });
+      titleLine.createSpan({
+        cls: "zotero-template-file-name",
+        text: entry.name
+      });
       const placeholderToken = `{{prompt.${entry.id}}}`;
       const chip = titleLine.createEl("button", {
         cls: "zotero-placeholder-chip",
@@ -9716,9 +9961,7 @@ Write your prompt instructions here.
       }
       if (entry.builtIn) {
         addActionBtn(actions, "Reset", () => {
-          const builtInDefault = this.plugin.paperHub.getBuiltInDefaultContent(
-            entry.id
-          );
+          const builtInDefault = this.plugin.paperHub.getBuiltInDefaultContent(entry.id);
           if (!builtInDefault) return;
           new ConfirmActionModal(
             this.app,
@@ -9917,7 +10160,9 @@ Write your prompt instructions here.
     ).addText(
       (text) => {
         var _a;
-        return text.setValue((_a = this.plugin.settings.cfpAcronymKey) != null ? _a : "conference-acronym").setPlaceholder("conference-acronym").onChange(async (value) => {
+        return text.setValue(
+          (_a = this.plugin.settings.cfpAcronymKey) != null ? _a : "conference-acronym"
+        ).setPlaceholder("conference-acronym").onChange(async (value) => {
           this.plugin.settings.cfpAcronymKey = (value || "conference-acronym").trim();
           await this.plugin.saveSettings();
         });
@@ -9947,7 +10192,9 @@ Write your prompt instructions here.
       cls: "zotero-cfp-letters-container"
     });
     const allLetters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
-    const selectedLetters = Array.isArray(this.plugin.settings.cfpSeriesIndexLetters) ? new Set(this.plugin.settings.cfpSeriesIndexLetters) : /* @__PURE__ */ new Set();
+    const selectedLetters = Array.isArray(
+      this.plugin.settings.cfpSeriesIndexLetters
+    ) ? new Set(this.plugin.settings.cfpSeriesIndexLetters) : /* @__PURE__ */ new Set();
     const checkboxes = [];
     allLetters.forEach((letter) => {
       const letterItem = lettersContainer.createDiv({
@@ -9966,7 +10213,9 @@ Write your prompt instructions here.
       checkbox.checked = selectedLetters.has(letter);
       checkboxes.push(checkbox);
       const updateSettings = async () => {
-        const current = Array.isArray(this.plugin.settings.cfpSeriesIndexLetters) ? [...this.plugin.settings.cfpSeriesIndexLetters] : [];
+        const current = Array.isArray(
+          this.plugin.settings.cfpSeriesIndexLetters
+        ) ? [...this.plugin.settings.cfpSeriesIndexLetters] : [];
         if (checkbox.checked) {
           if (!current.includes(letter)) current.push(letter);
         } else {
@@ -9998,7 +10247,9 @@ Write your prompt instructions here.
       await this.plugin.saveSettings();
     });
     new import_obsidian9.ButtonComponent(actionsRow).setButtonText("Refresh Series").setCta().onClick(() => {
-      new import_obsidian9.Notice("WikiCFP series refresh started. Notices will show progress.");
+      new import_obsidian9.Notice(
+        "WikiCFP series refresh started. Notices will show progress."
+      );
       this.plugin.cfpService.refreshWikiCFPSeries((msg) => new import_obsidian9.Notice(msg)).then(() => new import_obsidian9.Notice("WikiCFP series refresh done.")).catch(
         () => new import_obsidian9.Notice("WikiCFP series refresh failed. See console.")
       );
@@ -18532,7 +18783,9 @@ var ObsidianService = class {
    */
   async createLiteratureNote(metadata) {
     const fileName = metadata.title.replace(/[\\/:*?"<>|]/g, "").trim().slice(0, 60);
-    const path2 = normalizePath(`${this.settings.fleetingNoteFolder}/@${metadata.key} - ${fileName}.md`);
+    const path2 = normalizePath(
+      `${this.settings.fleetingNoteFolder}/@${metadata.key} - ${fileName}.md`
+    );
     let note;
     const existing = this.app.vault.getAbstractFileByPath(path2);
     if (existing instanceof import_obsidian11.TFile) {
@@ -18541,7 +18794,12 @@ var ObsidianService = class {
       if (!this.app.vault.getAbstractFileByPath(this.settings.fleetingNoteFolder)) {
         await this.app.vault.createFolder(this.settings.fleetingNoteFolder);
       }
-      note = await ObsidianNoteFactory.createByType(this.app, path2, "literature", metadata.title);
+      note = await ObsidianNoteFactory.createByType(
+        this.app,
+        path2,
+        "literature",
+        metadata.title
+      );
     }
     note.properties.set("zotero-key", String(metadata.key));
     note.properties.set("authors", metadata.creators);
@@ -18561,7 +18819,12 @@ var ObsidianService = class {
     let note;
     if (mode === "create") {
       const path2 = await this.getUniquePath(annotation);
-      note = await ObsidianNoteFactory.createByType(this.app, path2, "fleeting", this.generateTitle(annotation));
+      note = await ObsidianNoteFactory.createByType(
+        this.app,
+        path2,
+        "fleeting",
+        this.generateTitle(annotation)
+      );
       await this.setNoteContent(note, annotation, imageFile || null);
     } else if (mode === "overwrite" && targetFile) {
       note = await ObsidianNoteFactory.loadAndPatch(this.app, targetFile.path);
@@ -18591,10 +18854,12 @@ var ObsidianService = class {
   }
   findLocalImage(annotation) {
     const files = this.app.vault.getFiles();
-    const imageFiles = files.filter((f) => ["png", "jpg", "jpeg"].includes(f.extension.toLowerCase()));
+    const imageFiles = files.filter(
+      (f) => ["png", "jpg", "jpeg"].includes(f.extension.toLowerCase())
+    );
     const keyMatch = imageFiles.find((f) => f.name.includes(annotation.key));
     if (keyMatch) return keyMatch;
-    if (annotation.position && annotation.position.rects && annotation.position.rects.length > 0) {
+    if (typeof annotation.position === "object" && annotation.position !== null && Array.isArray(annotation.position.rects) && annotation.position.rects.length > 0) {
       const rect = annotation.position.rects[0];
       const targetX = Math.round(rect[0]);
       const targetY = Math.round(rect[1]);
@@ -18602,14 +18867,20 @@ var ObsidianService = class {
       return imageFiles.find((f) => {
         const name = f.name;
         if (!name.includes(annotation.citationKey)) return false;
-        if (!name.includes(`p${targetPage}`) && !name.includes(`-${targetPage}-`)) return false;
+        if (!name.includes(`p${targetPage}`) && !name.includes(`-${targetPage}-`))
+          return false;
         return name.includes(`x${targetX}`) && name.includes(`y${targetY}`);
       }) || null;
     }
     return null;
   }
   async modifyToNote(note, ann, replace = false, imageFile) {
-    const lines = [`\`\`\`ad-quote`, `title: Modified at ${ann.date}`, `${ann.text}`, `\`\`\``];
+    const lines = [
+      `\`\`\`ad-quote`,
+      `title: Modified at ${ann.date}`,
+      `${ann.text}`,
+      `\`\`\``
+    ];
     if (imageFile) lines.push("", `![[${imageFile.path}]]`);
     if (replace) {
       const highlightContent = note.content.getSection("Highlight");
@@ -18622,7 +18893,11 @@ var ObsidianService = class {
       }
     }
     note.content.addSection("Highlight", 2, lines);
-    if (ann.comment) note.content.addSection("Thoughts", 2, [`Comment at ${ann.date}`, ann.comment]);
+    if (ann.comment)
+      note.content.addSection("Thoughts", 2, [
+        `Comment at ${ann.date}`,
+        ann.comment
+      ]);
     new import_obsidian11.Notice("Appended.");
   }
   async setNoteContent(note, ann, img) {
@@ -18630,17 +18905,28 @@ var ObsidianService = class {
     const activeFile = this.app.workspace.getActiveFile();
     if (activeFile) {
       if (((_a = activeFile.parent) == null ? void 0 : _a.path) && activeFile.parent.path !== "/") {
-        note.addSourceToProps(`[[${activeFile.parent.path}/${activeFile.basename}]]`);
+        note.addSourceToProps(
+          `[[${activeFile.parent.path}/${activeFile.basename}]]`
+        );
       } else {
         note.addSourceToProps(`[[${activeFile.basename}]]`);
       }
     }
     note.properties.set(this.settings.annotationKeyName, ann.key);
     note.properties.set(this.settings.citationKeyName, ann.citationKey);
-    const lines = [`\`\`\`ad-quote`, `title: Modified at ${ann.date}`, `${ann.text}`, `\`\`\``];
+    const lines = [
+      `\`\`\`ad-quote`,
+      `title: Modified at ${ann.date}`,
+      `${ann.text}`,
+      `\`\`\``
+    ];
     if (img) lines.push("", `![[${img.path}]]`);
     note.content.addSection("Highlight", 2, lines);
-    if (ann.comment) note.content.addSection("Thoughts", 2, [`Comment at ${ann.date}`, ann.comment]);
+    if (ann.comment)
+      note.content.addSection("Thoughts", 2, [
+        `Comment at ${ann.date}`,
+        ann.comment
+      ]);
     note.content.addSection("Source", 2, [`[PDF](${ann.link})`]);
     note.content.addSection("Related Projects", 2, ["```project-picker\n```\n"]);
   }
@@ -18661,6 +18947,18 @@ var ObsidianService = class {
 
 // src/ui/highlights.ts
 init_zotero_connector();
+function getAnnotationSortValue(ann, prop) {
+  const record = ann;
+  const raw = record[prop];
+  return (raw || "").toString().toLowerCase();
+}
+function formatMetadataField(meta, prop) {
+  const record = meta;
+  const raw = record[prop];
+  const normalized = Array.isArray(raw) ? raw.join(", ") : raw;
+  if (!normalized) return "-";
+  return String(normalized);
+}
 var HighlightModal = class extends import_obsidian12.Modal {
   constructor(app, settings, citationKey, imageMap = {}, onUpdate) {
     super(app);
@@ -18685,7 +18983,9 @@ var HighlightModal = class extends import_obsidian12.Modal {
       try {
         this.annotations = await this.zotero.getAnnotations(this.citationKey);
       } catch (e) {
-        statusEl.setText(`\u274C Error fetching annotations: ${e.message}`);
+        statusEl.setText(
+          `\u274C Error fetching annotations: ${e.message}`
+        );
         return;
       }
       try {
@@ -18704,7 +19004,10 @@ var HighlightModal = class extends import_obsidian12.Modal {
     const { contentEl } = this;
     contentEl.empty();
     const header = contentEl.createDiv({ cls: "zotero-modal-header-actions" });
-    header.createEl("h2", { text: `Review: ${this.citationKey}`, cls: "zotero-no-margin" });
+    header.createEl("h2", {
+      text: `Review: ${this.citationKey}`,
+      cls: "zotero-no-margin"
+    });
     const btnFetch = header.createEl("button", { text: "\u{1F4E5} Update Paper" });
     btnFetch.addClass("zotero-btn-fancy");
     btnFetch.onclick = () => this.zoteroConnector.triggerZoteroIntegrationImport(this.citationKey);
@@ -18719,8 +19022,8 @@ var HighlightModal = class extends import_obsidian12.Modal {
     } else {
       const sortProp = this.settings.sortProperty || "color";
       this.annotations.sort((a, b) => {
-        const valA = (a[sortProp] || "").toString().toLowerCase();
-        const valB = (b[sortProp] || "").toString().toLowerCase();
+        const valA = getAnnotationSortValue(a, sortProp);
+        const valB = getAnnotationSortValue(b, sortProp);
         if (sortProp === "pageLabel") {
           const numA = parseFloat(valA);
           const numB = parseFloat(valB);
@@ -18740,7 +19043,10 @@ var HighlightModal = class extends import_obsidian12.Modal {
   async renderMetadataSection(container, meta) {
     const section = container.createDiv({ cls: "zotero-metadata-section" });
     const headerDiv = section.createDiv({ cls: "zotero-metadata-header" });
-    headerDiv.createEl("h4", { text: "Metadata Verification", cls: "zotero-no-margin" });
+    headerDiv.createEl("h4", {
+      text: "Metadata Verification",
+      cls: "zotero-no-margin"
+    });
     const debugBtn = headerDiv.createEl("button", { text: "\u{1F50D} Log Raw Data" });
     debugBtn.addClass("zotero-btn-subtle");
     debugBtn.setAttribute("title", "Print raw JSON to Developer Console");
@@ -18754,14 +19060,23 @@ var HighlightModal = class extends import_obsidian12.Modal {
     let noteLoaded = false;
     if (activeFile) {
       try {
-        activeNoteModel = await ObsidianNoteFactory.loadAndPatch(this.app, activeFile.path);
+        activeNoteModel = await ObsidianNoteFactory.loadAndPatch(
+          this.app,
+          activeFile.path
+        );
         noteLoaded = true;
-        section.createDiv({ text: `Target: ${activeFile.basename}`, cls: "zotero-verify-target" });
+        section.createDiv({
+          text: `Target: ${activeFile.basename}`,
+          cls: "zotero-verify-target"
+        });
       } catch (e) {
         console.error(e);
       }
     } else {
-      section.createDiv({ text: "\u26A0\uFE0F No active note found.", cls: "zotero-verify-warning" });
+      section.createDiv({
+        text: "\u26A0\uFE0F No active note found.",
+        cls: "zotero-verify-warning"
+      });
     }
     const table = section.createEl("table", { cls: "zotero-metadata-table" });
     const headerRow = table.createEl("tr");
@@ -18771,17 +19086,20 @@ var HighlightModal = class extends import_obsidian12.Modal {
     const mapping = this.settings.metadataMapping || [];
     for (const mapItem of mapping) {
       if (!mapItem.enabled) continue;
-      let zValue = meta[mapItem.zoteroProp];
-      if (Array.isArray(zValue)) zValue = zValue.join(", ");
-      if (!zValue) zValue = "-";
-      zValue = String(zValue);
+      const zValue = formatMetadataField(meta, mapItem.zoteroProp);
       const row = table.createEl("tr");
       row.createEl("td", { text: mapItem.label, cls: "zotero-cell-label" });
       const displayVal = zValue.length > 50 ? zValue.substring(0, 48) + "..." : zValue;
       row.createEl("td", { text: displayVal, cls: "zotero-metadata-value" });
       const statusCell = row.createEl("td", { cls: "zotero-cell-center" });
       if (noteLoaded && activeNoteModel) {
-        this.renderVerifyButton(statusCell, activeNoteModel, mapItem.noteProp, zValue, mapItem.label);
+        this.renderVerifyButton(
+          statusCell,
+          activeNoteModel,
+          mapItem.noteProp,
+          zValue,
+          mapItem.label
+        );
       } else {
         statusCell.createSpan({ text: "-" });
       }
@@ -18818,7 +19136,10 @@ var HighlightModal = class extends import_obsidian12.Modal {
       const imgEl = imgContainer.createEl("img");
       imgEl.src = this.app.vault.getResourcePath(localImageFile);
       imgEl.addClass("zotero-card-img");
-      imgContainer.createDiv({ text: `\u{1F4F7} ${localImageFile.name}`, cls: "zotero-img-caption" });
+      imgContainer.createDiv({
+        text: `\u{1F4F7} ${localImageFile.name}`,
+        cls: "zotero-img-caption"
+      });
     } else if (ann.type === "image" || ann.type === "ink") {
       const p = card.createDiv({ cls: "zotero-img-placeholder" });
       p.createDiv({ text: "\u{1F4F7} Image Not Found" });
@@ -18826,12 +19147,21 @@ var HighlightModal = class extends import_obsidian12.Modal {
       btn.addClass("zotero-btn-fancy", "zotero-btn-small");
       btn.onclick = () => this.zoteroConnector.triggerZoteroIntegrationImport(this.citationKey);
     }
-    if (ann.text) card.createEl("blockquote", { text: ann.text, cls: "zotero-blockquote-no-margin" });
-    if (ann.comment) card.createDiv({ text: `\u{1F4DD} ${ann.comment}`, cls: "zotero-comment-italic" });
+    if (ann.text)
+      card.createEl("blockquote", {
+        text: ann.text,
+        cls: "zotero-blockquote-no-margin"
+      });
+    if (ann.comment)
+      card.createDiv({ text: `\u{1F4DD} ${ann.comment}`, cls: "zotero-comment-italic" });
     const footer = card.createDiv({ cls: "zotero-card-footer" });
     const left = footer.createDiv({ cls: "zotero-footer-left" });
     left.createSpan({ text: `Page ${ann.pageLabel}` });
-    left.createEl("a", { text: "Open PDF", href: ann.link, attr: { target: "_blank" } });
+    left.createEl("a", {
+      text: "Open PDF",
+      href: ann.link,
+      attr: { target: "_blank" }
+    });
     const right = footer.createDiv({ cls: "zotero-footer-right" });
     const existingNote = await this.obsidian.isAnnotationExported(ann.key);
     if (existingNote) {
@@ -18844,17 +19174,30 @@ var HighlightModal = class extends import_obsidian12.Modal {
       const replaceBtnOpen = right.createEl("button", { text: "Replace Note" });
       replaceBtnOpen.addClass("zotero-btn-fancy", "zotero-btn-secondary");
       replaceBtnOpen.onclick = async () => {
-        await this.obsidian.saveNote(ann, "overwrite", existingNote, localImageFile);
+        await this.obsidian.saveNote(
+          ann,
+          "overwrite",
+          existingNote,
+          localImageFile
+        );
         this.close();
       };
       const appendBtnOpen = right.createEl("button", { text: "Append Note" });
       appendBtnOpen.addClass("zotero-btn-fancy", "zotero-btn-secondary");
       appendBtnOpen.onclick = async () => {
-        await this.obsidian.saveNote(ann, "append", existingNote, localImageFile);
+        await this.obsidian.saveNote(
+          ann,
+          "append",
+          existingNote,
+          localImageFile
+        );
         this.close();
       };
     } else {
-      const btnCreate = right.createEl("button", { text: "Create Note", cls: "mod-cta" });
+      const btnCreate = right.createEl("button", {
+        text: "Create Note",
+        cls: "mod-cta"
+      });
       btnCreate.addClass("zotero-btn-fancy");
       btnCreate.onclick = async () => {
         const scrollPos = this.contentEl.scrollTop;
@@ -18880,7 +19223,10 @@ function parseImageMap(rawSource) {
   try {
     return JSON.parse(trimmed);
   } catch (e) {
-    console.warn("[Zotero Assistant] Standard JSON parse failed. Trying to sanitize Windows paths...", e);
+    console.warn(
+      "[Zotero Assistant] Standard JSON parse failed. Trying to sanitize Windows paths...",
+      e
+    );
     try {
       const sanitized = trimmed.replace(/\\(?!["\\/bfnrtu])/g, "\\\\");
       return JSON.parse(sanitized);
@@ -18992,7 +19338,10 @@ var AssistantWebhookInputModal = class extends import_obsidian14.Modal {
     const { contentEl } = this;
     contentEl.empty();
     contentEl.addClass("zotero-webhook-input-modal");
-    contentEl.createEl("h3", { text: this.hookName, cls: "zotero-webhook-input-title" });
+    contentEl.createEl("h3", {
+      text: this.hookName,
+      cls: "zotero-webhook-input-title"
+    });
     const form = contentEl.createDiv({ cls: "zotero-webhook-input-form" });
     for (const iv of this.variables) {
       const row = form.createDiv({ cls: "zotero-webhook-input-row" });
@@ -19109,7 +19458,10 @@ var AssistantView = class extends import_obsidian14.MarkdownRenderChild {
   constructor(containerEl, plugin) {
     super(containerEl);
     this.plugin = plugin;
-    this.zoteroConnector = new ZoteroConnectorService(this.plugin.app, this.plugin.settings);
+    this.zoteroConnector = new ZoteroConnectorService(
+      this.plugin.app,
+      this.plugin.settings
+    );
   }
   async render(source, ctx) {
     const el = this.containerEl;
@@ -19131,7 +19483,9 @@ var AssistantView = class extends import_obsidian14.MarkdownRenderChild {
         text: `No citation key found (${this.plugin.settings.citationKeyName || "citation-key"}).`
       });
       if (this.plugin.settings.enableLegacyAssistantScript) {
-        const legacyWrap = container.createDiv({ cls: "zotero-local-highlights" });
+        const legacyWrap = container.createDiv({
+          cls: "zotero-local-highlights"
+        });
         await this.renderLegacyScript(file, legacyWrap, source);
       }
       return;
@@ -19140,7 +19494,11 @@ var AssistantView = class extends import_obsidian14.MarkdownRenderChild {
     await this.renderCoreNoteBlock(container, file, state, rerender);
     this.renderProjectsAndLinksBar(container, file, state, rerender);
     if (state.fleetingNotes.length > 0) {
-      await this.renderInlineCommentsSection(container, state.fleetingNotes, rerender);
+      await this.renderInlineCommentsSection(
+        container,
+        state.fleetingNotes,
+        rerender
+      );
     }
     if (this.plugin.settings.enableLegacyAssistantScript) {
       const legacyWrap = container.createDiv({ cls: "zotero-local-highlights" });
@@ -19178,7 +19536,9 @@ var AssistantView = class extends import_obsidian14.MarkdownRenderChild {
       },
       hasCandidates ? "has-badge" : void 0
     );
-    const visibleHooks = (this.plugin.settings.webhooks || []).filter((h) => !h.hidden);
+    const visibleHooks = (this.plugin.settings.webhooks || []).filter(
+      (h) => !h.hidden
+    );
     if (visibleHooks.length > 0) {
       toolbar.createSpan({ cls: "zotero-assistant-toolbar-divider" });
       for (const hook of visibleHooks) {
@@ -19245,7 +19605,11 @@ var AssistantView = class extends import_obsidian14.MarkdownRenderChild {
       const doiLink = pills.createEl("a", {
         cls: "zotero-res-pill is-external",
         href: state.doiUrl,
-        attr: { target: "_blank", rel: "noopener noreferrer", title: state.doiUrl }
+        attr: {
+          target: "_blank",
+          rel: "noopener noreferrer",
+          title: state.doiUrl
+        }
       });
       const iconSpan = doiLink.createSpan({ cls: "zotero-res-pill-icon" });
       (0, import_obsidian14.setIcon)(iconSpan, "external-link");
@@ -19254,7 +19618,9 @@ var AssistantView = class extends import_obsidian14.MarkdownRenderChild {
     const openCodeModal = (currentUrl) => {
       new CodeUrlModal(this.plugin.app, currentUrl, async (nextUrl) => {
         await this.plugin.paperHub.updateLiteratureCodeUrl(file, nextUrl);
-        new import_obsidian14.Notice(nextUrl ? "Saved repository URL." : "Cleared repository URL.");
+        new import_obsidian14.Notice(
+          nextUrl ? "Saved repository URL." : "Cleared repository URL."
+        );
         await rerender();
       }).open();
     };
@@ -19263,7 +19629,11 @@ var AssistantView = class extends import_obsidian14.MarkdownRenderChild {
       const codeLink = codeGroup.createEl("a", {
         cls: "zotero-res-pill is-external is-code",
         href: state.codeUrl,
-        attr: { target: "_blank", rel: "noopener noreferrer", title: state.codeUrl }
+        attr: {
+          target: "_blank",
+          rel: "noopener noreferrer",
+          title: state.codeUrl
+        }
       });
       const iconSpan = codeLink.createSpan({ cls: "zotero-res-pill-icon" });
       (0, import_obsidian14.setIcon)(iconSpan, "code-2");
@@ -19321,7 +19691,9 @@ var AssistantView = class extends import_obsidian14.MarkdownRenderChild {
           await rerender();
         } catch (err) {
           console.error(`[AssistantView] Failed to create ${label}`, err);
-          new import_obsidian14.Notice(`Failed to create ${label}: ${(_a = err == null ? void 0 : err.message) != null ? _a : String(err)}`);
+          new import_obsidian14.Notice(
+            `Failed to create ${label}: ${(_a = err == null ? void 0 : err.message) != null ? _a : String(err)}`
+          );
         }
       };
       const copyBtn = group.createEl("button", {
@@ -19365,14 +19737,19 @@ var AssistantView = class extends import_obsidian14.MarkdownRenderChild {
       return (_a2 = iv.name) == null ? void 0 : _a2.trim();
     });
     if (vars.length > 0) {
-      new AssistantWebhookInputModal(this.plugin.app, hook.name, vars, (values) => {
-        void this.plugin.webhookService.triggerWebhook(
-          hook,
-          file,
-          values,
-          this.plugin.settings.webhookDebugMode
-        );
-      }).open();
+      new AssistantWebhookInputModal(
+        this.plugin.app,
+        hook.name,
+        vars,
+        (values) => {
+          void this.plugin.webhookService.triggerWebhook(
+            hook,
+            file,
+            values,
+            this.plugin.settings.webhookDebugMode
+          );
+        }
+      ).open();
     } else {
       void this.plugin.webhookService.triggerWebhook(
         hook,
@@ -19420,7 +19797,10 @@ var AssistantView = class extends import_obsidian14.MarkdownRenderChild {
         );
         await this.plugin.app.workspace.getLeaf(false).openFile(coreFile);
       } catch (err) {
-        console.error("[AssistantView] Failed to open Core Note in editor", err);
+        console.error(
+          "[AssistantView] Failed to open Core Note in editor",
+          err
+        );
         new import_obsidian14.Notice(
           `Failed to open Core Note: ${(_a = err == null ? void 0 : err.message) != null ? _a : String(err)}`
         );
@@ -19588,7 +19968,9 @@ var AssistantView = class extends import_obsidian14.MarkdownRenderChild {
     }
     addIconAction(linkedChips, "plus", "Link an Atomic note", () => {
       var _a, _b;
-      const atomicBase = (normalizePath(((_b = (_a = this.plugin.settings.paperWorkspace) == null ? void 0 : _a.atomicNotesFolder) == null ? void 0 : _b.trim()) || "003-Permanent").replace(/\/+$/, "") || "003-Permanent") + "/";
+      const atomicBase = (normalizePath(
+        ((_b = (_a = this.plugin.settings.paperWorkspace) == null ? void 0 : _a.atomicNotesFolder) == null ? void 0 : _b.trim()) || "003-Permanent"
+      ).replace(/\/+$/, "") || "003-Permanent") + "/";
       new VaultMarkdownSuggestModal(
         this.plugin.app,
         async (chosen) => {
@@ -19629,7 +20011,9 @@ var AssistantView = class extends import_obsidian14.MarkdownRenderChild {
         void this.plugin.app.workspace.getLeaf(false).openFile(item.file);
       };
       if (item.thought) {
-        const snippetEl = textCol.createDiv({ cls: "zotero-inline-comment-snippet" });
+        const snippetEl = textCol.createDiv({
+          cls: "zotero-inline-comment-snippet"
+        });
         renderTasks.push(
           renderMarkdownContent(
             this.plugin.app,
@@ -19648,9 +20032,12 @@ var AssistantView = class extends import_obsidian14.MarkdownRenderChild {
       toggleBadge.onclick = async () => {
         var _a;
         if ((_a = this.plugin.app.fileManager) == null ? void 0 : _a.processFrontMatter) {
-          await this.plugin.app.fileManager.processFrontMatter(item.file, (fm) => {
-            fm["read"] = !item.read;
-          });
+          await this.plugin.app.fileManager.processFrontMatter(
+            item.file,
+            (fm) => {
+              fm["read"] = !item.read;
+            }
+          );
         }
         await rerender();
       };
@@ -19713,14 +20100,18 @@ var AssistantView = class extends import_obsidian14.MarkdownRenderChild {
           )
         );
         if (resolved instanceof import_obsidian14.TFile) {
-          const info = this.plugin.cfpService.getCFPNoteInfoByPath(resolved.path);
+          const info = this.plugin.cfpService.getCFPNoteInfoByPath(
+            resolved.path
+          );
           if (info) {
             if (info.isSeries) {
               seriesName = info.seriesName;
               seriesNotePath = info.seriesNotePath;
             } else {
               seriesName = info.event.item.series || info.event.item.acronym;
-              const byAcronym = this.plugin.cfpService.getSeriesInfoByAcronym(seriesName);
+              const byAcronym = this.plugin.cfpService.getSeriesInfoByAcronym(
+                seriesName
+              );
               if (byAcronym) seriesNotePath = byAcronym.seriesNotePath;
             }
           }
@@ -19759,10 +20150,16 @@ var AssistantView = class extends import_obsidian14.MarkdownRenderChild {
       metaLeft.createSpan({ cls: "zotero-venue-acronym", text: displaySeries });
     }
     if (rankCore) {
-      metaLeft.createSpan({ cls: "zotero-venue-rank is-core", text: `CORE ${rankCore}` });
+      metaLeft.createSpan({
+        cls: "zotero-venue-rank is-core",
+        text: `CORE ${rankCore}`
+      });
     }
     if (rankCcf) {
-      metaLeft.createSpan({ cls: "zotero-venue-rank is-ccf", text: `CCF ${rankCcf}` });
+      metaLeft.createSpan({
+        cls: "zotero-venue-rank is-ccf",
+        text: `CCF ${rankCcf}`
+      });
     }
     if (seriesNotePath) {
       const seriesLink = metaLeft.createEl("a", {
@@ -19807,8 +20204,91 @@ var AssistantView = class extends import_obsidian14.MarkdownRenderChild {
   }
 };
 
-// src/services/webhook.ts
+// src/ui/webhook-modals.ts
 var import_obsidian15 = require("obsidian");
+var WebhookSelectionModal = class extends import_obsidian15.SuggestModal {
+  constructor(app, webhooks, onChoose) {
+    super(app);
+    this.webhooks = webhooks;
+    this.onChoose = onChoose;
+  }
+  getSuggestions(query) {
+    return this.webhooks.filter(
+      (hook) => hook.name.toLowerCase().includes(query.toLowerCase())
+    );
+  }
+  renderSuggestion(hook, el) {
+    el.createDiv({ text: hook.name });
+    el.createDiv({ text: hook.url, cls: "zotero-text-muted-italic" });
+  }
+  onChooseSuggestion(hook) {
+    var _a;
+    this.close();
+    const vars = ((_a = hook.inputVariables) != null ? _a : []).filter((iv) => {
+      var _a2;
+      return (_a2 = iv.name) == null ? void 0 : _a2.trim();
+    });
+    if (vars.length > 0) {
+      new WebhookInputValueModal(this.app, hook.name, vars, (values) => {
+        this.onChoose(hook, values);
+      }).open();
+    } else {
+      this.onChoose(hook);
+    }
+  }
+};
+var WebhookInputValueModal = class extends import_obsidian15.Modal {
+  constructor(app, title, variables, onSubmit) {
+    super(app);
+    this.inputs = /* @__PURE__ */ new Map();
+    this.title = title;
+    this.variables = variables;
+    this.onSubmit = onSubmit;
+  }
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.addClass("zotero-webhook-input-modal");
+    contentEl.createEl("h2", {
+      text: this.title,
+      cls: "zotero-webhook-input-title"
+    });
+    const desc = contentEl.createDiv({ cls: "zotero-webhook-input-desc" });
+    desc.setText("Enter values to substitute in the webhook body.");
+    const form = contentEl.createDiv({ cls: "zotero-webhook-input-form" });
+    this.variables.forEach((iv) => {
+      const row = form.createDiv({ cls: "zotero-webhook-input-row" });
+      row.createEl("label", {
+        text: `{{${iv.name}}}`,
+        cls: "zotero-webhook-input-label"
+      });
+      const tc = new import_obsidian15.TextComponent(row);
+      tc.inputEl.addClass("zotero-webhook-input-field");
+      if (iv.type === "number") {
+        tc.inputEl.type = "number";
+        tc.setPlaceholder("0");
+      } else {
+        tc.setPlaceholder("Optional");
+      }
+      this.inputs.set(iv.name, tc);
+    });
+    const footer = contentEl.createDiv({ cls: "zotero-webhook-input-footer" });
+    new import_obsidian15.ButtonComponent(footer).setButtonText("Cancel").onClick(() => this.close());
+    new import_obsidian15.ButtonComponent(footer).setButtonText("Trigger").setCta().onClick(() => {
+      const values = {};
+      this.variables.forEach((iv) => {
+        var _a, _b;
+        const v = (_b = (_a = this.inputs.get(iv.name)) == null ? void 0 : _a.getValue()) != null ? _b : "";
+        values[iv.name] = iv.type === "number" ? String(Number(v)) : v;
+      });
+      this.close();
+      this.onSubmit(values);
+    }).buttonEl.addClass("zotero-btn-fancy");
+  }
+};
+
+// src/services/webhook.ts
+var import_obsidian16 = require("obsidian");
 init_paths();
 init_paper_hub();
 var WebhookService = class {
@@ -19819,10 +20299,10 @@ var WebhookService = class {
   async triggerWebhook(profile, file, extraVariables, debugMode) {
     var _a, _b, _c, _d, _e;
     if (!profile.url) {
-      new import_obsidian15.Notice(`\u274C Webhook "${profile.name}" has no URL.`);
+      new import_obsidian16.Notice(`\u274C Webhook "${profile.name}" has no URL.`);
       return;
     }
-    new import_obsidian15.Notice(`\u{1F680} Triggering: ${profile.name}...`);
+    new import_obsidian16.Notice(`\u{1F680} Triggering: ${profile.name}...`);
     try {
       const cache2 = this.app.metadataCache.getFileCache(file);
       const frontmatter = (cache2 == null ? void 0 : cache2.frontmatter) || {};
@@ -19840,7 +20320,10 @@ var WebhookService = class {
       });
       if (this.getSettings) {
         const settings = this.getSettings();
-        const fallbackName = (file.basename || safeFilename).replace(/\.md$/i, "");
+        const fallbackName = (file.basename || safeFilename).replace(
+          /\.md$/i,
+          ""
+        );
         const rawCitekey = frontmatter[settings.citationKeyName] || frontmatter["citation-key"] || frontmatter["zotero-key"] || fallbackName;
         const citekey = String(rawCitekey).trim();
         const paths = resolvePaperPaths(settings.paperWorkspace, citekey);
@@ -19861,7 +20344,7 @@ var WebhookService = class {
             var _a2;
             const vPath = ((_a2 = prompt.vaultPath) == null ? void 0 : _a2.trim()) ? normalizePath(prompt.vaultPath.trim()) : "";
             const vaultFile = vPath ? this.app.vault.getAbstractFileByPath(vPath) : null;
-            const promptContent = vaultFile instanceof import_obsidian15.TFile ? await this.app.vault.read(vaultFile) : prompt.content;
+            const promptContent = vaultFile instanceof import_obsidian16.TFile ? await this.app.vault.read(vaultFile) : prompt.content;
             return { id: prompt.id, content: promptContent, path: vPath };
           })
         );
@@ -19881,7 +20364,10 @@ var WebhookService = class {
         if (profile.contentType === "json" && rawTemplate.trim().length > 0) {
           try {
             const templateObj = JSON.parse(rawTemplate);
-            const filledObj = this.fillTemplateRecursive(templateObj, variables);
+            const filledObj = this.fillTemplateRecursive(
+              templateObj,
+              variables
+            );
             body = JSON.stringify(filledObj);
           } catch (e) {
             console.warn(
@@ -19895,10 +20381,12 @@ var WebhookService = class {
         }
       }
       const headers = {};
-      if (profile.contentType === "json") headers["Content-Type"] = "application/json";
+      if (profile.contentType === "json")
+        headers["Content-Type"] = "application/json";
       else if (profile.contentType === "form")
         headers["Content-Type"] = "application/x-www-form-urlencoded";
-      else if (profile.contentType === "text") headers["Content-Type"] = "text/plain";
+      else if (profile.contentType === "text")
+        headers["Content-Type"] = "text/plain";
       for (const h of profile.headers) {
         let finalValue = String((_e = h.value) != null ? _e : "");
         if (h.type === "secret" && this.app.secretStorage) {
@@ -19917,23 +20405,23 @@ var WebhookService = class {
         console.log("Headers:", headers);
         console.log("Body:", body != null ? body : "(none)");
         console.groupEnd();
-        new import_obsidian15.Notice("\u{1F50D} Webhook debug: check console for request details.");
+        new import_obsidian16.Notice("\u{1F50D} Webhook debug: check console for request details.");
       }
-      const response = await (0, import_obsidian15.requestUrl)({
+      const response = await (0, import_obsidian16.requestUrl)({
         url: profile.url.trim(),
         method: profile.method,
         headers,
         body
       });
       if (response.status >= 200 && response.status < 300) {
-        new import_obsidian15.Notice(`\u2705 ${profile.name} Sent!`);
+        new import_obsidian16.Notice(`\u2705 ${profile.name} Sent!`);
       } else {
-        new import_obsidian15.Notice(`\u26A0\uFE0F ${profile.name} Failed: ${response.status}`);
+        new import_obsidian16.Notice(`\u26A0\uFE0F ${profile.name} Failed: ${response.status}`);
         console.error("Webhook Failed Body:", body || "");
       }
     } catch (e) {
       console.error(e);
-      new import_obsidian15.Notice(`\u274C Webhook Error: ${e.message}`);
+      new import_obsidian16.Notice(`\u274C Webhook Error: ${e.message}`);
     }
   }
   fillTemplateRecursive(item, variables) {
@@ -19947,7 +20435,9 @@ var WebhookService = class {
       return item.map((child) => this.fillTemplateRecursive(child, variables));
     } else if (typeof item === "object" && item !== null) {
       const newObj = {};
-      for (const [key, value] of Object.entries(item)) {
+      for (const [key, value] of Object.entries(
+        item
+      )) {
         newObj[key] = this.fillTemplateRecursive(value, variables);
       }
       return newObj;
@@ -19973,9 +20463,16 @@ var DataviewService = class {
     this.app = app;
   }
   get api() {
-    const plugin = this.app.plugins.getPlugin("dataview");
-    if (plugin && plugin.settings) {
-      return plugin.api;
+    var _a, _b;
+    const rawPlugin = (_b = (_a = this.app.plugins) == null ? void 0 : _a.getPlugin) == null ? void 0 : _b.call(
+      _a,
+      "dataview"
+    );
+    if (typeof rawPlugin === "object" && rawPlugin !== null) {
+      const plugin = rawPlugin;
+      if (plugin.settings) {
+        return plugin.api;
+      }
     }
     return void 0;
   }
@@ -19991,7 +20488,8 @@ var DataviewService = class {
    * @param params - JSON-serializable parameters to inject as 'input'.
    */
   async executeScript(code, container, component, filePath, params = {}) {
-    if (!this.api) {
+    const api = this.api;
+    if (!api) {
       container.createDiv({ text: "Dataview API not available." });
       return;
     }
@@ -19999,12 +20497,7 @@ var DataviewService = class {
       const codeWithParams = `const input = ${JSON.stringify(params)};
 
 ${code}`;
-      await this.api.executeJs(
-        codeWithParams,
-        container,
-        component,
-        filePath
-      );
+      await api.executeJs(codeWithParams, container, component, filePath);
     } catch (e) {
       console.error("Dataview Script Execution Error:", e);
       container.createDiv({
@@ -20016,16 +20509,21 @@ ${code}`;
 };
 
 // src/services/cfp.ts
-var import_obsidian21 = require("obsidian");
+var import_obsidian22 = require("obsidian");
 
 // src/services/cfp-wikicfp.ts
-var import_obsidian16 = require("obsidian");
+var import_obsidian17 = require("obsidian");
 init_series();
 var DELAY_MS = 1500;
 function delay(ms) {
   return new Promise((resolve2) => setTimeout(resolve2, ms));
 }
-var BASIC_ENTITIES = { nbsp: " ", amp: "&", lt: "<", gt: ">" };
+var BASIC_ENTITIES = {
+  nbsp: " ",
+  amp: "&",
+  lt: "<",
+  gt: ">"
+};
 function stripHtml(html) {
   return html.replace(/<[^>]+>/g, " ").replace(/&(nbsp|amp|lt|gt);/g, (_, name) => BASIC_ENTITIES[name]).replace(/\s+/g, " ").trim();
 }
@@ -20052,7 +20550,9 @@ function parseWikiCFPTableRow(rowHtml, pageUrl) {
   let end;
   const whenStr = stripHtml(whenCell).trim();
   if (whenStr && whenStr.toLowerCase() !== "n/a") {
-    const range = whenStr.match(/^([A-Za-z]+\s+\d{1,2},\s+\d{4})\s*-\s*([A-Za-z]+\s+\d{1,2},\s+\d{4})$/);
+    const range = whenStr.match(
+      /^([A-Za-z]+\s+\d{1,2},\s+\d{4})\s*-\s*([A-Za-z]+\s+\d{1,2},\s+\d{4})$/
+    );
     if (range) {
       start = range[1];
       end = range[2];
@@ -20080,7 +20580,8 @@ function parseWikiCFPHtml(html, pageUrl) {
   let rowMatch;
   while ((rowMatch = rowRe.exec(html)) !== null) {
     const rowHtml = rowMatch[1];
-    if (/<th[\s>]|Event\s*<\/|When\s*<\/|Where\s*<\/|Deadline\s*<\//i.test(rowHtml)) continue;
+    if (/<th[\s>]|Event\s*<\/|When\s*<\/|Where\s*<\/|Deadline\s*<\//i.test(rowHtml))
+      continue;
     const item = parseWikiCFPTableRow(rowHtml, pageUrl);
     if (item) {
       const key = item.acronym.toLowerCase();
@@ -20088,7 +20589,10 @@ function parseWikiCFPHtml(html, pageUrl) {
         seenAcronyms.add(key);
         items.push(item);
       } else {
-        console.log("[CFP] parseWikiCFPHtml: skipping duplicate acronym", item.acronym);
+        console.log(
+          "[CFP] parseWikiCFPHtml: skipping duplicate acronym",
+          item.acronym
+        );
       }
     }
   }
@@ -20101,7 +20605,7 @@ async function fetchWikiCFP(urls) {
     const url = (_a = urls[i]) == null ? void 0 : _a.trim();
     if (!url) continue;
     try {
-      const resp = await (0, import_obsidian16.requestUrl)({ url, method: "GET" });
+      const resp = await (0, import_obsidian17.requestUrl)({ url, method: "GET" });
       if (resp.status !== 200) continue;
       const items = parseWikiCFPHtml(resp.text, url);
       results.push(...items);
@@ -20113,7 +20617,7 @@ async function fetchWikiCFP(urls) {
 }
 
 // src/services/cfp-ccfddl.ts
-var import_obsidian17 = require("obsidian");
+var import_obsidian18 = require("obsidian");
 init_js_yaml();
 var DELAY_MS2 = 1500;
 function delay2(ms) {
@@ -20122,6 +20626,12 @@ function delay2(ms) {
 var lastCcfRankMap = {};
 function getCcfRankForSeriesTitle(title) {
   return lastCcfRankMap[title] || void 0;
+}
+function extractRankField(rank, key) {
+  if (typeof rank !== "object" || rank === null) return void 0;
+  const raw = rank[key];
+  if (raw === void 0 || raw === null) return void 0;
+  return String(raw).trim();
 }
 function deadlineFromTimeline(timeline) {
   var _a, _b, _c, _d;
@@ -20139,7 +20649,7 @@ function deadlineFromTimeline(timeline) {
   return "N/A";
 }
 function parseCcfddlYaml(text) {
-  var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n;
+  var _a, _b, _c, _d, _e, _f, _g, _h, _i;
   const items = [];
   let data;
   try {
@@ -20153,10 +20663,9 @@ function parseCcfddlYaml(text) {
     const title = ((_a = entry.title) != null ? _a : "").toString().trim();
     const fullName = ((_b = entry.description) != null ? _b : title).toString().trim();
     if (!title) continue;
-    const rankObj = (_c = entry.rank) != null ? _c : {};
-    const ccf = (_e = (_d = rankObj == null ? void 0 : rankObj.ccf) == null ? void 0 : _d.toString()) == null ? void 0 : _e.trim();
-    const thcpl = (_g = (_f = rankObj == null ? void 0 : rankObj.thcpl) == null ? void 0 : _f.toString()) == null ? void 0 : _g.trim();
-    const sub = (_i = (_h = entry.sub) == null ? void 0 : _h.toString()) == null ? void 0 : _i.trim();
+    const ccf = extractRankField(entry.rank, "ccf");
+    const thcpl = extractRankField(entry.rank, "thcpl");
+    const sub = (_d = (_c = entry.sub) == null ? void 0 : _c.toString()) == null ? void 0 : _d.trim();
     if (ccf || thcpl || sub) {
       lastCcfRankMap[title] = {
         ccf: ccf || void 0,
@@ -20164,21 +20673,21 @@ function parseCcfddlYaml(text) {
         sub: sub || void 0
       };
     }
-    const confs = (_j = entry.confs) != null ? _j : [];
+    const confs = (_e = entry.confs) != null ? _e : [];
     for (const conf of confs) {
       const year = conf.year;
       const eventAcronym = year != null ? `${title} ${year}` : title;
-      const submissionDdl = deadlineFromTimeline((_k = conf.timeline) != null ? _k : []);
+      const submissionDdl = deadlineFromTimeline((_f = conf.timeline) != null ? _f : []);
       items.push({
         acronym: eventAcronym,
         series: title,
         fullName: fullName || eventAcronym,
-        location: ((_l = conf.place) != null ? _l : "").toString().trim() || "N/A",
-        start: (_m = conf.date) == null ? void 0 : _m.toString(),
+        location: ((_g = conf.place) != null ? _g : "").toString().trim() || "N/A",
+        start: (_h = conf.date) == null ? void 0 : _h.toString(),
         end: void 0,
         submissionDdl,
         source: "ccfddl",
-        url: (_n = conf.link) == null ? void 0 : _n.toString()
+        url: (_i = conf.link) == null ? void 0 : _i.toString()
       });
     }
   }
@@ -20191,7 +20700,7 @@ async function fetchCcfddl(urls) {
     const url = (_a = urls[i]) == null ? void 0 : _a.trim();
     if (!url) continue;
     try {
-      const resp = await (0, import_obsidian17.requestUrl)({ url, method: "GET" });
+      const resp = await (0, import_obsidian18.requestUrl)({ url, method: "GET" });
       if (resp.status !== 200) continue;
       const list = parseCcfddlYaml(resp.text);
       results.push(...list);
@@ -20203,7 +20712,7 @@ async function fetchCcfddl(urls) {
 }
 
 // src/services/cfp-wikicfp-series.ts
-var import_obsidian18 = require("obsidian");
+var import_obsidian19 = require("obsidian");
 var WIKICFP_BASE = "http://www.wikicfp.com";
 var WIKICFP_SERIES_BASE = "http://www.wikicfp.com/cfp/series?t=c&i=";
 var INDEX_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
@@ -20213,7 +20722,12 @@ function randomDelayMs() {
 function delay3(ms) {
   return new Promise((resolve2) => setTimeout(resolve2, ms));
 }
-var BASIC_ENTITIES2 = { nbsp: " ", amp: "&", lt: "<", gt: ">" };
+var BASIC_ENTITIES2 = {
+  nbsp: " ",
+  amp: "&",
+  lt: "<",
+  gt: ">"
+};
 function stripHtmlLite(html) {
   return html.replace(/<[^>]+>/g, " ").replace(/&(nbsp|amp|lt|gt);/g, (_, name) => BASIC_ENTITIES2[name]).replace(/\s+/g, " ").trim();
 }
@@ -20269,7 +20783,7 @@ async function fetchWikiCFPSeriesIndex(onProgress, letters) {
     const letter = lettersToFetch[i];
     const url = WIKICFP_SERIES_BASE + letter;
     try {
-      const resp = await (0, import_obsidian18.requestUrl)({ url, method: "GET" });
+      const resp = await (0, import_obsidian19.requestUrl)({ url, method: "GET" });
       if (resp.status !== 200) continue;
       const entries = parseSeriesIndexPage(resp.text);
       for (const e of entries) {
@@ -20346,7 +20860,9 @@ function parseSeriesTableToItems(html, programUrl, seriesAcronym) {
     let start;
     let end;
     if (whenText && whenText.toLowerCase() !== "n/a") {
-      const rangeMatch = whenText.match(/([A-Za-z]+\s+\d{1,2},\s+\d{4})\s*-\s*([A-Za-z]+\s+\d{1,2},\s+\d{4})/);
+      const rangeMatch = whenText.match(
+        /([A-Za-z]+\s+\d{1,2},\s+\d{4})\s*-\s*([A-Za-z]+\s+\d{1,2},\s+\d{4})/
+      );
       if (rangeMatch) {
         start = rangeMatch[1];
         end = rangeMatch[2];
@@ -20377,23 +20893,43 @@ function parseSeriesTableToItems(html, programUrl, seriesAcronym) {
   return items;
 }
 async function fetchSeriesEvents(programUrl, seriesAcronym, onProgress) {
-  const resp = await (0, import_obsidian18.requestUrl)({ url: programUrl, method: "GET" });
+  const resp = await (0, import_obsidian19.requestUrl)({ url: programUrl, method: "GET" });
   if (resp.status !== 200) {
-    console.warn("[CFP] fetchSeriesEvents: failed to fetch program page", resp.status);
+    console.warn(
+      "[CFP] fetchSeriesEvents: failed to fetch program page",
+      resp.status
+    );
     return [];
   }
   const tableItems = parseSeriesTableToItems(resp.text, programUrl, seriesAcronym);
   if (tableItems.length > 0) {
-    console.log("[CFP] fetchSeriesEvents: parsed", tableItems.length, "items from series table");
+    console.log(
+      "[CFP] fetchSeriesEvents: parsed",
+      tableItems.length,
+      "items from series table"
+    );
     return tableItems;
   }
   const eventUrls = parseProgramPageForEventUrls(resp.text);
-  console.log("[CFP] fetchSeriesEvents: found", eventUrls.length, "event URLs from program page");
+  console.log(
+    "[CFP] fetchSeriesEvents: found",
+    eventUrls.length,
+    "event URLs from program page"
+  );
   if (eventUrls.length === 0) {
-    console.log("[CFP] fetchSeriesEvents: no event URLs found, parsing program page via fetchWikiCFP fallback");
+    console.log(
+      "[CFP] fetchSeriesEvents: no event URLs found, parsing program page via fetchWikiCFP fallback"
+    );
     const fromTable = await fetchWikiCFP([programUrl]);
-    console.log("[CFP] fetchSeriesEvents: parsed", fromTable.length, "items from fallback table");
-    return fromTable.map((item) => ({ ...item, series: item.series || seriesAcronym }));
+    console.log(
+      "[CFP] fetchSeriesEvents: parsed",
+      fromTable.length,
+      "items from fallback table"
+    );
+    return fromTable.map((item) => ({
+      ...item,
+      series: item.series || seriesAcronym
+    }));
   }
   const all = [];
   const seenAcronyms = /* @__PURE__ */ new Set();
@@ -20404,14 +20940,21 @@ async function fetchSeriesEvents(programUrl, seriesAcronym, onProgress) {
       for (const item of items) {
         const key = item.acronym.toLowerCase();
         if (seenAcronyms.has(key)) {
-          console.log("[CFP] fetchSeriesEvents: skipping duplicate acronym", item.acronym);
+          console.log(
+            "[CFP] fetchSeriesEvents: skipping duplicate acronym",
+            item.acronym
+          );
           continue;
         }
         seenAcronyms.add(key);
         all.push({ ...item, series: item.series || seriesAcronym });
       }
     } catch (e) {
-      console.warn("[CFP] fetchSeriesEvents: failed to fetch event URL", eventUrls[i], e);
+      console.warn(
+        "[CFP] fetchSeriesEvents: failed to fetch event URL",
+        eventUrls[i],
+        e
+      );
     }
     if (i < eventUrls.length - 1) {
       await delay3(800);
@@ -20422,7 +20965,7 @@ async function fetchSeriesEvents(programUrl, seriesAcronym, onProgress) {
 }
 
 // src/services/cfp-easychair.ts
-var import_obsidian19 = require("obsidian");
+var import_obsidian20 = require("obsidian");
 init_series();
 var DELAY_MS3 = 1500;
 function delay4(ms) {
@@ -20466,7 +21009,10 @@ function parseEasychairHtml(html, pageUrl) {
   let rowMatch;
   while ((rowMatch = rowRe.exec(html)) !== null) {
     const rowHtml = rowMatch[1];
-    if (/<th[\s>]|Acronym\s*<\/|Name\s*<\/|Location\s*<\/|Submission\s*<\//i.test(rowHtml)) continue;
+    if (/<th[\s>]|Acronym\s*<\/|Name\s*<\/|Location\s*<\/|Submission\s*<\//i.test(
+      rowHtml
+    ))
+      continue;
     const item = parseEasychairRow(rowHtml, pageUrl);
     if (item) items.push(item);
   }
@@ -20479,7 +21025,7 @@ async function fetchEasychair(urls) {
     const url = (_a = urls[i]) == null ? void 0 : _a.trim();
     if (!url) continue;
     try {
-      const resp = await (0, import_obsidian19.requestUrl)({ url, method: "GET" });
+      const resp = await (0, import_obsidian20.requestUrl)({ url, method: "GET" });
       if (resp.status !== 200) continue;
       const items = parseEasychairHtml(resp.text, url);
       results.push(...items);
@@ -20491,7 +21037,7 @@ async function fetchEasychair(urls) {
 }
 
 // src/services/cfp-openresearch.ts
-var import_obsidian20 = require("obsidian");
+var import_obsidian21 = require("obsidian");
 init_series();
 var DELAY_MS4 = 1500;
 function delay5(ms) {
@@ -20540,7 +21086,10 @@ function parseOpenresearchHtml(html, pageUrl) {
   let rowMatch;
   while ((rowMatch = rowRe.exec(html)) !== null) {
     const rowHtml = rowMatch[1];
-    if (/<th[\s>]|Acronym\s*<\/|City\s*<\/|Country\s*<\/|Name\s*<\/|Start\s*<\/|End\s*<\/|Submission\s*<\//i.test(rowHtml)) continue;
+    if (/<th[\s>]|Acronym\s*<\/|City\s*<\/|Country\s*<\/|Name\s*<\/|Start\s*<\/|End\s*<\/|Submission\s*<\//i.test(
+      rowHtml
+    ))
+      continue;
     const item = parseOpenresearchRow(rowHtml, pageUrl);
     if (item) items.push(item);
   }
@@ -20553,7 +21102,7 @@ async function fetchOpenresearch(urls) {
     const url = (_a = urls[i]) == null ? void 0 : _a.trim();
     if (!url) continue;
     try {
-      const resp = await (0, import_obsidian20.requestUrl)({ url, method: "GET" });
+      const resp = await (0, import_obsidian21.requestUrl)({ url, method: "GET" });
       if (resp.status !== 200) continue;
       const items = parseOpenresearchHtml(resp.text, url);
       results.push(...items);
@@ -20715,7 +21264,8 @@ async function ensureFolder(app, path2) {
     await app.vault.createFolder(normalized);
   } catch (e) {
     const msg = (_a = e == null ? void 0 : e.message) != null ? _a : "";
-    if (!msg.includes("already exists") && !msg.includes("Folder already exists")) throw e;
+    if (!msg.includes("already exists") && !msg.includes("Folder already exists"))
+      throw e;
   }
 }
 function getSeriesRefreshButtonDataviewJS(settings) {
@@ -20740,7 +21290,7 @@ async function createOrOverwriteFile(app, path2, content) {
   var _a;
   const normalized = normalizePath(path2);
   const existing = app.vault.getAbstractFileByPath(normalized);
-  if (existing && existing instanceof import_obsidian21.TFile) {
+  if (existing && existing instanceof import_obsidian22.TFile) {
     await app.vault.modify(existing, content);
     return;
   }
@@ -20750,7 +21300,7 @@ async function createOrOverwriteFile(app, path2, content) {
     const msg = (_a = e == null ? void 0 : e.message) != null ? _a : "";
     if (msg.includes("File already exists") || msg.includes("already exists")) {
       const file = app.vault.getAbstractFileByPath(normalized);
-      if (file && file instanceof import_obsidian21.TFile) await app.vault.modify(file, content);
+      if (file && file instanceof import_obsidian22.TFile) await app.vault.modify(file, content);
       return;
     }
     throw e;
@@ -20777,7 +21327,7 @@ var CFPService = class {
       return this.coreIndex;
     }
     const file = this.app.vault.getAbstractFileByPath(normalized);
-    if (!file || !(file instanceof import_obsidian21.TFile)) {
+    if (!file || !(file instanceof import_obsidian22.TFile)) {
       console.warn("[CFP] CORE CSV file not found at path:", normalized);
       return null;
     }
@@ -20811,12 +21361,16 @@ var CFPService = class {
     try {
       const normalized = normalizePath(localPath);
       const file = this.app.vault.getAbstractFileByPath(normalized);
-      if (!file || !(file instanceof import_obsidian21.TFile)) return null;
+      if (!file || !(file instanceof import_obsidian22.TFile)) return null;
       const text = await this.app.vault.read(file);
       parseCcfddlYaml(text);
       return (_a = getCcfRankForSeriesTitle(seriesTitle)) != null ? _a : null;
     } catch (e) {
-      console.warn("[CFP] failed to load local allconf.yml for CCF rank at", localPath, e);
+      console.warn(
+        "[CFP] failed to load local allconf.yml for CCF rank at",
+        localPath,
+        e
+      );
       return null;
     }
   }
@@ -20900,7 +21454,12 @@ var CFPService = class {
       const notePath = this.itemToPath(basePath, item);
       const existing = this.app.vault.getAbstractFileByPath(notePath);
       if (existing) {
-        console.log("[CFP] skipping existing file:", notePath, "item:", item.acronym);
+        console.log(
+          "[CFP] skipping existing file:",
+          notePath,
+          "item:",
+          item.acronym
+        );
         skipped++;
         continue;
       }
@@ -20913,7 +21472,14 @@ var CFPService = class {
       const path2 = normalizePath(dirPath + "/" + fileName);
       const yaml2 = frontmatterFromItem(item, defaultTags);
       const content = "---\n" + yaml2 + "\n---\n\n";
-      console.log("[CFP] creating file:", path2, "acronym:", item.acronym, "series:", item.series);
+      console.log(
+        "[CFP] creating file:",
+        path2,
+        "acronym:",
+        item.acronym,
+        "series:",
+        item.series
+      );
       try {
         await createOrOverwriteFile(this.app, path2, content);
         created++;
@@ -20921,7 +21487,11 @@ var CFPService = class {
         console.error("[CFP] failed to create file:", path2, e);
       }
     }
-    console.log("[CFP] syncToNotes result:", { total: items.length, created, skipped });
+    console.log("[CFP] syncToNotes result:", {
+      total: items.length,
+      created,
+      skipped
+    });
     return created;
   }
   itemToPath(basePath, item) {
@@ -20935,7 +21505,7 @@ var CFPService = class {
     const title = seriesName + " Series";
     let seriesUrl = programUrl != null ? programUrl : "";
     const existing = this.app.vault.getAbstractFileByPath(seriesPath);
-    if (existing && existing instanceof import_obsidian21.TFile && !programUrl) {
+    if (existing && existing instanceof import_obsidian22.TFile && !programUrl) {
       const cache2 = this.app.metadataCache.getFileCache(existing);
       const existingUrl = (_c = (_b = (_a = cache2 == null ? void 0 : cache2.frontmatter) == null ? void 0 : _a["series-url"]) == null ? void 0 : _b.toString) == null ? void 0 : _c.call(_b);
       if (existingUrl) seriesUrl = existingUrl;
@@ -20952,14 +21522,21 @@ var CFPService = class {
     if (seriesUrl) fmLines.push("series-url: " + JSON.stringify(seriesUrl));
     if (seriesFullName == null ? void 0 : seriesFullName.trim()) {
       const displayName = seriesFullName.includes(":") ? seriesFullName.split(":").slice(1).join(":").trim() : seriesFullName.trim();
-      if (displayName) fmLines.push("series-full-name: " + JSON.stringify(displayName));
+      if (displayName)
+        fmLines.push("series-full-name: " + JSON.stringify(displayName));
     }
     if (ccfRank == null ? void 0 : ccfRank.ccf) fmLines.push("rank_ccf: " + JSON.stringify(ccfRank.ccf));
-    if (ccfRank == null ? void 0 : ccfRank.thcpl) fmLines.push("rank_thcpl: " + JSON.stringify(ccfRank.thcpl));
+    if (ccfRank == null ? void 0 : ccfRank.thcpl)
+      fmLines.push("rank_thcpl: " + JSON.stringify(ccfRank.thcpl));
     if (ccfRank == null ? void 0 : ccfRank.sub) fmLines.push("rank_sub: " + JSON.stringify(ccfRank.sub));
-    if (coreRank == null ? void 0 : coreRank.coreLetter) fmLines.push("rank_core: " + JSON.stringify(coreRank.coreLetter));
-    if (coreRank == null ? void 0 : coreRank.coreStatus) fmLines.push("rank_core_status: " + JSON.stringify(coreRank.coreStatus));
-    if (coreRank == null ? void 0 : coreRank.collection) fmLines.push("rank_core_collection: " + JSON.stringify(coreRank.collection));
+    if (coreRank == null ? void 0 : coreRank.coreLetter)
+      fmLines.push("rank_core: " + JSON.stringify(coreRank.coreLetter));
+    if (coreRank == null ? void 0 : coreRank.coreStatus)
+      fmLines.push("rank_core_status: " + JSON.stringify(coreRank.coreStatus));
+    if (coreRank == null ? void 0 : coreRank.collection)
+      fmLines.push(
+        "rank_core_collection: " + JSON.stringify(coreRank.collection)
+      );
     const fm = fmLines.join("\n");
     const tableQuery = [
       'TABLE file.link as "Event", acronym as "Acronym", "full-name" as "Full Name", location as "Location", submission_ddl as "Deadline", start as "Start", end as "End", cfp-source as "Source", url as "URL"',
@@ -20968,68 +21545,72 @@ var CFPService = class {
     ].join("\n");
     const refreshButtonBlock = seriesUrl ? "\n```dataviewjs\n" + getSeriesRefreshButtonDataviewJS(this.getSettings()) + "\n```\n\n" : "";
     const body = refreshButtonBlock + "```dataview\n" + tableQuery + "\n```\n";
-    await createOrOverwriteFile(this.app, seriesPath, "---\n" + fm + "\n---\n" + body);
+    await createOrOverwriteFile(
+      this.app,
+      seriesPath,
+      "---\n" + fm + "\n---\n" + body
+    );
   }
   async refresh() {
-    new import_obsidian21.Notice("Refreshing CFP from all sources...");
+    new import_obsidian22.Notice("Refreshing CFP from all sources...");
     try {
       const items = await this.fetchAll();
       const synced = await this.syncToNotes(items);
       await this.setLastFetchTime(Date.now());
-      new import_obsidian21.Notice(`CFP refresh done. ${synced} items synced.`);
+      new import_obsidian22.Notice(`CFP refresh done. ${synced} items synced.`);
     } catch (e) {
       console.error("[CFP] refresh failed", e);
-      new import_obsidian21.Notice("CFP refresh failed. See console.");
+      new import_obsidian22.Notice("CFP refresh failed. See console.");
     }
   }
   async refreshWikiCFPUrls() {
     var _a;
-    new import_obsidian21.Notice("Refreshing WikiCFP URLs...");
+    new import_obsidian22.Notice("Refreshing WikiCFP URLs...");
     try {
       const s = this.getSettings();
       const items = ((_a = s.cfpWikicfpUrls) == null ? void 0 : _a.length) ? await fetchWikiCFP(s.cfpWikicfpUrls) : [];
       const synced = await this.syncToNotes(items);
-      new import_obsidian21.Notice(`WikiCFP URLs refreshed. ${synced} items synced.`);
+      new import_obsidian22.Notice(`WikiCFP URLs refreshed. ${synced} items synced.`);
     } catch (e) {
       console.error("[CFP] WikiCFP URLs refresh failed", e);
-      new import_obsidian21.Notice("WikiCFP URLs refresh failed. See console.");
+      new import_obsidian22.Notice("WikiCFP URLs refresh failed. See console.");
     }
   }
   async refreshCcfddlUrls() {
-    new import_obsidian21.Notice("Refreshing CCFDDL URLs...");
+    new import_obsidian22.Notice("Refreshing CCFDDL URLs...");
     try {
       const items = await this.fetchCcfddlWithFallback();
       const synced = await this.syncToNotes(items);
-      new import_obsidian21.Notice(`CCFDDL URLs refreshed. ${synced} items synced.`);
+      new import_obsidian22.Notice(`CCFDDL URLs refreshed. ${synced} items synced.`);
     } catch (e) {
       console.error("[CFP] CCFDDL URLs refresh failed", e);
-      new import_obsidian21.Notice("CCFDDL URLs refresh failed. See console.");
+      new import_obsidian22.Notice("CCFDDL URLs refresh failed. See console.");
     }
   }
   async refreshEasychairUrls() {
     var _a;
-    new import_obsidian21.Notice("Refreshing EasyChair URLs...");
+    new import_obsidian22.Notice("Refreshing EasyChair URLs...");
     try {
       const s = this.getSettings();
       const items = ((_a = s.cfpEasychairUrls) == null ? void 0 : _a.length) ? await fetchEasychair(s.cfpEasychairUrls) : [];
       const synced = await this.syncToNotes(items);
-      new import_obsidian21.Notice(`EasyChair URLs refreshed. ${synced} items synced.`);
+      new import_obsidian22.Notice(`EasyChair URLs refreshed. ${synced} items synced.`);
     } catch (e) {
       console.error("[CFP] EasyChair URLs refresh failed", e);
-      new import_obsidian21.Notice("EasyChair URLs refresh failed. See console.");
+      new import_obsidian22.Notice("EasyChair URLs refresh failed. See console.");
     }
   }
   async refreshOpenresearchUrls() {
     var _a;
-    new import_obsidian21.Notice("Refreshing OpenResearch URLs...");
+    new import_obsidian22.Notice("Refreshing OpenResearch URLs...");
     try {
       const s = this.getSettings();
       const items = ((_a = s.cfpOpenresearchUrls) == null ? void 0 : _a.length) ? await fetchOpenresearch(s.cfpOpenresearchUrls) : [];
       const synced = await this.syncToNotes(items);
-      new import_obsidian21.Notice(`OpenResearch URLs refreshed. ${synced} items synced.`);
+      new import_obsidian22.Notice(`OpenResearch URLs refreshed. ${synced} items synced.`);
     } catch (e) {
       console.error("[CFP] OpenResearch URLs refresh failed", e);
-      new import_obsidian21.Notice("OpenResearch URLs refresh failed. See console.");
+      new import_obsidian22.Notice("OpenResearch URLs refresh failed. See console.");
     }
   }
   /** Fetch CFP items from CCFDDL URLs with optional local allconf.yml fallback. */
@@ -21042,21 +21623,28 @@ var CFPService = class {
       try {
         items = await fetchCcfddl(urls);
       } catch (e) {
-        console.warn("[CFP] CCFDDL URL fetch failed, will try local fallback if configured.", e);
+        console.warn(
+          "[CFP] CCFDDL URL fetch failed, will try local fallback if configured.",
+          e
+        );
       }
     }
     if (items.length === 0 && s.cfpCcfddlLocalPath) {
       try {
         const localPath = normalizePath(s.cfpCcfddlLocalPath);
         const file = this.app.vault.getAbstractFileByPath(localPath);
-        if (file && file instanceof import_obsidian21.TFile) {
+        if (file && file instanceof import_obsidian22.TFile) {
           const text = await this.app.vault.read(file);
           items = parseCcfddlYaml(text);
         } else {
           console.warn("[CFP] Local allconf.yml not found at", localPath);
         }
       } catch (e) {
-        console.warn("[CFP] Failed to read/parse local allconf.yml fallback at", s.cfpCcfddlLocalPath, e);
+        console.warn(
+          "[CFP] Failed to read/parse local allconf.yml fallback at",
+          s.cfpCcfddlLocalPath,
+          e
+        );
       }
     }
     return items;
@@ -21069,10 +21657,14 @@ var CFPService = class {
     var _a;
     const s = this.getSettings();
     const baseDir = (s.cfpNoteDir || "CFP").trim() || "CFP";
-    const seriesFolder = normalizePath(baseDir + "/" + sanitizeFileName(seriesName));
-    const seriesPath = normalizePath(seriesFolder + "/" + sanitizeFileName(seriesName) + " Series.md");
+    const seriesFolder = normalizePath(
+      baseDir + "/" + sanitizeFileName(seriesName)
+    );
+    const seriesPath = normalizePath(
+      seriesFolder + "/" + sanitizeFileName(seriesName) + " Series.md"
+    );
     const file = this.app.vault.getAbstractFileByPath(seriesPath);
-    if (!file || !(file instanceof import_obsidian21.TFile)) return;
+    if (!file || !(file instanceof import_obsidian22.TFile)) return;
     const [ccfRank, coreRank] = await Promise.all([
       this.getCcfRankForSeries(seriesName),
       this.getCoreRankForSeries(seriesName)
@@ -21085,14 +21677,22 @@ var CFPService = class {
     const lines = yamlPart.split("\n");
     const cleaned = lines.filter((line) => {
       const trimmed = line.trim();
-      return !/^(rank_ccf|rank_thcpl|rank_sub|rank_core|rank_core_status|rank_core_collection)\s*:/.test(trimmed);
+      return !/^(rank_ccf|rank_thcpl|rank_sub|rank_core|rank_core_status|rank_core_collection)\s*:/.test(
+        trimmed
+      );
     });
     if (ccfRank == null ? void 0 : ccfRank.ccf) cleaned.push("rank_ccf: " + JSON.stringify(ccfRank.ccf));
-    if (ccfRank == null ? void 0 : ccfRank.thcpl) cleaned.push("rank_thcpl: " + JSON.stringify(ccfRank.thcpl));
+    if (ccfRank == null ? void 0 : ccfRank.thcpl)
+      cleaned.push("rank_thcpl: " + JSON.stringify(ccfRank.thcpl));
     if (ccfRank == null ? void 0 : ccfRank.sub) cleaned.push("rank_sub: " + JSON.stringify(ccfRank.sub));
-    if (coreRank == null ? void 0 : coreRank.coreLetter) cleaned.push("rank_core: " + JSON.stringify(coreRank.coreLetter));
-    if (coreRank == null ? void 0 : coreRank.coreStatus) cleaned.push("rank_core_status: " + JSON.stringify(coreRank.coreStatus));
-    if (coreRank == null ? void 0 : coreRank.collection) cleaned.push("rank_core_collection: " + JSON.stringify(coreRank.collection));
+    if (coreRank == null ? void 0 : coreRank.coreLetter)
+      cleaned.push("rank_core: " + JSON.stringify(coreRank.coreLetter));
+    if (coreRank == null ? void 0 : coreRank.coreStatus)
+      cleaned.push("rank_core_status: " + JSON.stringify(coreRank.coreStatus));
+    if (coreRank == null ? void 0 : coreRank.collection)
+      cleaned.push(
+        "rank_core_collection: " + JSON.stringify(coreRank.collection)
+      );
     const newYaml = cleaned.join("\n");
     const newContent = `---
 ${newYaml}
@@ -21109,7 +21709,9 @@ ${body}`;
     const s = this.getSettings();
     const letters = Array.isArray(s.cfpSeriesIndexLetters) && s.cfpSeriesIndexLetters.length > 0 ? s.cfpSeriesIndexLetters : void 0;
     const lettersDesc = letters ? ` (${letters.join(", ")})` : " (A\u2013Z)";
-    onProgress == null ? void 0 : onProgress(`Fetching WikiCFP series index${lettersDesc} (5\u201310s between pages)...`);
+    onProgress == null ? void 0 : onProgress(
+      `Fetching WikiCFP series index${lettersDesc} (5\u201310s between pages)...`
+    );
     const entries = await fetchWikiCFPSeriesIndex(
       (letter, count) => onProgress == null ? void 0 : onProgress(`Index ${letter}: ${count} series`),
       letters
@@ -21119,25 +21721,45 @@ ${body}`;
     await ensureFolder(this.app, basePath);
     const map2 = this.getSeriesMap();
     for (const entry of entries) {
-      const dirPath = normalizePath(basePath + "/" + sanitizeFileName(entry.seriesAcronym));
+      const dirPath = normalizePath(
+        basePath + "/" + sanitizeFileName(entry.seriesAcronym)
+      );
       await ensureFolder(this.app, dirPath);
-      await this.ensureSeriesNote(dirPath, entry.seriesAcronym, defaultTags, entry.programUrl, entry.fullName);
+      await this.ensureSeriesNote(
+        dirPath,
+        entry.seriesAcronym,
+        defaultTags,
+        entry.programUrl,
+        entry.fullName
+      );
       const key = entry.seriesAcronym;
       if (!map2[key] || map2[key].programUrl !== entry.programUrl) {
-        map2[key] = { programUrl: entry.programUrl, lastUpdate: (_b = (_a = map2[key]) == null ? void 0 : _a.lastUpdate) != null ? _b : 0 };
+        map2[key] = {
+          programUrl: entry.programUrl,
+          lastUpdate: (_b = (_a = map2[key]) == null ? void 0 : _a.lastUpdate) != null ? _b : 0
+        };
       }
     }
     await this.saveSeriesMap(map2);
     await this.setLastSeriesFetchTime(Date.now());
-    onProgress == null ? void 0 : onProgress('WikiCFP series index done. Use "Refresh events" on a Series note or wait for daily refresh.');
+    onProgress == null ? void 0 : onProgress(
+      'WikiCFP series index done. Use "Refresh events" on a Series note or wait for daily refresh.'
+    );
   }
   /** Fetch events for one series by program URL and sync to notes. Updates series lastUpdate. */
   async refreshSeriesByUrl(programUrl, seriesAcronym, onProgress) {
     onProgress == null ? void 0 : onProgress("Fetching events...");
     const events = await fetchSeriesEvents(programUrl, seriesAcronym, onProgress);
     onProgress == null ? void 0 : onProgress(`Found ${events.length} events, syncing to notes...`);
-    console.log("[CFP] refreshSeriesByUrl:", { programUrl, seriesAcronym, eventCount: events.length });
-    console.log("[CFP] events:", events.map((e) => ({ acronym: e.acronym, series: e.series, url: e.url })));
+    console.log("[CFP] refreshSeriesByUrl:", {
+      programUrl,
+      seriesAcronym,
+      eventCount: events.length
+    });
+    console.log(
+      "[CFP] events:",
+      events.map((e) => ({ acronym: e.acronym, series: e.series, url: e.url }))
+    );
     const synced = await this.syncToNotes(events);
     console.log("[CFP] synced count:", synced);
     const map2 = this.getSeriesMap();
@@ -21146,7 +21768,11 @@ ${body}`;
     try {
       await this.updateSeriesNoteRank(seriesAcronym);
     } catch (e) {
-      console.warn("[CFP] failed to update Series rank after refreshSeriesByUrl for", seriesAcronym, e);
+      console.warn(
+        "[CFP] failed to update Series rank after refreshSeriesByUrl for",
+        seriesAcronym,
+        e
+      );
     }
     onProgress == null ? void 0 : onProgress(`Synced ${synced} events.`);
   }
@@ -21167,7 +21793,11 @@ ${body}`;
       const { key } = toRefresh[i];
       const programUrl = map2[key].programUrl;
       setTimeout(() => {
-        this.refreshSeriesByUrl(programUrl, key, (msg) => console.log("[CFP]", key, msg)).then(() => new import_obsidian21.Notice(`CFP: ${key} refreshed.`)).catch((e) => console.warn("[CFP] daily refresh failed", key, e));
+        this.refreshSeriesByUrl(
+          programUrl,
+          key,
+          (msg) => console.log("[CFP]", key, msg)
+        ).then(() => new import_obsidian22.Notice(`CFP: ${key} refreshed.`)).catch((e) => console.warn("[CFP] daily refresh failed", key, e));
       }, i * MIN_GAP_MS);
     }
   }
@@ -21200,7 +21830,10 @@ ${body}`;
     const prefix = dirPath + "/";
     const files = this.app.vault.getMarkdownFiles().filter((f) => f.path.startsWith(prefix));
     if (files.length === 0) {
-      console.log("[CFP] findBestMatchingCFPForConference: no CFP notes found under", dirPath);
+      console.log(
+        "[CFP] findBestMatchingCFPForConference: no CFP notes found under",
+        dirPath
+      );
       return { event: null };
     }
     const events = [];
@@ -21224,7 +21857,11 @@ ${body}`;
       events.push({ item, path: file.path });
     }
     if (events.length === 0) {
-      console.log("[CFP] findBestMatchingCFPForConference: no event notes found under", dirPath, "(check CFP folder path in settings)");
+      console.log(
+        "[CFP] findBestMatchingCFPForConference: no event notes found under",
+        dirPath,
+        "(check CFP folder path in settings)"
+      );
       return { event: null };
     }
     const norm = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim().replace(/\s+/g, " ");
@@ -21238,19 +21875,28 @@ ${body}`;
           return a === noteNorm || a.startsWith(noteNorm + " ") || series === noteNorm;
         });
         const trySeriesOnlyFallback = () => {
-          const seriesCandidates = [noteAcronym, pureSeriesFromAcronym(noteAcronym)];
+          const seriesCandidates = [
+            noteAcronym,
+            pureSeriesFromAcronym(noteAcronym)
+          ];
           for (const candidate of seriesCandidates) {
             const seriesName2 = candidate.trim();
             if (!seriesName2) continue;
-            const seriesFolder = normalizePath(dirPath + "/" + sanitizeFileName(seriesName2));
-            const seriesNotePath = normalizePath(seriesFolder + "/" + sanitizeFileName(seriesName2) + " Series.md");
+            const seriesFolder = normalizePath(
+              dirPath + "/" + sanitizeFileName(seriesName2)
+            );
+            const seriesNotePath = normalizePath(
+              seriesFolder + "/" + sanitizeFileName(seriesName2) + " Series.md"
+            );
             const file = this.app.vault.getAbstractFileByPath(seriesNotePath);
-            if (file && file instanceof import_obsidian21.TFile) {
+            if (file && file instanceof import_obsidian22.TFile) {
               let latestTs = 0;
               let latestStr;
               for (const e of events) {
-                if (!e.item.series && pureSeriesFromAcronym(e.item.acronym) !== seriesName2) continue;
-                if (e.item.series && e.item.series !== seriesName2) continue;
+                if (!e.item.series && pureSeriesFromAcronym(e.item.acronym) !== seriesName2)
+                  continue;
+                if (e.item.series && e.item.series !== seriesName2)
+                  continue;
                 const ddl = e.item.submissionDdl;
                 if (!ddl) continue;
                 const d = new Date(ddl);
@@ -21260,24 +21906,34 @@ ${body}`;
                   latestStr = ddl;
                 }
               }
-              console.log("[CFP] findBestMatchingCFPForConference: series-only fallback by acronymFromNote", {
-                seriesName: seriesName2,
+              console.log(
+                "[CFP] findBestMatchingCFPForConference: series-only fallback by acronymFromNote",
+                {
+                  seriesName: seriesName2,
+                  seriesNotePath,
+                  latestSeriesDdl: latestStr
+                }
+              );
+              return {
+                event: null,
                 seriesNotePath,
                 latestSeriesDdl: latestStr
-              });
-              return { event: null, seriesNotePath, latestSeriesDdl: latestStr };
+              };
             }
           }
           return null;
         };
         if (exactMatches.length === 0) {
-          console.log("[CFP] findBestMatchingCFPForConference: acronymFromNote had no exact match", {
-            acronymFromNote: noteAcronym,
-            noteNorm,
-            cfpDir: dirPath,
-            eventCount: events.length,
-            sampleAcronyms: events.slice(0, 8).map((e) => e.item.acronym)
-          });
+          console.log(
+            "[CFP] findBestMatchingCFPForConference: acronymFromNote had no exact match",
+            {
+              acronymFromNote: noteAcronym,
+              noteNorm,
+              cfpDir: dirPath,
+              eventCount: events.length,
+              sampleAcronyms: events.slice(0, 8).map((e) => e.item.acronym)
+            }
+          );
           const fallback = trySeriesOnlyFallback();
           if (fallback) return fallback;
         } else {
@@ -21296,16 +21952,28 @@ ${body}`;
             return { event: null };
           }
           const best2 = yearMatches[0];
-          console.log("[CFP] findBestMatchingCFPForConference: exact match by acronymFromNote", { acronymFromNote: noteAcronym, year: meta.year, chosen: best2.item.acronym });
+          console.log(
+            "[CFP] findBestMatchingCFPForConference: exact match by acronymFromNote",
+            {
+              acronymFromNote: noteAcronym,
+              year: meta.year,
+              chosen: best2.item.acronym
+            }
+          );
           const result2 = { event: best2 };
           const seriesName2 = best2.item.series || pureSeriesFromAcronym(best2.item.acronym);
           if (seriesName2) {
-            const seriesFolder = normalizePath(dirPath + "/" + sanitizeFileName(seriesName2));
-            result2.seriesNotePath = normalizePath(seriesFolder + "/" + sanitizeFileName(seriesName2) + " Series.md");
+            const seriesFolder = normalizePath(
+              dirPath + "/" + sanitizeFileName(seriesName2)
+            );
+            result2.seriesNotePath = normalizePath(
+              seriesFolder + "/" + sanitizeFileName(seriesName2) + " Series.md"
+            );
             let latestTs = 0;
             let latestStr;
             for (const e of events) {
-              if (!e.item.series && pureSeriesFromAcronym(e.item.acronym) !== seriesName2) continue;
+              if (!e.item.series && pureSeriesFromAcronym(e.item.acronym) !== seriesName2)
+                continue;
               if (e.item.series && e.item.series !== seriesName2) continue;
               const ddl = e.item.submissionDdl;
               if (!ddl) continue;
@@ -21392,7 +22060,8 @@ ${body}`;
         const targetTokens = (acronymNorm + " " + fullNameNorm).split(/\s+/).filter(Boolean);
         let overlap = 0;
         for (const t of targetTokens) {
-          if (t.length > 1 && !STOPWORDS.has(t) && meaningfulNameTokens.has(t)) overlap++;
+          if (t.length > 1 && !STOPWORDS.has(t) && meaningfulNameTokens.has(t))
+            overlap++;
         }
         if (overlap > 0) score += Math.min(overlap * 5, 25);
       }
@@ -21420,12 +22089,15 @@ ${body}`;
     }
     const MIN_SCORE = 100;
     if (!best || bestScore < MIN_SCORE) {
-      console.log("[CFP] findBestMatchingCFPForConference: no strong match found", {
-        rawName,
-        place,
-        year,
-        bestScore
-      });
+      console.log(
+        "[CFP] findBestMatchingCFPForConference: no strong match found",
+        {
+          rawName,
+          place,
+          year,
+          bestScore
+        }
+      );
       return { event: null };
     }
     console.log("[CFP] findBestMatchingCFPForConference: match found", {
@@ -21439,12 +22111,17 @@ ${body}`;
     const result = { event: best };
     const seriesName = best.item.series || pureSeriesFromAcronym(best.item.acronym);
     if (seriesName) {
-      const seriesFolder = normalizePath(dirPath + "/" + sanitizeFileName(seriesName));
-      result.seriesNotePath = normalizePath(seriesFolder + "/" + sanitizeFileName(seriesName) + " Series.md");
+      const seriesFolder = normalizePath(
+        dirPath + "/" + sanitizeFileName(seriesName)
+      );
+      result.seriesNotePath = normalizePath(
+        seriesFolder + "/" + sanitizeFileName(seriesName) + " Series.md"
+      );
       let latestTs = 0;
       let latestStr;
       for (const e of events) {
-        if (!e.item.series && pureSeriesFromAcronym(e.item.acronym) !== seriesName) continue;
+        if (!e.item.series && pureSeriesFromAcronym(e.item.acronym) !== seriesName)
+          continue;
         if (e.item.series && e.item.series !== seriesName) continue;
         const ddl = e.item.submissionDdl;
         if (!ddl) continue;
@@ -21485,7 +22162,10 @@ ${body}`;
         const codeBlockRe = /```dataviewjs\n([\s\S]*?)\n```/;
         const match = content.match(codeBlockRe);
         if (match) {
-          const newContent = content.replace(codeBlockRe, "```dataviewjs\n" + code + "\n```");
+          const newContent = content.replace(
+            codeBlockRe,
+            "```dataviewjs\n" + code + "\n```"
+          );
           if (newContent !== content) {
             await this.app.vault.modify(file, newContent);
             updated++;
@@ -21493,7 +22173,10 @@ ${body}`;
         } else {
           const tableBlockRe = /(```dataview\n[\s\S]*?```)/;
           if (tableBlockRe.test(content)) {
-            const newContent = content.replace(tableBlockRe, "```dataviewjs\n" + code + "\n```\n\n$1");
+            const newContent = content.replace(
+              tableBlockRe,
+              "```dataviewjs\n" + code + "\n```\n\n$1"
+            );
             await this.app.vault.modify(file, newContent);
             updated++;
           }
@@ -21557,9 +22240,15 @@ ${body}`;
     const { events, dirPath } = this.getEventsUnderCfpDir();
     for (const seriesName of [trimmed, pureSeriesFromAcronym(trimmed)]) {
       if (!(seriesName == null ? void 0 : seriesName.trim())) continue;
-      const seriesNotePath = normalizePath(`${dirPath}/${sanitizeFileName(seriesName)}/${sanitizeFileName(seriesName)} Series.md`);
-      if (this.app.vault.getAbstractFileByPath(seriesNotePath) instanceof import_obsidian21.TFile) {
-        return { seriesNotePath, latestEvent: this.findLatestInSeries(events, seriesName), seriesName: seriesName.trim() };
+      const seriesNotePath = normalizePath(
+        `${dirPath}/${sanitizeFileName(seriesName)}/${sanitizeFileName(seriesName)} Series.md`
+      );
+      if (this.app.vault.getAbstractFileByPath(seriesNotePath) instanceof import_obsidian22.TFile) {
+        return {
+          seriesNotePath,
+          latestEvent: this.findLatestInSeries(events, seriesName),
+          seriesName: seriesName.trim()
+        };
       }
     }
     return null;
@@ -21571,17 +22260,26 @@ ${body}`;
     const prefix = normalizePath(dir) + "/";
     if (!filePath.startsWith(prefix)) return null;
     const file = this.app.vault.getAbstractFileByPath(filePath);
-    if (!(file instanceof import_obsidian21.TFile)) return null;
+    if (!(file instanceof import_obsidian22.TFile)) return null;
     const fm = (_a = this.app.metadataCache.getFileCache(file)) == null ? void 0 : _a.frontmatter;
     if (!fm) return null;
     const { events } = this.getEventsUnderCfpDir();
     if (fm["cfp-series"] === true) {
       const seriesName2 = (file.basename || "").replace(/\s+Series$/i, "").trim();
-      return { isSeries: true, seriesNotePath: file.path, latestEvent: this.findLatestInSeries(events, seriesName2), seriesName: seriesName2 };
+      return {
+        isSeries: true,
+        seriesNotePath: file.path,
+        latestEvent: this.findLatestInSeries(events, seriesName2),
+        seriesName: seriesName2
+      };
     }
     const item = this.parseCFPItemFromFrontmatter(fm);
     const seriesName = ((_b = item.series) == null ? void 0 : _b.trim()) || (((_c = file.parent) == null ? void 0 : _c.name) !== dir ? (_d = file.parent) == null ? void 0 : _d.name : null) || pureSeriesFromAcronym(item.acronym);
-    return { isSeries: false, latestEvent: seriesName ? this.findLatestInSeries(events, seriesName) : void 0, event: { item, path: file.path } };
+    return {
+      isSeries: false,
+      latestEvent: seriesName ? this.findLatestInSeries(events, seriesName) : void 0,
+      event: { item, path: file.path }
+    };
   }
   /** Read all CFP notes from the folder; return upcoming and past, each with item + path for opening. */
   async getCFPNotesForDisplay() {
@@ -21657,8 +22355,8 @@ init_paper_hub();
 init_vault_library();
 
 // src/ui/project-selector.ts
-var import_obsidian22 = require("obsidian");
-var ProjectSelectorView = class extends import_obsidian22.MarkdownRenderChild {
+var import_obsidian23 = require("obsidian");
+var ProjectSelectorView = class extends import_obsidian23.MarkdownRenderChild {
   constructor(containerEl, plugin) {
     super(containerEl);
     this.plugin = plugin;
@@ -21670,10 +22368,14 @@ var ProjectSelectorView = class extends import_obsidian22.MarkdownRenderChild {
   render(currentProjects) {
     var _a;
     this.containerEl.empty();
-    const container = this.containerEl.createDiv({ cls: "project-selector-container" });
+    const container = this.containerEl.createDiv({
+      cls: "project-selector-container"
+    });
     const file = this.plugin.app.workspace.getActiveFile();
     if (!file) {
-      container.createDiv({ text: "Please open a note to use the Project Linker." });
+      container.createDiv({
+        text: "Please open a note to use the Project Linker."
+      });
       return;
     }
     let projects = [];
@@ -21740,10 +22442,14 @@ var ProjectSelectorView = class extends import_obsidian22.MarkdownRenderChild {
       });
     }
     const btnContainer = container.createDiv();
-    const btn = new import_obsidian22.ButtonComponent(btnContainer).setButtonText("Add Project").setIcon("plus").onClick(() => {
-      new ProjectSuggestModal(this.plugin.app, this.plugin.settings.projectsFolder, async (selectedFile) => {
-        await this.addProject(file, selectedFile);
-      }).open();
+    const btn = new import_obsidian23.ButtonComponent(btnContainer).setButtonText("Add Project").setIcon("plus").onClick(() => {
+      new ProjectSuggestModal(
+        this.plugin.app,
+        this.plugin.settings.projectsFolder,
+        async (selectedFile) => {
+          await this.addProject(file, selectedFile);
+        }
+      ).open();
     });
     btn.buttonEl.addClass("zotero-btn-fancy");
   }
@@ -21758,43 +22464,51 @@ var ProjectSelectorView = class extends import_obsidian22.MarkdownRenderChild {
         const propValue = projectCache.frontmatter[targetPropertyKey];
         linkValue = `[[${pathWithoutExt}|${propValue}]]`;
       }
-      await this.plugin.app.fileManager.processFrontMatter(file, (frontmatter) => {
-        const key = this.plugin.settings.projectFrontmatterKey;
-        let current = frontmatter[key];
-        if (!current) current = [];
-        else if (!Array.isArray(current)) current = [current];
-        if (!current.includes(linkValue)) {
-          current.push(linkValue);
-          frontmatter[key] = current;
-          new import_obsidian22.Notice(`Added project: ${projectFile.basename}`);
-        } else {
-          new import_obsidian22.Notice("Project already linked.");
+      await this.plugin.app.fileManager.processFrontMatter(
+        file,
+        (frontmatter) => {
+          const key = this.plugin.settings.projectFrontmatterKey;
+          let current = frontmatter[key];
+          if (!current) current = [];
+          else if (!Array.isArray(current)) current = [current];
+          if (!current.includes(linkValue)) {
+            current.push(linkValue);
+            frontmatter[key] = current;
+            new import_obsidian23.Notice(`Added project: ${projectFile.basename}`);
+          } else {
+            new import_obsidian23.Notice("Project already linked.");
+          }
+          newList = [...current];
         }
-        newList = [...current];
-      });
+      );
       this.render(newList);
     } catch (e) {
-      new import_obsidian22.Notice("Failed to update frontmatter: " + e);
+      new import_obsidian23.Notice("Failed to update frontmatter: " + e);
     }
   }
   async removeProject(file, projectName) {
     let newList = [];
     try {
-      await this.plugin.app.fileManager.processFrontMatter(file, (frontmatter) => {
-        const key = this.plugin.settings.projectFrontmatterKey;
-        if (Array.isArray(frontmatter[key])) {
-          frontmatter[key] = frontmatter[key].filter((p) => p !== projectName);
-          newList = [...frontmatter[key]];
-          new import_obsidian22.Notice(`Removed project: ${projectName}`);
+      await this.plugin.app.fileManager.processFrontMatter(
+        file,
+        (frontmatter) => {
+          const key = this.plugin.settings.projectFrontmatterKey;
+          if (Array.isArray(frontmatter[key])) {
+            frontmatter[key] = frontmatter[key].filter(
+              (p) => p !== projectName
+            );
+            newList = [...frontmatter[key]];
+            new import_obsidian23.Notice(`Removed project: ${projectName}`);
+          }
         }
-      });
+      );
       this.render(newList);
     } catch (e) {
-      new import_obsidian22.Notice("Failed to remove project: " + e);
+      new import_obsidian23.Notice("Failed to remove project: " + e);
     }
   }
 };
-var ProjectSuggestModal = class extends import_obsidian22.SuggestModal {
+var ProjectSuggestModal = class extends import_obsidian23.SuggestModal {
   constructor(app, folderPath, onChoose) {
     super(app);
     this.projectFolder = folderPath;
@@ -21840,8 +22554,8 @@ var ProjectSuggestModal = class extends import_obsidian22.SuggestModal {
 init_cfp_manual_modal();
 
 // src/ui/cfp-list-modal.ts
-var import_obsidian23 = require("obsidian");
-var CFPListModal = class extends import_obsidian23.Modal {
+var import_obsidian24 = require("obsidian");
+var CFPListModal = class extends import_obsidian24.Modal {
   constructor(app, data) {
     super(app);
     this.data = data;
@@ -21863,11 +22577,14 @@ var CFPListModal = class extends import_obsidian23.Modal {
         const row = list.createDiv({ cls: "zotero-cfp-list-row" });
         row.createSpan({ cls: "zotero-cfp-acronym", text: item.acronym });
         row.createSpan({ cls: "zotero-cfp-ddl", text: item.submissionDdl });
-        row.createSpan({ cls: "zotero-cfp-name", text: item.fullName.slice(0, 50) + (item.fullName.length > 50 ? "\u2026" : "") });
+        row.createSpan({
+          cls: "zotero-cfp-name",
+          text: item.fullName.slice(0, 50) + (item.fullName.length > 50 ? "\u2026" : "")
+        });
         row.createSpan({ cls: "zotero-cfp-location", text: item.location });
         row.addEventListener("click", () => {
           const file = this.app.vault.getAbstractFileByPath(path2);
-          if (file instanceof import_obsidian23.TFile) {
+          if (file instanceof import_obsidian24.TFile) {
             this.app.workspace.getLeaf().openFile(file);
           }
           this.close();
@@ -21880,8 +22597,8 @@ var CFPListModal = class extends import_obsidian23.Modal {
 };
 
 // src/ui/cfp-list-view.ts
-var import_obsidian24 = require("obsidian");
-var CFPListView = class extends import_obsidian24.MarkdownRenderChild {
+var import_obsidian25 = require("obsidian");
+var CFPListView = class extends import_obsidian25.MarkdownRenderChild {
   constructor(containerEl, plugin) {
     super(containerEl);
     this.plugin = plugin;
@@ -21903,11 +22620,14 @@ var CFPListView = class extends import_obsidian24.MarkdownRenderChild {
         const row = list.createDiv({ cls: "zotero-cfp-list-row" });
         row.createSpan({ cls: "zotero-cfp-acronym", text: item.acronym });
         row.createSpan({ cls: "zotero-cfp-ddl", text: item.submissionDdl });
-        row.createSpan({ cls: "zotero-cfp-name", text: item.fullName.slice(0, 50) + (item.fullName.length > 50 ? "\u2026" : "") });
+        row.createSpan({
+          cls: "zotero-cfp-name",
+          text: item.fullName.slice(0, 50) + (item.fullName.length > 50 ? "\u2026" : "")
+        });
         row.createSpan({ cls: "zotero-cfp-location", text: item.location });
         row.addEventListener("click", () => {
           const file = this.plugin.app.vault.getAbstractFileByPath(path2);
-          if (file instanceof import_obsidian24.TFile) {
+          if (file instanceof import_obsidian25.TFile) {
             this.plugin.app.workspace.getLeaf().openFile(file);
           }
         });
@@ -21920,7 +22640,7 @@ var CFPListView = class extends import_obsidian24.MarkdownRenderChild {
 
 // src/main.ts
 init_paths();
-var ZoteroGKPlugin = class extends import_obsidian25.Plugin {
+var ZoteroGKPlugin = class extends import_obsidian26.Plugin {
   constructor() {
     super(...arguments);
     this.webhookRibbonEl = null;
@@ -21951,14 +22671,11 @@ var ZoteroGKPlugin = class extends import_obsidian25.Plugin {
         void view.render(source, ctx);
       }
     );
-    this.registerMarkdownCodeBlockProcessor(
-      "project-picker",
-      (source, el, ctx) => {
-        const view = new ProjectSelectorView(el, this);
-        ctx.addChild(view);
-        view.render();
-      }
-    );
+    this.registerMarkdownCodeBlockProcessor("project-picker", (source, el, ctx) => {
+      const view = new ProjectSelectorView(el, this);
+      ctx.addChild(view);
+      view.render();
+    });
     this.registerMarkdownCodeBlockProcessor("cfp-list", (source, el, ctx) => {
       const view = new CFPListView(el, this);
       ctx.addChild(view);
@@ -22001,7 +22718,7 @@ var ZoteroGKPlugin = class extends import_obsidian25.Plugin {
           this.app,
           this.settings.cfpDefaultTags || [],
           (item) => {
-            this.cfpService.saveManualCFP(item).then(() => new import_obsidian25.Notice("CFP note created.")).catch(() => new import_obsidian25.Notice("Failed to create CFP note."));
+            this.cfpService.saveManualCFP(item).then(() => new import_obsidian26.Notice("CFP note created.")).catch(() => new import_obsidian26.Notice("Failed to create CFP note."));
           }
         ).open();
       }
@@ -22018,16 +22735,16 @@ var ZoteroGKPlugin = class extends import_obsidian25.Plugin {
       id: "cfp-refresh-wikicfp-series",
       name: "Refresh CFP from WikiCFP Conf Series (A\u2013Z)",
       callback: () => {
-        new import_obsidian25.Notice(
+        new import_obsidian26.Notice(
           "WikiCFP series refresh started (5\u201310s between pages). See console for progress."
         );
         this.cfpService.refreshWikiCFPSeries((msg) => {
-          new import_obsidian25.Notice(msg);
+          new import_obsidian26.Notice(msg);
         }).then(() => {
-          new import_obsidian25.Notice("WikiCFP series refresh done.");
+          new import_obsidian26.Notice("WikiCFP series refresh done.");
         }).catch((e) => {
           console.error("[CFP] WikiCFP series refresh failed", e);
-          new import_obsidian25.Notice("WikiCFP series refresh failed. See console.");
+          new import_obsidian26.Notice("WikiCFP series refresh failed. See console.");
         });
       }
     });
@@ -22044,42 +22761,35 @@ var ZoteroGKPlugin = class extends import_obsidian25.Plugin {
         if (!isSeries || !seriesUrl) return false;
         const baseName = file.basename.replace(/\s+Series$/, "");
         if (checking) return true;
-        new import_obsidian25.Notice(`Refreshing events for ${baseName}...`);
-        this.cfpService.refreshSeriesByUrl(
-          seriesUrl,
-          baseName,
-          (msg) => new import_obsidian25.Notice(msg)
-        ).then(() => new import_obsidian25.Notice(`${baseName} events refreshed.`)).catch((e) => {
+        new import_obsidian26.Notice(`Refreshing events for ${baseName}...`);
+        this.cfpService.refreshSeriesByUrl(seriesUrl, baseName, (msg) => new import_obsidian26.Notice(msg)).then(() => new import_obsidian26.Notice(`${baseName} events refreshed.`)).catch((e) => {
           console.error("[CFP] refresh this series failed", e);
-          new import_obsidian25.Notice("Refresh failed. See console.");
+          new import_obsidian26.Notice("Refresh failed. See console.");
         });
         return true;
       }
     });
     this.addSettingTab(new ZoteroSettingTab(this.app, this));
     if (this.cfpService.shouldRefresh()) {
-      this.cfpService.refresh().catch(() => {
-      });
+      this.cfpService.refresh().catch((err) => console.warn("[CFP] background refresh failed:", err));
     }
     if (this.cfpService.shouldSeriesRefresh()) {
-      this.cfpService.refreshWikiCFPSeries().catch(() => {
-      });
+      this.cfpService.refreshWikiCFPSeries().catch((err) => console.warn("[CFP] background refresh failed:", err));
     }
-    this.cfpService.runDailySeriesRefresh().catch(() => {
-    });
+    this.cfpService.runDailySeriesRefresh().catch((err) => console.warn("[CFP] background refresh failed:", err));
     const win = window;
     win.__ZoteroAnnotationReviewerCFP = {
       refreshSeries: (programUrl, seriesAcronym) => {
-        new import_obsidian25.Notice(`Refreshing events for ${seriesAcronym}...`);
+        new import_obsidian26.Notice(`Refreshing events for ${seriesAcronym}...`);
         return this.cfpService.refreshSeriesByUrl(
           programUrl,
           seriesAcronym,
-          (msg) => new import_obsidian25.Notice(msg)
+          (msg) => new import_obsidian26.Notice(msg)
         ).then(() => {
-          new import_obsidian25.Notice(`${seriesAcronym} events refreshed.`);
+          new import_obsidian26.Notice(`${seriesAcronym} events refreshed.`);
         }).catch((e) => {
           console.error("[CFP] refresh series failed", e);
-          new import_obsidian25.Notice("Refresh failed. See console.");
+          new import_obsidian26.Notice("Refresh failed. See console.");
         });
       }
     };
@@ -22105,7 +22815,7 @@ var ZoteroGKPlugin = class extends import_obsidian25.Plugin {
         () => {
           const file = this.app.workspace.getActiveFile();
           if (!file) {
-            new import_obsidian25.Notice("Open a note first.");
+            new import_obsidian26.Notice("Open a note first.");
             return;
           }
           new WebhookSelectionModal(
@@ -22131,7 +22841,7 @@ var ZoteroGKPlugin = class extends import_obsidian25.Plugin {
     if (key) {
       new HighlightModal(this.app, this.settings, key, {}).open();
     } else {
-      new import_obsidian25.Notice("\u274C No citation key found.");
+      new import_obsidian26.Notice("\u274C No citation key found.");
     }
   }
   async loadSettings() {
@@ -22248,85 +22958,5 @@ var ZoteroGKPlugin = class extends import_obsidian25.Plugin {
   }
   async saveSettings() {
     await this.saveData(this.settings);
-  }
-};
-var WebhookSelectionModal = class extends import_obsidian25.SuggestModal {
-  constructor(app, webhooks, onChoose) {
-    super(app);
-    this.webhooks = webhooks;
-    this.onChoose = onChoose;
-  }
-  getSuggestions(query) {
-    return this.webhooks.filter(
-      (hook) => hook.name.toLowerCase().includes(query.toLowerCase())
-    );
-  }
-  renderSuggestion(hook, el) {
-    el.createDiv({ text: hook.name });
-    el.createDiv({ text: hook.url, cls: "zotero-text-muted-italic" });
-  }
-  onChooseSuggestion(hook) {
-    var _a;
-    this.close();
-    const vars = ((_a = hook.inputVariables) != null ? _a : []).filter((iv) => {
-      var _a2;
-      return (_a2 = iv.name) == null ? void 0 : _a2.trim();
-    });
-    if (vars.length > 0) {
-      new WebhookInputValueModal(this.app, hook.name, vars, (values) => {
-        this.onChoose(hook, values);
-      }).open();
-    } else {
-      this.onChoose(hook);
-    }
-  }
-};
-var WebhookInputValueModal = class extends import_obsidian25.Modal {
-  constructor(app, title, variables, onSubmit) {
-    super(app);
-    this.inputs = /* @__PURE__ */ new Map();
-    this.title = title;
-    this.variables = variables;
-    this.onSubmit = onSubmit;
-  }
-  onOpen() {
-    const { contentEl } = this;
-    contentEl.empty();
-    contentEl.addClass("zotero-webhook-input-modal");
-    contentEl.createEl("h2", {
-      text: this.title,
-      cls: "zotero-webhook-input-title"
-    });
-    const desc = contentEl.createDiv({ cls: "zotero-webhook-input-desc" });
-    desc.setText("Enter values to substitute in the webhook body.");
-    const form = contentEl.createDiv({ cls: "zotero-webhook-input-form" });
-    this.variables.forEach((iv) => {
-      const row = form.createDiv({ cls: "zotero-webhook-input-row" });
-      row.createEl("label", {
-        text: `{{${iv.name}}}`,
-        cls: "zotero-webhook-input-label"
-      });
-      const tc = new import_obsidian25.TextComponent(row);
-      tc.inputEl.addClass("zotero-webhook-input-field");
-      if (iv.type === "number") {
-        tc.inputEl.type = "number";
-        tc.setPlaceholder("0");
-      } else {
-        tc.setPlaceholder("Optional");
-      }
-      this.inputs.set(iv.name, tc);
-    });
-    const footer = contentEl.createDiv({ cls: "zotero-webhook-input-footer" });
-    new import_obsidian25.ButtonComponent(footer).setButtonText("Cancel").onClick(() => this.close());
-    new import_obsidian25.ButtonComponent(footer).setButtonText("Trigger").setCta().onClick(() => {
-      const values = {};
-      this.variables.forEach((iv) => {
-        var _a, _b;
-        const v = (_b = (_a = this.inputs.get(iv.name)) == null ? void 0 : _a.getValue()) != null ? _b : "";
-        values[iv.name] = iv.type === "number" ? String(Number(v)) : v;
-      });
-      this.close();
-      this.onSubmit(values);
-    }).buttonEl.addClass("zotero-btn-fancy");
   }
 };

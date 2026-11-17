@@ -151,7 +151,9 @@ export function normalizeVenueSeries(rawVenue: string): string {
 		.replace(/^[\s,.:;\-–—/]+|[\s,.:;\-–—/]+$/g, '')
 		.trim();
 
-	const orgPrefix = cleaned.match(/^(?:ACM|IEEE|USENIX)\s+([A-Z][A-Za-z0-9-]{1,14})$/);
+	const orgPrefix = cleaned.match(
+		/^(?:ACM|IEEE|USENIX)\s+([A-Z][A-Za-z0-9-]{1,14})$/
+	);
 	if (orgPrefix) {
 		cleaned = orgPrefix[1];
 	}
@@ -163,11 +165,7 @@ export function normalizeVenueSeries(rawVenue: string): string {
 }
 
 export function scoreLibraryMatch(entry: VaultPaperEntry, query: string): number {
-	const tokens = query
-		.trim()
-		.toLowerCase()
-		.split(/\s+/)
-		.filter(Boolean);
+	const tokens = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
 	if (tokens.length === 0) return 1;
 
 	const citekey = entry.citekey.toLowerCase();
@@ -176,7 +174,8 @@ export function scoreLibraryMatch(entry: VaultPaperEntry, query: string): number
 	const authors = entry.authors.join(' ').toLowerCase();
 	const year = entry.year.toLowerCase();
 	const meta = [...entry.projects, ...entry.tags].join(' ').toLowerCase();
-	const notes = `${entry.coreNoteBody} ${entry.tldr} ${entry.contributions ?? ''} ${entry.novelty} ${entry.limitation}`.toLowerCase();
+	const notes =
+		`${entry.coreNoteBody} ${entry.tldr} ${entry.contributions ?? ''} ${entry.novelty} ${entry.limitation}`.toLowerCase();
 
 	let total = 0;
 	for (const token of tokens) {
@@ -206,7 +205,8 @@ export class VaultLibraryService {
 	getLiteratureFolderPrefix(): string {
 		const settings = this.getSettings();
 		return folderPrefixFromPattern(
-			settings.paperWorkspace.literatureNotePath || '002-Literature/{{citekey}}.md'
+			settings.paperWorkspace.literatureNotePath ||
+				'002-Literature/{{citekey}}.md'
 		);
 	}
 
@@ -229,7 +229,9 @@ export class VaultLibraryService {
 				: []),
 			...(s.prompts || []).map((p) => folderPrefixFromPattern(p.vaultPath)),
 		];
-		return Array.from(new Set(candidates.filter((p) => Boolean(p) && p !== litPrefix)));
+		return Array.from(
+			new Set(candidates.filter((p) => Boolean(p) && p !== litPrefix))
+		);
 	}
 
 	isPrimaryLiteratureFile(file: TFile): boolean {
@@ -262,22 +264,34 @@ export class VaultLibraryService {
 		const entries = await Promise.all(
 			files.map(async (file): Promise<VaultPaperEntry> => {
 				const fm = this.app.metadataCache.getFileCache(file)?.frontmatter ?? {};
-				const citekey = this.paperHub.getCitekeyForFile(file) || fileBasename(file);
+				const citekey =
+					this.paperHub.getCitekeyForFile(file) || fileBasename(file);
 				const paths = resolvePaperPaths(settings.paperWorkspace, citekey);
 
-				const coreRawFile = this.app.vault.getAbstractFileByPath(paths.coreNote);
-				const takeawayRawFile = this.app.vault.getAbstractFileByPath(paths.takeaway);
-				const report1RawFile = this.app.vault.getAbstractFileByPath(paths.report1);
-				const report2RawFile = this.app.vault.getAbstractFileByPath(paths.report2);
+				const coreRawFile = this.app.vault.getAbstractFileByPath(
+					paths.coreNote
+				);
+				const takeawayRawFile = this.app.vault.getAbstractFileByPath(
+					paths.takeaway
+				);
+				const report1RawFile = this.app.vault.getAbstractFileByPath(
+					paths.report1
+				);
+				const report2RawFile = this.app.vault.getAbstractFileByPath(
+					paths.report2
+				);
 
 				const coreFile = coreRawFile instanceof TFile ? coreRawFile : null;
-				const takeawayFile = takeawayRawFile instanceof TFile ? takeawayRawFile : null;
+				const takeawayFile =
+					takeawayRawFile instanceof TFile ? takeawayRawFile : null;
 				const hasReport1 = report1RawFile instanceof TFile;
 				const hasReport2 = report2RawFile instanceof TFile;
 
 				const [coreContent, takeawayContent] = await Promise.all([
 					coreFile ? this.app.vault.read(coreFile) : Promise.resolve(''),
-					takeawayFile ? this.app.vault.read(takeawayFile) : Promise.resolve(''),
+					takeawayFile
+						? this.app.vault.read(takeawayFile)
+						: Promise.resolve(''),
 				]);
 
 				const coreData = coreFile
@@ -314,7 +328,9 @@ export class VaultLibraryService {
 					doi: String(fm['doi'] ?? '').trim(),
 					url: String(fm['url'] ?? '').trim(),
 					codeUrl: String(fm['code'] ?? '').trim(),
-					projects: Array.from(new Set([...fmProjects, ...coreData.projects])),
+					projects: Array.from(
+						new Set([...fmProjects, ...coreData.projects])
+					),
 					linkedNotes: coreData.linkedNotes,
 					tags: toStringArray(fm['tags']),
 					coreNoteBody: coreData.body,
@@ -345,7 +361,9 @@ export class VaultLibraryService {
 		filters?: { venue?: string; hasCoreNote?: boolean; hasTakeaway?: boolean }
 	): Promise<VaultPaperEntry[]> {
 		const all = await this.listLiteraturePapers();
-		const targetVenue = filters?.venue ? normalizeVenueSeries(filters.venue).toLowerCase() : '';
+		const targetVenue = filters?.venue
+			? normalizeVenueSeries(filters.venue).toLowerCase()
+			: '';
 		const rawVenueFilter = filters?.venue?.trim().toLowerCase() ?? '';
 
 		const filtered = all.filter((entry) => {
@@ -369,13 +387,22 @@ export class VaultLibraryService {
 			.map((item) => item.entry);
 	}
 
-	findSameVenuePapers(currentFile: TFile, explicitSeries?: string): VaultVenuePaperRef[] {
+	findSameVenuePapers(
+		currentFile: TFile,
+		explicitSeries?: string
+	): VaultVenuePaperRef[] {
 		const settings = this.getSettings();
 		const acronymKey = settings.cfpAcronymKey || 'conference-acronym';
-		const currentFm = this.app.metadataCache.getFileCache(currentFile)?.frontmatter ?? {};
+		const currentFm =
+			this.app.metadataCache.getFileCache(currentFile)?.frontmatter ?? {};
 		const rawSeries =
 			explicitSeries?.trim() ||
-			String(currentFm[acronymKey] ?? currentFm['venue'] ?? currentFm['publication'] ?? '');
+			String(
+				currentFm[acronymKey] ??
+					currentFm['venue'] ??
+					currentFm['publication'] ??
+					''
+			);
 		const targetSeries = normalizeVenueSeries(rawSeries);
 		if (!targetSeries) return [];
 
@@ -383,7 +410,8 @@ export class VaultLibraryService {
 		const refs: VaultVenuePaperRef[] = [];
 
 		for (const file of this.app.vault.getMarkdownFiles()) {
-			if (file.path === currentFile.path || !this.isPrimaryLiteratureFile(file)) continue;
+			if (file.path === currentFile.path || !this.isPrimaryLiteratureFile(file))
+				continue;
 			const fm = this.app.metadataCache.getFileCache(file)?.frontmatter ?? {};
 			const candSeries = normalizeVenueSeries(
 				String(fm[acronymKey] ?? fm['venue'] ?? fm['publication'] ?? '')
@@ -396,7 +424,8 @@ export class VaultLibraryService {
 			const firstAuthor = toStringArray(fm['authors'])[0] ?? '';
 			const authorSurname = firstAuthor.split('-').pop() || firstAuthor;
 			const baseLabel = shortName || authorSurname || citekey;
-			const shortLabel = year && !baseLabel.includes(year) ? `${baseLabel} ${year}` : baseLabel;
+			const shortLabel =
+				year && !baseLabel.includes(year) ? `${baseLabel} ${year}` : baseLabel;
 
 			refs.push({
 				file,
@@ -429,16 +458,21 @@ export class VaultLibraryService {
 		const atomicFiles = allMdFiles.filter((f) => {
 			const p = normalizePath(f.path);
 			const base = fileBasename(f);
-			return (atomicPrefix && p.startsWith(atomicPrefix)) || base.startsWith('A - ');
+			return (
+				(atomicPrefix && p.startsWith(atomicPrefix)) || base.startsWith('A - ')
+			);
 		});
 
 		const candidateMatches: CandidateVaultMatch[] = candidates.map((candidate) => {
 			if (candidate.linkPath?.trim()) {
 				const rawLinkPath = candidate.linkPath.trim();
 				const normalizedLinkPath = normalizePath(
-					rawLinkPath.toLowerCase().endsWith('.md') ? rawLinkPath : `${rawLinkPath}.md`
+					rawLinkPath.toLowerCase().endsWith('.md')
+						? rawLinkPath
+						: `${rawLinkPath}.md`
 				);
-				const directFile = this.app.vault.getAbstractFileByPath(normalizedLinkPath);
+				const directFile =
+					this.app.vault.getAbstractFileByPath(normalizedLinkPath);
 				if (directFile instanceof TFile) {
 					return {
 						candidate,
@@ -449,7 +483,9 @@ export class VaultLibraryService {
 				}
 			}
 
-			const cleanTitle = (candidate.linkTitle.split('/').pop() || candidate.linkTitle)
+			const cleanTitle = (
+				candidate.linkTitle.split('/').pop() || candidate.linkTitle
+			)
 				.replace(/\.md$/i, '')
 				.trim();
 			const exact =
@@ -460,7 +496,8 @@ export class VaultLibraryService {
 					? allMdFiles.find(
 							(f) =>
 								!this.isPrimaryLiteratureFile(f) &&
-								fileBasename(f).toLowerCase() === cleanTitle.toLowerCase()
+								fileBasename(f).toLowerCase() ===
+									cleanTitle.toLowerCase()
 						)
 					: undefined);
 			if (exact) {
@@ -485,7 +522,11 @@ export class VaultLibraryService {
 					if (shared === 0) continue;
 					const denom = Math.min(candTokens.length, fileTokens.length);
 					const ratio = shared / denom;
-					if ((shared >= 2 || denom === 1) && ratio >= 0.5 && ratio > bestScore) {
+					if (
+						(shared >= 2 || denom === 1) &&
+						ratio >= 0.5 &&
+						ratio > bestScore
+					) {
 						bestScore = ratio;
 						bestFile = af;
 					}
@@ -521,21 +562,27 @@ export class VaultLibraryService {
 			for (const file of allMdFiles) {
 				if (!this.isPrimaryLiteratureFile(file)) continue;
 				const fm = this.app.metadataCache.getFileCache(file)?.frontmatter ?? {};
-				const citekey = (this.paperHub.getCitekeyForFile(file) || fileBasename(file))
+				const citekey = (
+					this.paperHub.getCitekeyForFile(file) || fileBasename(file)
+				)
 					.replace(/^@/, '')
 					.trim();
 				if (!citekey || citekey.toLowerCase() === cleanCurrentKey) continue;
 
 				const keyLower = citekey.toLowerCase();
 				const escapedKey = keyLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-				const keyRegex = new RegExp(`(?:^|[^a-z0-9])${escapedKey}(?:$|[^a-z0-9])`, 'i');
+				const keyRegex = new RegExp(
+					`(?:^|[^a-z0-9])${escapedKey}(?:$|[^a-z0-9])`,
+					'i'
+				);
 				const doi = String(fm['doi'] ?? '')
 					.trim()
 					.replace(/^https?:\/\/doi\.org\//i, '')
 					.toLowerCase();
 
 				const keyMatched = keyLower.length >= 3 && keyRegex.test(corpusLower);
-				const doiMatched = !keyMatched && doi.length >= 7 && corpusLower.includes(doi);
+				const doiMatched =
+					!keyMatched && doi.length >= 7 && corpusLower.includes(doi);
 
 				if (keyMatched || doiMatched) {
 					citedPapers.push({
@@ -563,7 +610,13 @@ export class VaultLibraryService {
 		appendEvidence?: boolean;
 		rewriteTakeaway?: boolean;
 	}): Promise<TFile> {
-		const { literatureFile, citekey, candidate, mode, appendEvidence = true } = params;
+		const {
+			literatureFile,
+			citekey,
+			candidate,
+			mode,
+			appendEvidence = true,
+		} = params;
 		const litPathNoExt = literatureFile.path.replace(/\.md$/i, '');
 		const sourceLink = `[[${litPathNoExt}|${citekey}]]`;
 
@@ -589,12 +642,17 @@ export class VaultLibraryService {
 			: '';
 
 		const evidenceLines: string[] = [`### Evidence from ${sourceLink}`];
-		if (candidate.storyline) evidenceLines.push(`- **Storyline**: ${candidate.storyline}`);
+		if (candidate.storyline)
+			evidenceLines.push(`- **Storyline**: ${candidate.storyline}`);
 		if (candidate.brief) evidenceLines.push(`- **Brief**: ${candidate.brief}`);
-		if (candidate.evidence) evidenceLines.push(`- **Evidence**: ${candidate.evidence}`);
-		if (candidate.validation) evidenceLines.push(`- **Validation**: ${candidate.validation}`);
+		if (candidate.evidence)
+			evidenceLines.push(`- **Evidence**: ${candidate.evidence}`);
+		if (candidate.validation)
+			evidenceLines.push(`- **Validation**: ${candidate.validation}`);
 		if (candidate.tags.length > 0) {
-			const tagLine = candidate.tags.map((t) => `#${t.replace(/^#/, '')}`).join(' ');
+			const tagLine = candidate.tags
+				.map((t) => `#${t.replace(/^#/, '')}`)
+				.join(' ');
 			evidenceLines.push(`- **Tags**: ${tagLine}`);
 		}
 		const evidenceBlock = evidenceLines.join('\n');
@@ -620,7 +678,8 @@ export class VaultLibraryService {
 					? params.rewriteTakeaway
 					: chosenBasename.toLowerCase() !== cleanCandTitle.toLowerCase() ||
 						(Boolean(candLinkPathNoExt) &&
-							candLinkPathNoExt.toLowerCase() !== chosenPathNoExt.toLowerCase());
+							candLinkPathNoExt.toLowerCase() !==
+								chosenPathNoExt.toLowerCase());
 
 			if (shouldRewrite) {
 				const targetWikiLink = `[[${chosenPathNoExt}|${chosenBasename}]]`;
@@ -638,7 +697,9 @@ export class VaultLibraryService {
 			const folder = normalizePath(
 				this.getSettings().paperWorkspace.atomicNotesFolder || '003-Permanent'
 			);
-			const targetPath = normalizePath(folder ? `${folder}/${rawName}.md` : `${rawName}.md`);
+			const targetPath = normalizePath(
+				folder ? `${folder}/${rawName}.md` : `${rawName}.md`
+			);
 			const existing = this.app.vault.getAbstractFileByPath(targetPath);
 
 			if (existing instanceof TFile) {
@@ -654,7 +715,8 @@ export class VaultLibraryService {
 				}
 			} else {
 				await this.paperHub.ensureParentFolder(targetPath);
-				const litFm = this.app.metadataCache.getFileCache(literatureFile)?.frontmatter;
+				const litFm =
+					this.app.metadataCache.getFileCache(literatureFile)?.frontmatter;
 				const paperTitle =
 					litFm?.['title'] !== undefined && litFm?.['title'] !== null
 						? String(litFm['title']).trim()
@@ -677,12 +739,15 @@ export class VaultLibraryService {
 					)
 				);
 				if (cleanTags.length > 0) {
-					const fmMatch = rendered.match(/^---\r?\n([\s\S]*?)\r?\n---([\s\S]*)$/);
+					const fmMatch = rendered.match(
+						/^---\r?\n([\s\S]*?)\r?\n---([\s\S]*)$/
+					);
 					if (fmMatch) {
 						let fmPart = fmMatch[1];
 						const bodyPart = fmMatch[2];
 						const emptyTagsRe = /^tags:[ \t]*\[\s*\][ \t]*$/m;
-						const listTagsRe = /^tags:[ \t]*\r?\n((?:[ \t]*-[ \t]*[^\r\n]+\r?\n?)*)/m;
+						const listTagsRe =
+							/^tags:[ \t]*\r?\n((?:[ \t]*-[ \t]*[^\r\n]+\r?\n?)*)/m;
 
 						if (emptyTagsRe.test(fmPart)) {
 							const tagBlock = `tags:\n${cleanTags.map((t) => `  - ${t}`).join('\n')}`;
@@ -693,7 +758,9 @@ export class VaultLibraryService {
 								const existingTags = new Set(
 									listMatch[1]
 										.split(/\r?\n/)
-										.map((line) => line.replace(/^[ \t]*-[ \t]*/, '').trim())
+										.map((line) =>
+											line.replace(/^[ \t]*-[ \t]*/, '').trim()
+										)
 										.filter(Boolean)
 								);
 								const toInsert = cleanTags
@@ -735,7 +802,8 @@ export class VaultLibraryService {
 					? params.rewriteTakeaway
 					: createdBasename.toLowerCase() !== cleanCandTitle.toLowerCase() ||
 						(Boolean(candLinkPathNoExt) &&
-							candLinkPathNoExt.toLowerCase() !== targetPathNoExt.toLowerCase());
+							candLinkPathNoExt.toLowerCase() !==
+								targetPathNoExt.toLowerCase());
 			if (shouldRewriteCreate) {
 				await this.paperHub.rewriteCandidateLinkInTakeaway(
 					citekey,
@@ -783,7 +851,11 @@ export class VaultLibraryService {
 			? prunedLinks
 			: [...prunedLinks, atomicWikiLink];
 
-		await this.paperHub.saveCoreNote(citekey, { linkedNotes: nextLinks }, literatureFile);
+		await this.paperHub.saveCoreNote(
+			citekey,
+			{ linkedNotes: nextLinks },
+			literatureFile
+		);
 		return resolvedTarget;
 	}
 }

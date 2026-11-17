@@ -150,7 +150,10 @@ class AssistantWebhookInputModal extends Modal {
 		const { contentEl } = this;
 		contentEl.empty();
 		contentEl.addClass('zotero-webhook-input-modal');
-		contentEl.createEl('h3', { text: this.hookName, cls: 'zotero-webhook-input-title' });
+		contentEl.createEl('h3', {
+			text: this.hookName,
+			cls: 'zotero-webhook-input-title',
+		});
 		const form = contentEl.createDiv({ cls: 'zotero-webhook-input-form' });
 
 		for (const iv of this.variables) {
@@ -234,7 +237,9 @@ class CodeUrlModal extends Modal {
 				return;
 			}
 			const candidate =
-				!/^https?:\/\//i.test(raw) && !/^[a-z]+:/i.test(raw) && raw.includes('.')
+				!/^https?:\/\//i.test(raw) &&
+				!/^[a-z]+:/i.test(raw) &&
+				raw.includes('.')
 					? `https://${raw}`
 					: raw;
 			if (!/^https?:\/\/\S+$/i.test(candidate)) {
@@ -291,7 +296,10 @@ export class AssistantView extends MarkdownRenderChild {
 	constructor(containerEl: HTMLElement, plugin: ZoteroGKPlugin) {
 		super(containerEl);
 		this.plugin = plugin;
-		this.zoteroConnector = new ZoteroConnectorService(this.plugin.app, this.plugin.settings);
+		this.zoteroConnector = new ZoteroConnectorService(
+			this.plugin.app,
+			this.plugin.settings
+		);
 	}
 
 	async render(source: string, ctx: MarkdownPostProcessorContext): Promise<void> {
@@ -317,7 +325,9 @@ export class AssistantView extends MarkdownRenderChild {
 				text: `No citation key found (${this.plugin.settings.citationKeyName || 'citation-key'}).`,
 			});
 			if (this.plugin.settings.enableLegacyAssistantScript) {
-				const legacyWrap = container.createDiv({ cls: 'zotero-local-highlights' });
+				const legacyWrap = container.createDiv({
+					cls: 'zotero-local-highlights',
+				});
 				await this.renderLegacyScript(file, legacyWrap, source);
 			}
 			return;
@@ -334,7 +344,11 @@ export class AssistantView extends MarkdownRenderChild {
 
 		// 4. Inline Highlight Notes / Comments (ONLY when fleetingNotes.length > 0)
 		if (state.fleetingNotes.length > 0) {
-			await this.renderInlineCommentsSection(container, state.fleetingNotes, rerender);
+			await this.renderInlineCommentsSection(
+				container,
+				state.fleetingNotes,
+				rerender
+			);
 		}
 
 		if (this.plugin.settings.enableLegacyAssistantScript) {
@@ -384,7 +398,9 @@ export class AssistantView extends MarkdownRenderChild {
 			hasCandidates ? 'has-badge' : undefined
 		);
 
-		const visibleHooks = (this.plugin.settings.webhooks || []).filter((h) => !h.hidden);
+		const visibleHooks = (this.plugin.settings.webhooks || []).filter(
+			(h) => !h.hidden
+		);
 		if (visibleHooks.length > 0) {
 			toolbar.createSpan({ cls: 'zotero-assistant-toolbar-divider' });
 			for (const hook of visibleHooks) {
@@ -456,7 +472,11 @@ export class AssistantView extends MarkdownRenderChild {
 			const doiLink = pills.createEl('a', {
 				cls: 'zotero-res-pill is-external',
 				href: state.doiUrl,
-				attr: { target: '_blank', rel: 'noopener noreferrer', title: state.doiUrl },
+				attr: {
+					target: '_blank',
+					rel: 'noopener noreferrer',
+					title: state.doiUrl,
+				},
 			});
 			const iconSpan = doiLink.createSpan({ cls: 'zotero-res-pill-icon' });
 			setIcon(iconSpan, 'external-link');
@@ -466,7 +486,9 @@ export class AssistantView extends MarkdownRenderChild {
 		const openCodeModal = (currentUrl: string) => {
 			new CodeUrlModal(this.plugin.app, currentUrl, async (nextUrl) => {
 				await this.plugin.paperHub.updateLiteratureCodeUrl(file, nextUrl);
-				new Notice(nextUrl ? 'Saved repository URL.' : 'Cleared repository URL.');
+				new Notice(
+					nextUrl ? 'Saved repository URL.' : 'Cleared repository URL.'
+				);
 				await rerender();
 			}).open();
 		};
@@ -476,7 +498,11 @@ export class AssistantView extends MarkdownRenderChild {
 			const codeLink = codeGroup.createEl('a', {
 				cls: 'zotero-res-pill is-external is-code',
 				href: state.codeUrl,
-				attr: { target: '_blank', rel: 'noopener noreferrer', title: state.codeUrl },
+				attr: {
+					target: '_blank',
+					rel: 'noopener noreferrer',
+					title: state.codeUrl,
+				},
 			});
 			const iconSpan = codeLink.createSpan({ cls: 'zotero-res-pill-icon' });
 			setIcon(iconSpan, 'code-2');
@@ -547,7 +573,9 @@ export class AssistantView extends MarkdownRenderChild {
 					await rerender();
 				} catch (err) {
 					console.error(`[AssistantView] Failed to create ${label}`, err);
-					new Notice(`Failed to create ${label}: ${(err as Error)?.message ?? String(err)}`);
+					new Notice(
+						`Failed to create ${label}: ${(err as Error)?.message ?? String(err)}`
+					);
 				}
 			};
 
@@ -562,7 +590,8 @@ export class AssistantView extends MarkdownRenderChild {
 			setIcon(copyBtn, 'copy');
 			copyBtn.onclick = async (ev) => {
 				ev.stopPropagation();
-				const promptText = await this.plugin.paperHub.getPromptContent(promptId);
+				const promptText =
+					await this.plugin.paperHub.getPromptContent(promptId);
 				if (navigator.clipboard?.writeText) {
 					await navigator.clipboard.writeText(promptText);
 					new Notice(`Copied ${label} prompt to clipboard.`);
@@ -589,14 +618,19 @@ export class AssistantView extends MarkdownRenderChild {
 	private triggerWebhookFromToolbar(hook: WebhookProfile, file: TFile): void {
 		const vars = (hook.inputVariables ?? []).filter((iv) => iv.name?.trim());
 		if (vars.length > 0) {
-			new AssistantWebhookInputModal(this.plugin.app, hook.name, vars, (values) => {
-				void this.plugin.webhookService.triggerWebhook(
-					hook,
-					file,
-					values,
-					this.plugin.settings.webhookDebugMode
-				);
-			}).open();
+			new AssistantWebhookInputModal(
+				this.plugin.app,
+				hook.name,
+				vars,
+				(values) => {
+					void this.plugin.webhookService.triggerWebhook(
+						hook,
+						file,
+						values,
+						this.plugin.settings.webhookDebugMode
+					);
+				}
+			).open();
 		} else {
 			void this.plugin.webhookService.triggerWebhook(
 				hook,
@@ -651,7 +685,10 @@ export class AssistantView extends MarkdownRenderChild {
 				);
 				await this.plugin.app.workspace.getLeaf(false).openFile(coreFile);
 			} catch (err) {
-				console.error('[AssistantView] Failed to open Core Note in editor', err);
+				console.error(
+					'[AssistantView] Failed to open Core Note in editor',
+					err
+				);
 				new Notice(
 					`Failed to open Core Note: ${(err as Error)?.message ?? String(err)}`
 				);
@@ -843,7 +880,11 @@ export class AssistantView extends MarkdownRenderChild {
 		}
 
 		addIconAction(linkedChips, 'plus', 'Link an Atomic note', () => {
-			const atomicBase = (normalizePath(this.plugin.settings.paperWorkspace?.atomicNotesFolder?.trim() || '003-Permanent').replace(/\/+$/, '') || '003-Permanent') + '/';
+			const atomicBase =
+				(normalizePath(
+					this.plugin.settings.paperWorkspace?.atomicNotesFolder?.trim() ||
+						'003-Permanent'
+				).replace(/\/+$/, '') || '003-Permanent') + '/';
 			new VaultMarkdownSuggestModal(
 				this.plugin.app,
 				async (chosen) => {
@@ -858,7 +899,9 @@ export class AssistantView extends MarkdownRenderChild {
 						await rerender();
 					}
 				},
-				(f) => f.path.toLowerCase().endsWith('.md') && normalizePath(f.path).startsWith(atomicBase),
+				(f) =>
+					f.path.toLowerCase().endsWith('.md') &&
+					normalizePath(f.path).startsWith(atomicBase),
 				'Link an Atomic note...'
 			).open();
 		});
@@ -891,7 +934,9 @@ export class AssistantView extends MarkdownRenderChild {
 				void this.plugin.app.workspace.getLeaf(false).openFile(item.file);
 			};
 			if (item.thought) {
-				const snippetEl = textCol.createDiv({ cls: 'zotero-inline-comment-snippet' });
+				const snippetEl = textCol.createDiv({
+					cls: 'zotero-inline-comment-snippet',
+				});
 				renderTasks.push(
 					renderMarkdownContent(
 						this.plugin.app,
@@ -910,9 +955,12 @@ export class AssistantView extends MarkdownRenderChild {
 			});
 			toggleBadge.onclick = async () => {
 				if (this.plugin.app.fileManager?.processFrontMatter) {
-					await this.plugin.app.fileManager.processFrontMatter(item.file, (fm) => {
-						fm['read'] = !item.read;
-					});
+					await this.plugin.app.fileManager.processFrontMatter(
+						item.file,
+						(fm) => {
+							fm['read'] = !item.read;
+						}
+					);
 				}
 				await rerender();
 			};
@@ -960,7 +1008,8 @@ export class AssistantView extends MarkdownRenderChild {
 		const fm = this.plugin.app.metadataCache.getFileCache(file)?.frontmatter;
 		if (!fm) return;
 
-		const acronymKey = this.plugin.settings.cfpAcronymKey?.trim() || 'conference-acronym';
+		const acronymKey =
+			this.plugin.settings.cfpAcronymKey?.trim() || 'conference-acronym';
 		const rawAcronym = String(
 			fm[acronymKey] ?? fm['acronym'] ?? fm['conference_acronym'] ?? ''
 		).trim();
@@ -985,15 +1034,20 @@ export class AssistantView extends MarkdownRenderChild {
 						)
 					);
 				if (resolved instanceof TFile) {
-					const info = this.plugin.cfpService.getCFPNoteInfoByPath(resolved.path);
+					const info = this.plugin.cfpService.getCFPNoteInfoByPath(
+						resolved.path
+					);
 					if (info) {
 						if (info.isSeries) {
 							seriesName = info.seriesName;
 							seriesNotePath = info.seriesNotePath;
 						} else {
-							seriesName = info.event.item.series || info.event.item.acronym;
+							seriesName =
+								info.event.item.series || info.event.item.acronym;
 							const byAcronym =
-								this.plugin.cfpService.getSeriesInfoByAcronym(seriesName);
+								this.plugin.cfpService.getSeriesInfoByAcronym(
+									seriesName
+								);
 							if (byAcronym) seriesNotePath = byAcronym.seriesNotePath;
 						}
 					}
@@ -1013,7 +1067,8 @@ export class AssistantView extends MarkdownRenderChild {
 			}
 		}
 
-		const displaySeries = seriesName || normalizeVenueSeries(rawAcronym || rawVenue);
+		const displaySeries =
+			seriesName || normalizeVenueSeries(rawAcronym || rawVenue);
 		const sameVenuePapers = this.plugin.vaultLibrary.findSameVenuePapers(
 			file,
 			displaySeries
@@ -1026,7 +1081,8 @@ export class AssistantView extends MarkdownRenderChild {
 		if (seriesNotePath) {
 			const sFile = this.plugin.app.vault.getAbstractFileByPath(seriesNotePath);
 			if (sFile instanceof TFile) {
-				const sFm = this.plugin.app.metadataCache.getFileCache(sFile)?.frontmatter;
+				const sFm =
+					this.plugin.app.metadataCache.getFileCache(sFile)?.frontmatter;
 				rankCore = String(sFm?.['rank_core'] ?? '').trim();
 				rankCcf = String(sFm?.['rank_ccf'] ?? '').trim();
 			}
@@ -1039,10 +1095,16 @@ export class AssistantView extends MarkdownRenderChild {
 			metaLeft.createSpan({ cls: 'zotero-venue-acronym', text: displaySeries });
 		}
 		if (rankCore) {
-			metaLeft.createSpan({ cls: 'zotero-venue-rank is-core', text: `CORE ${rankCore}` });
+			metaLeft.createSpan({
+				cls: 'zotero-venue-rank is-core',
+				text: `CORE ${rankCore}`,
+			});
 		}
 		if (rankCcf) {
-			metaLeft.createSpan({ cls: 'zotero-venue-rank is-ccf', text: `CCF ${rankCcf}` });
+			metaLeft.createSpan({
+				cls: 'zotero-venue-rank is-ccf',
+				text: `CCF ${rankCcf}`,
+			});
 		}
 		if (seriesNotePath) {
 			const seriesLink = metaLeft.createEl('a', {
@@ -1052,7 +1114,8 @@ export class AssistantView extends MarkdownRenderChild {
 			});
 			seriesLink.onclick = (ev) => {
 				ev.preventDefault();
-				const target = this.plugin.app.vault.getAbstractFileByPath(seriesNotePath);
+				const target =
+					this.plugin.app.vault.getAbstractFileByPath(seriesNotePath);
 				if (target instanceof TFile) {
 					void this.plugin.app.workspace.getLeaf(false).openFile(target);
 				}

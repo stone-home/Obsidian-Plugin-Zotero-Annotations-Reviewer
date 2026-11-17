@@ -48,7 +48,10 @@ export class WebhookService {
 			// 2b. Paper Workspace & Prompt Placeholders
 			if (this.getSettings) {
 				const settings = this.getSettings();
-				const fallbackName = (file.basename || safeFilename).replace(/\.md$/i, '');
+				const fallbackName = (file.basename || safeFilename).replace(
+					/\.md$/i,
+					''
+				);
 				const rawCitekey =
 					frontmatter[settings.citationKeyName] ||
 					frontmatter['citation-key'] ||
@@ -104,7 +107,10 @@ export class WebhookService {
 				if (profile.contentType === 'json' && rawTemplate.trim().length > 0) {
 					try {
 						const templateObj = JSON.parse(rawTemplate);
-						const filledObj = this.fillTemplateRecursive(templateObj, variables);
+						const filledObj = this.fillTemplateRecursive(
+							templateObj,
+							variables
+						);
 						body = JSON.stringify(filledObj);
 					} catch (e) {
 						console.warn(
@@ -121,10 +127,12 @@ export class WebhookService {
 			// 4. Headers & Content-Type
 			const headers: Record<string, string> = {};
 
-			if (profile.contentType === 'json') headers['Content-Type'] = 'application/json';
+			if (profile.contentType === 'json')
+				headers['Content-Type'] = 'application/json';
 			else if (profile.contentType === 'form')
 				headers['Content-Type'] = 'application/x-www-form-urlencoded';
-			else if (profile.contentType === 'text') headers['Content-Type'] = 'text/plain';
+			else if (profile.contentType === 'text')
+				headers['Content-Type'] = 'text/plain';
 
 			for (const h of profile.headers) {
 				let finalValue = String(h.value ?? '');
@@ -170,7 +178,10 @@ export class WebhookService {
 		}
 	}
 
-	private fillTemplateRecursive(item: unknown, variables: Record<string, string>): unknown {
+	private fillTemplateRecursive(
+		item: unknown,
+		variables: Record<string, string>
+	): unknown {
 		if (typeof item === 'string') {
 			let result = item;
 			for (const [key, val] of Object.entries(variables)) {
@@ -181,7 +192,9 @@ export class WebhookService {
 			return item.map((child) => this.fillTemplateRecursive(child, variables));
 		} else if (typeof item === 'object' && item !== null) {
 			const newObj: Record<string, unknown> = {};
-			for (const [key, value] of Object.entries(item as Record<string, unknown>)) {
+			for (const [key, value] of Object.entries(
+				item as Record<string, unknown>
+			)) {
 				newObj[key] = this.fillTemplateRecursive(value, variables);
 			}
 			return newObj;

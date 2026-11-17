@@ -5,10 +5,15 @@ import { pureSeriesFromAcronym } from '../utils/series';
 const DELAY_MS = 1500;
 
 function delay(ms: number): Promise<void> {
-	return new Promise(resolve => setTimeout(resolve, ms));
+	return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-const BASIC_ENTITIES: Record<string, string> = { nbsp: ' ', amp: '&', lt: '<', gt: '>' };
+const BASIC_ENTITIES: Record<string, string> = {
+	nbsp: ' ',
+	amp: '&',
+	lt: '<',
+	gt: '>',
+};
 
 /**
  * Extract text content from HTML, stripping tags. Entities are decoded in one
@@ -41,7 +46,8 @@ function parseWikiCFPTableRow(rowHtml: string, pageUrl: string): CFPItem | null 
 	// Acronym from link text e.g. <a ...>CHIL 2026</a>
 	const linkMatch = eventCell.match(/<a[^>]*>([^<]+)<\/a>/i);
 	const acronym = linkMatch ? stripHtml(linkMatch[1]).trim() : '';
-	const fullName = stripHtml(eventCell.replace(/<a[^>]*>[\s\S]*?<\/a>/i, '')).trim() || acronym;
+	const fullName =
+		stripHtml(eventCell.replace(/<a[^>]*>[\s\S]*?<\/a>/i, '')).trim() || acronym;
 	if (!acronym && !fullName) return null;
 
 	const submissionDdl = stripHtml(deadlineCell).trim();
@@ -52,7 +58,9 @@ function parseWikiCFPTableRow(rowHtml: string, pageUrl: string): CFPItem | null 
 	let end: string | undefined;
 	const whenStr = stripHtml(whenCell).trim();
 	if (whenStr && whenStr.toLowerCase() !== 'n/a') {
-		const range = whenStr.match(/^([A-Za-z]+\s+\d{1,2},\s+\d{4})\s*-\s*([A-Za-z]+\s+\d{1,2},\s+\d{4})$/);
+		const range = whenStr.match(
+			/^([A-Za-z]+\s+\d{1,2},\s+\d{4})\s*-\s*([A-Za-z]+\s+\d{1,2},\s+\d{4})$/
+		);
 		if (range) {
 			start = range[1];
 			end = range[2];
@@ -71,7 +79,7 @@ function parseWikiCFPTableRow(rowHtml: string, pageUrl: string): CFPItem | null 
 		end,
 		submissionDdl,
 		source: 'wikicfp',
-		url: pageUrl
+		url: pageUrl,
 	};
 }
 
@@ -85,7 +93,8 @@ function parseWikiCFPHtml(html: string, pageUrl: string): CFPItem[] {
 	while ((rowMatch = rowRe.exec(html)) !== null) {
 		const rowHtml = rowMatch[1];
 		// Skip if row looks like header (e.g. "Event", "When", "Deadline")
-		if (/<th[\s>]|Event\s*<\/|When\s*<\/|Where\s*<\/|Deadline\s*<\//i.test(rowHtml)) continue;
+		if (/<th[\s>]|Event\s*<\/|When\s*<\/|Where\s*<\/|Deadline\s*<\//i.test(rowHtml))
+			continue;
 		const item = parseWikiCFPTableRow(rowHtml, pageUrl);
 		if (item) {
 			// Deduplicate by acronym
@@ -94,7 +103,10 @@ function parseWikiCFPHtml(html: string, pageUrl: string): CFPItem[] {
 				seenAcronyms.add(key);
 				items.push(item);
 			} else {
-				console.log('[CFP] parseWikiCFPHtml: skipping duplicate acronym', item.acronym);
+				console.log(
+					'[CFP] parseWikiCFPHtml: skipping duplicate acronym',
+					item.acronym
+				);
 			}
 		}
 	}

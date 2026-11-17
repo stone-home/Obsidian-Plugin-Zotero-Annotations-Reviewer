@@ -15,6 +15,12 @@ interface ZoteroDesktopConnectorPlugin {
 	runImport?: (name: string, citekey?: string) => Promise<void>;
 }
 
+interface AppWithPlugins {
+	plugins?: {
+		getPlugin?: (id: string) => unknown;
+	};
+}
+
 export class ZoteroConnectorService {
 	private settings: MyPluginSettings;
 	private app: App;
@@ -25,9 +31,12 @@ export class ZoteroConnectorService {
 	}
 
 	private getConnectorPlugin(): ZoteroDesktopConnectorPlugin | null {
-		// @ts-ignore - Obsidian internal plugins registry
-		const plugins = this.app.plugins;
-		return plugins?.getPlugin?.('obsidian-zotero-desktop-connector') ?? null;
+		const plugins = (this.app as unknown as AppWithPlugins).plugins;
+		const raw = plugins?.getPlugin?.('obsidian-zotero-desktop-connector');
+		if (typeof raw === 'object' && raw !== null) {
+			return raw as ZoteroDesktopConnectorPlugin;
+		}
+		return null;
 	}
 
 	async triggerZoteroIntegrationImport(citationKey: string): Promise<void> {
@@ -37,7 +46,9 @@ export class ZoteroConnectorService {
 			await plugin.runImport(fmt.name, String(citationKey));
 			new Notice('Triggered Zotero Integration Import');
 		} else {
-			new Notice('Obsidian Zotero Desktop Connector plugin not found or configured.');
+			new Notice(
+				'Obsidian Zotero Desktop Connector plugin not found or configured.'
+			);
 		}
 	}
 
@@ -104,7 +115,8 @@ export class ZoteroConnectorService {
 				return { path: resolvedPath, content, fromVault: true };
 			}
 		}
-		const fallback = this.settings.zoteroTemplate?.content || DEFAULT_ZOTERO_TEMPLATE;
+		const fallback =
+			this.settings.zoteroTemplate?.content || DEFAULT_ZOTERO_TEMPLATE;
 		return { path: resolvedPath, content: fallback, fromVault: false };
 	}
 

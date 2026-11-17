@@ -12,10 +12,15 @@ export function randomDelayMs(): number {
 }
 
 export function delay(ms: number): Promise<void> {
-	return new Promise(resolve => setTimeout(resolve, ms));
+	return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-const BASIC_ENTITIES: Record<string, string> = { nbsp: ' ', amp: '&', lt: '<', gt: '>' };
+const BASIC_ENTITIES: Record<string, string> = {
+	nbsp: ' ',
+	amp: '&',
+	lt: '<',
+	gt: '>',
+};
 
 /**
  * Strip basic HTML tags & entities – lighter version for series tables.
@@ -45,7 +50,9 @@ function parseSeriesIndexPage(html: string): WikiCFPSeriesEntry[] {
 	while ((m = re.exec(html)) !== null) {
 		const id = m[1];
 		const s = decodeURIComponent((m[2] ?? '').replace(/\+/g, ' ')).trim();
-		const f = (m[3] != null ? decodeURIComponent(m[3].replace(/\+/g, ' ')).trim() : '') || s;
+		const f =
+			(m[3] != null ? decodeURIComponent(m[3].replace(/\+/g, ' ')).trim() : '') ||
+			s;
 		const key = id + '|' + s;
 		if (seen.has(key)) continue;
 		seen.add(key);
@@ -53,7 +60,7 @@ function parseSeriesIndexPage(html: string): WikiCFPSeriesEntry[] {
 			id,
 			seriesAcronym: s,
 			fullName: f,
-			programUrl: `http://www.wikicfp.com/cfp/program?id=${id}&s=${encodeURIComponent(s)}&f=${encodeURIComponent(f)}`
+			programUrl: `http://www.wikicfp.com/cfp/program?id=${id}&s=${encodeURIComponent(s)}&f=${encodeURIComponent(f)}`,
 		});
 	}
 	return results;
@@ -67,7 +74,8 @@ function parseProgramPageForEventUrls(html: string): string[] {
 	const urls: string[] = [];
 	const seen = new Set<string>();
 	// event.showcfp?eventid=123
-	const eventIdRe = /href\s*=\s*["']?(?:\/cfp\/servlet\/event\.showcfp\?eventid=(\d+)[^"']*|([^"']*event\.showcfp\?eventid=(\d+)))/gi;
+	const eventIdRe =
+		/href\s*=\s*["']?(?:\/cfp\/servlet\/event\.showcfp\?eventid=(\d+)[^"']*|([^"']*event\.showcfp\?eventid=(\d+)))/gi;
 	let m: RegExpExecArray | null;
 	while ((m = eventIdRe.exec(html)) !== null) {
 		const id = m[1] || m[3];
@@ -77,7 +85,8 @@ function parseProgramPageForEventUrls(html: string): string[] {
 		}
 	}
 	// cid= (call id) e.g. /cfp/call?cid=xxx
-	const cidRe = /href\s*=\s*["']?(?:\/cfp\/call\?cid=([^&"'\s]+)|([^"']*cfp\/call\?cid=([^&"'\s]+)))/gi;
+	const cidRe =
+		/href\s*=\s*["']?(?:\/cfp\/call\?cid=([^&"'\s]+)|([^"']*cfp\/call\?cid=([^&"'\s]+)))/gi;
 	while ((m = cidRe.exec(html)) !== null) {
 		const cid = m[1] || m[3];
 		if (cid && !seen.has('cid:' + cid)) {
@@ -99,7 +108,7 @@ export async function fetchWikiCFPSeriesIndex(
 ): Promise<WikiCFPSeriesEntry[]> {
 	const all: WikiCFPSeriesEntry[] = [];
 	const seen = new Set<string>();
-	const lettersToFetch = (letters && letters.length > 0) ? letters : INDEX_LETTERS;
+	const lettersToFetch = letters && letters.length > 0 ? letters : INDEX_LETTERS;
 
 	for (let i = 0; i < lettersToFetch.length; i++) {
 		const letter = lettersToFetch[i];
@@ -130,7 +139,11 @@ export async function fetchWikiCFPSeriesIndex(
  * This table has 4 columns: Event | When | Where | Deadline.
  * We treat this as the primary, low-noise source for series events.
  */
-export function parseSeriesTableToItems(html: string, programUrl: string, seriesAcronym: string): CFPItem[] {
+export function parseSeriesTableToItems(
+	html: string,
+	programUrl: string,
+	seriesAcronym: string
+): CFPItem[] {
 	const items: CFPItem[] = [];
 	const seen = new Set<string>();
 
@@ -175,7 +188,11 @@ export function parseSeriesTableToItems(html: string, programUrl: string, series
 
 		// WAIFI-style layout: first data row uses rowspan and only has Event + description,
 		// second row has dates + where + deadline. Merge them into a single logical row.
-		if (cells.length === 2 && /rowspan\s*=\s*["']?2/i.test(rowHtml) && i + 1 < rows.length) {
+		if (
+			cells.length === 2 &&
+			/rowspan\s*=\s*["']?2/i.test(rowHtml) &&
+			i + 1 < rows.length
+		) {
 			const nextCells = extractTds(rows[i + 1]);
 			if (nextCells.length >= 3) {
 				eventCell = cells[0];
@@ -198,7 +215,9 @@ export function parseSeriesTableToItems(html: string, programUrl: string, series
 
 		// Event acronym from link text.
 		const linkMatch = eventCell.match(/<a[^>]*>([\s\S]*?)<\/a>/i);
-		const acronym = linkMatch ? stripHtmlLite(linkMatch[1]) : stripHtmlLite(eventCell);
+		const acronym = linkMatch
+			? stripHtmlLite(linkMatch[1])
+			: stripHtmlLite(eventCell);
 		if (!acronym) continue;
 
 		// When: often contains "Full name ... <br> Jul 13, 2016 - Jul 15, 2016"
@@ -208,7 +227,9 @@ export function parseSeriesTableToItems(html: string, programUrl: string, series
 		let end: string | undefined;
 
 		if (whenText && whenText.toLowerCase() !== 'n/a') {
-			const rangeMatch = whenText.match(/([A-Za-z]+\s+\d{1,2},\s+\d{4})\s*-\s*([A-Za-z]+\s+\d{1,2},\s+\d{4})/);
+			const rangeMatch = whenText.match(
+				/([A-Za-z]+\s+\d{1,2},\s+\d{4})\s*-\s*([A-Za-z]+\s+\d{1,2},\s+\d{4})/
+			);
 			if (rangeMatch) {
 				start = rangeMatch[1];
 				end = rangeMatch[2];
@@ -238,7 +259,7 @@ export function parseSeriesTableToItems(html: string, programUrl: string, series
 			end,
 			submissionDdl,
 			source: 'wikicfp',
-			url: programUrl
+			url: programUrl,
 		});
 	}
 
@@ -259,25 +280,45 @@ export async function fetchSeriesEvents(
 ): Promise<CFPItem[]> {
 	const resp = await requestUrl({ url: programUrl, method: 'GET' });
 	if (resp.status !== 200) {
-		console.warn('[CFP] fetchSeriesEvents: failed to fetch program page', resp.status);
+		console.warn(
+			'[CFP] fetchSeriesEvents: failed to fetch program page',
+			resp.status
+		);
 		return [];
 	}
 	// 1) Try direct table parsing first (handles WAIFI/ZEUS/XP style pages).
 	const tableItems = parseSeriesTableToItems(resp.text, programUrl, seriesAcronym);
 	if (tableItems.length > 0) {
-		console.log('[CFP] fetchSeriesEvents: parsed', tableItems.length, 'items from series table');
+		console.log(
+			'[CFP] fetchSeriesEvents: parsed',
+			tableItems.length,
+			'items from series table'
+		);
 		return tableItems;
 	}
 
 	// 2) Fallback: extract individual event URLs and parse with generic WikiCFP parser.
 	const eventUrls = parseProgramPageForEventUrls(resp.text);
-	console.log('[CFP] fetchSeriesEvents: found', eventUrls.length, 'event URLs from program page');
+	console.log(
+		'[CFP] fetchSeriesEvents: found',
+		eventUrls.length,
+		'event URLs from program page'
+	);
 	if (eventUrls.length === 0) {
 		// Last-resort fallback – treat the whole page as a generic WikiCFP table.
-		console.log('[CFP] fetchSeriesEvents: no event URLs found, parsing program page via fetchWikiCFP fallback');
+		console.log(
+			'[CFP] fetchSeriesEvents: no event URLs found, parsing program page via fetchWikiCFP fallback'
+		);
 		const fromTable = await fetchWikiCFP([programUrl]);
-		console.log('[CFP] fetchSeriesEvents: parsed', fromTable.length, 'items from fallback table');
-		return fromTable.map(item => ({ ...item, series: item.series || seriesAcronym }));
+		console.log(
+			'[CFP] fetchSeriesEvents: parsed',
+			fromTable.length,
+			'items from fallback table'
+		);
+		return fromTable.map((item) => ({
+			...item,
+			series: item.series || seriesAcronym,
+		}));
 	}
 	const all: CFPItem[] = [];
 	const seenAcronyms = new Set<string>();
@@ -289,14 +330,21 @@ export async function fetchSeriesEvents(
 				// Deduplicate by acronym
 				const key = item.acronym.toLowerCase();
 				if (seenAcronyms.has(key)) {
-					console.log('[CFP] fetchSeriesEvents: skipping duplicate acronym', item.acronym);
+					console.log(
+						'[CFP] fetchSeriesEvents: skipping duplicate acronym',
+						item.acronym
+					);
 					continue;
 				}
 				seenAcronyms.add(key);
 				all.push({ ...item, series: item.series || seriesAcronym });
 			}
 		} catch (e) {
-			console.warn('[CFP] fetchSeriesEvents: failed to fetch event URL', eventUrls[i], e);
+			console.warn(
+				'[CFP] fetchSeriesEvents: failed to fetch event URL',
+				eventUrls[i],
+				e
+			);
 			// skip failed event page
 		}
 		if (i < eventUrls.length - 1) {

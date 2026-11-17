@@ -100,7 +100,11 @@ export function renderDigestSettings(
 }
 
 const JSONL_FIELDS: [field: string, required: string, value: string][] = [
-	['key', 'yes', 'Non-empty string. Use the DOI, else the URL, else another stable id.'],
+	[
+		'key',
+		'yes',
+		'Non-empty string. Use the DOI, else the URL, else another stable id.',
+	],
 	['title', 'yes', 'Non-empty string.'],
 	['doi', 'no', 'Bare DOI such as 10.1234/abc, without https://doi.org/.'],
 	['url', 'no', 'Absolute http(s) URL.'],
@@ -122,7 +126,10 @@ const BIB_FIELDS: [field: string, use: string][] = [
 		'Used when doi or url is missing: DOI 10.48550/arXiv.<id> and URL https://arxiv.org/abs/<id>. A version suffix such as v2 is removed.',
 	],
 	['url', 'URL. Also the key when there is no DOI.'],
-	['title', 'Title, with LaTeX markup removed. The citation key is used when it is empty.'],
+	[
+		'title',
+		'Title, with LaTeX markup removed. The citation key is used when it is empty.',
+	],
 	['year', 'Year, when it is a number.'],
 	['journal or booktitle', 'Venue.'],
 	['abstract', 'Abstract, with LaTeX markup removed.'],
@@ -142,7 +149,9 @@ function renderTable(parent: HTMLElement, head: string[], rows: string[][]): voi
 	const body = table.createEl('tbody');
 	rows.forEach((row) => {
 		const tr = body.createEl('tr');
-		row.forEach((text, i) => tr.createEl('td').createEl(i === 0 ? 'code' : 'span', { text }));
+		row.forEach((text, i) =>
+			tr.createEl('td').createEl(i === 0 ? 'code' : 'span', { text })
+		);
 	});
 }
 

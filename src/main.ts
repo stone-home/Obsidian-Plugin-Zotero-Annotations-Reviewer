@@ -1,13 +1,4 @@
-import {
-	App,
-	ButtonComponent,
-	Modal,
-	Notice,
-	Plugin,
-	SuggestModal,
-	TextComponent,
-	TFile,
-} from 'obsidian';
+import { Notice, Plugin, TFile } from 'obsidian';
 import {
 	DEFAULT_PAPER_WORKSPACE,
 	DEFAULT_PROMPTS,
@@ -15,11 +6,11 @@ import {
 	DEFAULT_ZOTERO_TEMPLATE,
 	MyPluginSettings,
 	PromptTemplateEntry,
-	WebhookProfile,
 } from './types';
 import { ZoteroSettingTab } from './settings';
 import { HighlightModal } from './ui/highlights';
 import { AssistantView } from './ui/assistant';
+import { WebhookSelectionModal } from './ui/webhook-modals';
 import { WebhookService } from './services/webhook';
 import { ZoteroService } from './services/zotero';
 import { ObsidianService } from './services/obsidian';
@@ -73,14 +64,11 @@ export default class ZoteroGKPlugin extends Plugin {
 			}
 		);
 
-		this.registerMarkdownCodeBlockProcessor(
-			'project-picker',
-			(source, el, ctx) => {
-				const view = new ProjectSelectorView(el, this);
-				ctx.addChild(view);
-				view.render();
-			}
-		);
+		this.registerMarkdownCodeBlockProcessor('project-picker', (source, el, ctx) => {
+			const view = new ProjectSelectorView(el, this);
+			ctx.addChild(view);
+			view.render();
+		});
 
 		this.registerMarkdownCodeBlockProcessor('cfp-list', (source, el, ctx) => {
 			const view = new CFPListView(el, this);
@@ -179,9 +167,7 @@ export default class ZoteroGKPlugin extends Plugin {
 				if (checking) return true;
 				new Notice(`Refreshing events for ${baseName}...`);
 				this.cfpService
-					.refreshSeriesByUrl(seriesUrl, baseName, (msg) =>
-						new Notice(msg)
-					)
+					.refreshSeriesByUrl(seriesUrl, baseName, (msg) => new Notice(msg))
 					.then(() => new Notice(`${baseName} events refreshed.`))
 					.catch((e) => {
 						console.error('[CFP] refresh this series failed', e);
@@ -195,14 +181,20 @@ export default class ZoteroGKPlugin extends Plugin {
 
 		// Auto-refresh CFP URL sources when due (background)
 		if (this.cfpService.shouldRefresh()) {
-			this.cfpService.refresh().catch(() => {});
+			this.cfpService
+				.refresh()
+				.catch((err) => console.warn('[CFP] background refresh failed:', err));
 		}
 		// Auto-refresh WikiCFP Conference Series index when due
 		if (this.cfpService.shouldSeriesRefresh()) {
-			this.cfpService.refreshWikiCFPSeries().catch(() => {});
+			this.cfpService
+				.refreshWikiCFPSeries()
+				.catch((err) => console.warn('[CFP] background refresh failed:', err));
 		}
 		// Daily: refresh 10–20 series with >=30 min gap (anti-crawl)
-		this.cfpService.runDailySeriesRefresh().catch(() => {});
+		this.cfpService
+			.runDailySeriesRefresh()
+			.catch((err) => console.warn('[CFP] background refresh failed:', err));
 
 		// Expose CFP refresh on window so DataviewJS can call plugin parse/fetch directly
 		const win = window as unknown as {
@@ -314,16 +306,20 @@ export default class ZoteroGKPlugin extends Plugin {
 				DEFAULT_PAPER_WORKSPACE.templatesFolder;
 		}
 		if (!this.settings.paperWorkspace.report1Label?.trim()) {
-			this.settings.paperWorkspace.report1Label = DEFAULT_PAPER_WORKSPACE.report1Label;
+			this.settings.paperWorkspace.report1Label =
+				DEFAULT_PAPER_WORKSPACE.report1Label;
 		}
 		if (!this.settings.paperWorkspace.report2Label?.trim()) {
-			this.settings.paperWorkspace.report2Label = DEFAULT_PAPER_WORKSPACE.report2Label;
+			this.settings.paperWorkspace.report2Label =
+				DEFAULT_PAPER_WORKSPACE.report2Label;
 		}
 		if (!this.settings.paperWorkspace.takeawayLabel?.trim()) {
 			this.settings.paperWorkspace.takeawayLabel =
 				DEFAULT_PAPER_WORKSPACE.takeawayLabel;
 		}
-		delete (this.settings.paperWorkspace as unknown as Record<string, unknown>)['s3Prefix'];
+		delete (this.settings.paperWorkspace as unknown as Record<string, unknown>)[
+			's3Prefix'
+		];
 
 		const tplFolder = normalizePath(
 			this.settings.paperWorkspace.templatesFolder
@@ -404,8 +400,7 @@ export default class ZoteroGKPlugin extends Plugin {
 		if (typeof this.settings.cfpLastFetchTime !== 'number')
 			this.settings.cfpLastFetchTime = DEFAULT_SETTINGS.cfpLastFetchTime;
 		if (typeof this.settings.cfpSeriesRefreshDays !== 'number')
-			this.settings.cfpSeriesRefreshDays =
-				DEFAULT_SETTINGS.cfpSeriesRefreshDays;
+			this.settings.cfpSeriesRefreshDays = DEFAULT_SETTINGS.cfpSeriesRefreshDays;
 		if (typeof this.settings.cfpLastSeriesFetchTime !== 'number')
 			this.settings.cfpLastSeriesFetchTime =
 				DEFAULT_SETTINGS.cfpLastSeriesFetchTime;
@@ -434,116 +429,5 @@ export default class ZoteroGKPlugin extends Plugin {
 
 	async saveSettings() {
 		await this.saveData(this.settings);
-	}
-}
-
-class WebhookSelectionModal extends SuggestModal<WebhookProfile> {
-	webhooks: WebhookProfile[];
-	onChoose: (
-		hook: WebhookProfile,
-		extraVariables?: Record<string, string>
-	) => void;
-
-	constructor(
-		app: App,
-		webhooks: WebhookProfile[],
-		onChoose: (
-			hook: WebhookProfile,
-			extraVariables?: Record<string, string>
-		) => void
-	) {
-		super(app);
-		this.webhooks = webhooks;
-		this.onChoose = onChoose;
-	}
-
-	getSuggestions(query: string): WebhookProfile[] {
-		return this.webhooks.filter((hook) =>
-			hook.name.toLowerCase().includes(query.toLowerCase())
-		);
-	}
-
-	renderSuggestion(hook: WebhookProfile, el: HTMLElement) {
-		el.createDiv({ text: hook.name });
-		el.createDiv({ text: hook.url, cls: 'zotero-text-muted-italic' });
-	}
-
-	onChooseSuggestion(hook: WebhookProfile) {
-		this.close();
-		const vars = (hook.inputVariables ?? []).filter((iv) => iv.name?.trim());
-		if (vars.length > 0) {
-			new WebhookInputValueModal(this.app, hook.name, vars, (values) => {
-				this.onChoose(hook, values);
-			}).open();
-		} else {
-			this.onChoose(hook);
-		}
-	}
-}
-
-/** Asks for input values when the webhook has inputVariables configured. */
-class WebhookInputValueModal extends Modal {
-	title: string;
-	variables: { name: string; type: 'text' | 'number' }[];
-	onSubmit: (values: Record<string, string>) => void;
-	private inputs: Map<string, TextComponent> = new Map();
-
-	constructor(
-		app: App,
-		title: string,
-		variables: { name: string; type: 'text' | 'number' }[],
-		onSubmit: (values: Record<string, string>) => void
-	) {
-		super(app);
-		this.title = title;
-		this.variables = variables;
-		this.onSubmit = onSubmit;
-	}
-
-	onOpen() {
-		const { contentEl } = this;
-		contentEl.empty();
-		contentEl.addClass('zotero-webhook-input-modal');
-		contentEl.createEl('h2', {
-			text: this.title,
-			cls: 'zotero-webhook-input-title',
-		});
-		const desc = contentEl.createDiv({ cls: 'zotero-webhook-input-desc' });
-		desc.setText('Enter values to substitute in the webhook body.');
-		const form = contentEl.createDiv({ cls: 'zotero-webhook-input-form' });
-		this.variables.forEach((iv) => {
-			const row = form.createDiv({ cls: 'zotero-webhook-input-row' });
-			row.createEl('label', {
-				text: `{{${iv.name}}}`,
-				cls: 'zotero-webhook-input-label',
-			});
-			const tc = new TextComponent(row);
-			tc.inputEl.addClass('zotero-webhook-input-field');
-			if (iv.type === 'number') {
-				tc.inputEl.type = 'number';
-				tc.setPlaceholder('0');
-			} else {
-				tc.setPlaceholder('Optional');
-			}
-			this.inputs.set(iv.name, tc);
-		});
-		const footer = contentEl.createDiv({ cls: 'zotero-webhook-input-footer' });
-		new ButtonComponent(footer)
-			.setButtonText('Cancel')
-			.onClick(() => this.close());
-		new ButtonComponent(footer)
-			.setButtonText('Trigger')
-			.setCta()
-			.onClick(() => {
-				const values: Record<string, string> = {};
-				this.variables.forEach((iv) => {
-					const v = this.inputs.get(iv.name)?.getValue() ?? '';
-					values[iv.name] =
-						iv.type === 'number' ? String(Number(v)) : v;
-				});
-				this.close();
-				this.onSubmit(values);
-			})
-			.buttonEl.addClass('zotero-btn-fancy');
 	}
 }

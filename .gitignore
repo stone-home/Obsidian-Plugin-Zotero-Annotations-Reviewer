@@ -157,3 +157,8 @@ data.json
 
 # test folder
 playground/
+
+# Skills Hub & Agent Artifacts
+/.skills-hub/
+/.claude/rules/skills-hub/
+/artifacts/

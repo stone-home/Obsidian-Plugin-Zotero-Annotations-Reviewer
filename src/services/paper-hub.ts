@@ -96,7 +96,15 @@ export interface PaperState {
 	fleetingNotes: FleetingNoteSummary[];
 }
 
-const INVALID_URL_TOKENS = new Set(['null', 'none', 'n/a', 'na', 'unknown', 'tbd', '-']);
+const INVALID_URL_TOKENS = new Set([
+	'null',
+	'none',
+	'n/a',
+	'na',
+	'unknown',
+	'tbd',
+	'-',
+]);
 
 function normalizeHttpUrl(raw: unknown): string | null {
 	if (typeof raw !== 'string') return null;
@@ -116,7 +124,9 @@ function toStringList(value: unknown): string[] {
 }
 
 function extractThoughtSnippet(markdown: string): string {
-	const thoughtSection = markdown.match(/(?:^|\r?\n)##\s+Thoughts\s*\r?\n([\s\S]*?)(?=\r?\n##\s+|$)/i);
+	const thoughtSection = markdown.match(
+		/(?:^|\r?\n)##\s+Thoughts\s*\r?\n([\s\S]*?)(?=\r?\n##\s+|$)/i
+	);
 	if (thoughtSection) {
 		const cleaned = thoughtSection[1]
 			.split(/\r?\n/)
@@ -125,7 +135,9 @@ function extractThoughtSnippet(markdown: string): string {
 			.join(' ');
 		if (cleaned) return cleaned;
 	}
-	const highlightSection = markdown.match(/```ad-quote\s*\r?\n(?:title:[^\r\n]*\r?\n)?([\s\S]*?)```/i);
+	const highlightSection = markdown.match(
+		/```ad-quote\s*\r?\n(?:title:[^\r\n]*\r?\n)?([\s\S]*?)```/i
+	);
 	if (highlightSection) {
 		return highlightSection[1].trim().replace(/\s+/g, ' ').slice(0, 180);
 	}
@@ -139,15 +151,24 @@ export function resolveCitekeyTemplate(pattern: string, citekey: string): string
 		cleanKey
 	);
 	const normalized = normalizePath(replaced);
-	if (pattern.trim().toLowerCase().endsWith('.md') && !normalized.toLowerCase().endsWith('.md')) {
+	if (
+		pattern.trim().toLowerCase().endsWith('.md') &&
+		!normalized.toLowerCase().endsWith('.md')
+	) {
 		return `${normalized}.md`;
 	}
 	return normalized;
 }
 
-export function resolvePaperPaths(workspace: PaperWorkspaceConfig, citekey: string): ResolvedPaperPaths {
+export function resolvePaperPaths(
+	workspace: PaperWorkspaceConfig,
+	citekey: string
+): ResolvedPaperPaths {
 	const cleanKey = citekey.trim();
-	const literatureNote = resolveCitekeyTemplate(workspace.literatureNotePath, cleanKey);
+	const literatureNote = resolveCitekeyTemplate(
+		workspace.literatureNotePath,
+		cleanKey
+	);
 	const report1 = resolveCitekeyTemplate(workspace.report1Path, cleanKey);
 	const report2 = resolveCitekeyTemplate(workspace.report2Path, cleanKey);
 	const takeaway = resolveCitekeyTemplate(workspace.takeawayPath, cleanKey);
@@ -242,7 +263,12 @@ function parseWikiLinkParts(text: string): { target: string; alias: string } | n
 export function parseTakeawayCandidates(raw: string): TakeawayCandidate[] {
 	const md = unwrapTakeawayMarkdown(raw);
 	const headingRegex = /^###\s+Candidate\s+(\d+)\s*[:\-–—]?\s*(.*)$/gim;
-	const matches: Array<{ index: number; heading: string; start: number; bodyStart: number }> = [];
+	const matches: Array<{
+		index: number;
+		heading: string;
+		start: number;
+		bodyStart: number;
+	}> = [];
 
 	let match: RegExpExecArray | null;
 	while ((match = headingRegex.exec(md)) !== null) {
@@ -258,7 +284,8 @@ export function parseTakeawayCandidates(raw: string): TakeawayCandidate[] {
 		const nextStart = idx + 1 < matches.length ? matches[idx + 1].start : md.length;
 		const rawSlice = md.slice(item.bodyStart, nextStart);
 		const nextSectionIdx = rawSlice.search(/\r?\n##\s+/);
-		const block = nextSectionIdx >= 0 ? rawSlice.slice(0, nextSectionIdx) : rawSlice;
+		const block =
+			nextSectionIdx >= 0 ? rawSlice.slice(0, nextSectionIdx) : rawSlice;
 
 		const headingWithoutWiki = item.heading.replace(/\[\[[^\]]*\]\]/g, '');
 		const typeMatch = headingWithoutWiki.match(/\[([^[\]]+)\]/);
@@ -276,7 +303,9 @@ export function parseTakeawayCandidates(raw: string): TakeawayCandidate[] {
 					bulletWiki.target.split('/').pop() ||
 					bulletWiki.target
 				).trim();
-				linkPath = bulletWiki.target.includes('/') ? bulletWiki.target.trim() : '';
+				linkPath = bulletWiki.target.includes('/')
+					? bulletWiki.target.trim()
+					: '';
 			} else {
 				const plainBulletLink = rawLinkBullet.replace(/\[\[|\]\]/g, '').trim();
 				if (plainBulletLink) {
@@ -294,7 +323,9 @@ export function parseTakeawayCandidates(raw: string): TakeawayCandidate[] {
 					headingWiki.alias ||
 					headingWiki.target
 				).trim();
-				linkPath = headingWiki.target.includes('/') ? headingWiki.target.trim() : '';
+				linkPath = headingWiki.target.includes('/')
+					? headingWiki.target.trim()
+					: '';
 			}
 		}
 
@@ -308,12 +339,18 @@ export function parseTakeawayCandidates(raw: string): TakeawayCandidate[] {
 		}
 
 		const rawTags =
-			extractBulletValue(block, 'Potential Tags') || extractBulletValue(block, 'Tags');
+			extractBulletValue(block, 'Potential Tags') ||
+			extractBulletValue(block, 'Tags');
 		const tags = rawTags
 			? rawTags
 					.split(/[,;]+|\s+(?=#)/)
 					.map((t) => t.trim().replace(/^#/, ''))
-					.filter((t) => Boolean(t) && t !== '-' && !['none', 'n/a'].includes(t.toLowerCase()))
+					.filter(
+						(t) =>
+							Boolean(t) &&
+							t !== '-' &&
+							!['none', 'n/a'].includes(t.toLowerCase())
+					)
 			: [];
 
 		return {
@@ -339,7 +376,10 @@ function formatTodayIso(): string {
 	return new Date().toISOString().slice(0, 10);
 }
 
-export function renderNoteTemplateString(template: string, vars: NoteTemplateVars): string {
+export function renderNoteTemplateString(
+	template: string,
+	vars: NoteTemplateVars
+): string {
 	const cleanCitekey = vars.citekey.trim();
 	const rawTitle = (
 		vars.title !== undefined && vars.title.trim() ? vars.title : cleanCitekey
@@ -406,7 +446,9 @@ export function parseCoreNoteContent(raw: string, fallbackCitekey = ''): CoreNot
 		fm = {};
 	}
 
-	const citekey = String(fm['citation-key'] ?? fm['citekey'] ?? fallbackCitekey).trim();
+	const citekey = String(
+		fm['citation-key'] ?? fm['citekey'] ?? fallbackCitekey
+	).trim();
 	const source = String(fm['source'] ?? (citekey ? `[[${citekey}]]` : '')).trim();
 	const projects = toStringList(fm['projects']);
 	const linkedNotes = toStringList(fm['linked-notes'] ?? fm['linkedNotes']);
@@ -508,7 +550,11 @@ export class PaperHubService {
 
 	async ensureParentFolder(filePath: string): Promise<void> {
 		const normalized = normalizePath(filePath);
-		const parentFolder = normalized.split('/').slice(0, -1).filter(Boolean).join('/');
+		const parentFolder = normalized
+			.split('/')
+			.slice(0, -1)
+			.filter(Boolean)
+			.join('/');
 		await this.ensureFolderExists(parentFolder);
 	}
 
@@ -541,23 +587,29 @@ export class PaperHubService {
 
 		const cleanCitekey = citekey.replace(/^@/, '').toLowerCase();
 		const highlightFolder = normalizePath(
-			settings.paperWorkspace.highlightNotesFolder || settings.fleetingNoteFolder || ''
+			settings.paperWorkspace.highlightNotesFolder ||
+				settings.fleetingNoteFolder ||
+				''
 		);
 		const highlightPrefix = highlightFolder ? `${highlightFolder}/` : '';
 
 		const fleetingFiles = this.app.vault.getMarkdownFiles().filter((candidate) => {
 			if (candidate.path === file.path) return false;
-			if (highlightPrefix && !candidate.path.startsWith(highlightPrefix)) return false;
+			if (highlightPrefix && !candidate.path.startsWith(highlightPrefix))
+				return false;
 			const candKey = this.getCitekeyForFile(candidate);
-			return Boolean(candKey && candKey.replace(/^@/, '').toLowerCase() === cleanCitekey);
+			return Boolean(
+				candKey && candKey.replace(/^@/, '').toLowerCase() === cleanCitekey
+			);
 		});
 
-		const [coreNoteRaw, takeawayRaw, report2Raw, fleetingContents] = await Promise.all([
-			coreNoteFile ? this.app.vault.read(coreNoteFile) : Promise.resolve(''),
-			takeawayFile ? this.app.vault.read(takeawayFile) : Promise.resolve(''),
-			report2File ? this.app.vault.read(report2File) : Promise.resolve(''),
-			Promise.all(fleetingFiles.map((fl) => this.app.vault.read(fl))),
-		]);
+		const [coreNoteRaw, takeawayRaw, report2Raw, fleetingContents] =
+			await Promise.all([
+				coreNoteFile ? this.app.vault.read(coreNoteFile) : Promise.resolve(''),
+				takeawayFile ? this.app.vault.read(takeawayFile) : Promise.resolve(''),
+				report2File ? this.app.vault.read(report2File) : Promise.resolve(''),
+				Promise.all(fleetingFiles.map((fl) => this.app.vault.read(fl))),
+			]);
 
 		const litPathNoExt = file.path.replace(/\.md$/i, '');
 		const coreNote: CoreNoteData = coreNoteFile
@@ -571,7 +623,9 @@ export class PaperHubService {
 				};
 
 		const fm = this.app.metadataCache.getFileCache(file)?.frontmatter ?? {};
-		const litProjects = toStringList(fm[settings.projectFrontmatterKey || 'projects']);
+		const litProjects = toStringList(
+			fm[settings.projectFrontmatterKey || 'projects']
+		);
 		const projects = Array.from(new Set([...litProjects, ...coreNote.projects]));
 
 		const fmCodeUrl = normalizeHttpUrl(fm['code']);
@@ -582,14 +636,16 @@ export class PaperHubService {
 			!fmCodeUrl &&
 			report2CodeUrl &&
 			(!fm['code'] || !String(fm['code']).trim()) &&
-			(this.app as unknown as {
-				fileManager?: {
-					processFrontMatter?: (
-						f: TFile,
-						cb: (frontmatter: Record<string, unknown>) => void
-					) => Promise<void>;
-				};
-			}).fileManager?.processFrontMatter
+			(
+				this.app as unknown as {
+					fileManager?: {
+						processFrontMatter?: (
+							f: TFile,
+							cb: (frontmatter: Record<string, unknown>) => void
+						) => Promise<void>;
+					};
+				}
+			).fileManager?.processFrontMatter
 		) {
 			await this.app.fileManager.processFrontMatter(file, (frontmatter) => {
 				if (!frontmatter['code'] || !String(frontmatter['code']).trim()) {
@@ -613,8 +669,8 @@ export class PaperHubService {
 			const flTags = toStringList(flFm['tags']);
 			const isRead = Boolean(
 				flFm['read'] === true ||
-					flFm['status'] === 'read' ||
-					flTags.includes('status/read')
+				flFm['status'] === 'read' ||
+				flTags.includes('status/read')
 			);
 			return {
 				file: fl,
@@ -678,7 +734,8 @@ export class PaperHubService {
 		const { id: tplId, fallback } = tplMap[kind];
 		const rawTemplate = (await this.getPromptContent(tplId)) || fallback;
 
-		const resolvedLitFile = literatureFile ?? this.getVaultFile(paths.literatureNote);
+		const resolvedLitFile =
+			literatureFile ?? this.getVaultFile(paths.literatureNote);
 		const fm = resolvedLitFile
 			? this.app.metadataCache.getFileCache(resolvedLitFile)?.frontmatter
 			: undefined;
@@ -729,20 +786,26 @@ export class PaperHubService {
 			}
 		}
 
-		const headingRe = new RegExp(`^###\\s+Candidate\\s+${candidateIndex}\\b[^\\r\\n]*`, 'im');
+		const headingRe = new RegExp(
+			`^###\\s+Candidate\\s+${candidateIndex}\\b[^\\r\\n]*`,
+			'im'
+		);
 		const headingMatch = headingRe.exec(md);
 		if (!headingMatch) return false;
 
 		const sectionBodyStart = headingMatch.index + headingMatch[0].length;
 		const afterHeading = md.slice(sectionBodyStart);
-		const nextBoundary = afterHeading.match(/\r?\n(?:###\s+Candidate\s+\d+\b|##\s+)/i);
+		const nextBoundary = afterHeading.match(
+			/\r?\n(?:###\s+Candidate\s+\d+\b|##\s+)/i
+		);
 		const sectionBodyEnd =
 			nextBoundary && nextBoundary.index !== undefined
 				? sectionBodyStart + nextBoundary.index
 				: md.length;
 
 		let sectionBody = md.slice(sectionBodyStart, sectionBodyEnd);
-		const linkLineRe = /^[ \t]*[-*][ \t]*(?:\*\*)?Link(?:\*\*)?[ \t]*[:：][ \t]*.+$/im;
+		const linkLineRe =
+			/^[ \t]*[-*][ \t]*(?:\*\*)?Link(?:\*\*)?[ \t]*[:：][ \t]*.+$/im;
 		if (linkLineRe.test(sectionBody)) {
 			sectionBody = sectionBody.replace(linkLineRe, `- **Link**: ${newWikiLink}`);
 		} else {
@@ -778,16 +841,25 @@ export class PaperHubService {
 		const settings = this.getSettings();
 		const paths = resolvePaperPaths(settings.paperWorkspace, citekey);
 		const targetPath = paths[kind];
-		const markdown = kind === 'takeaway' ? unwrapTakeawayMarkdown(rawContent) : rawContent;
+		const markdown =
+			kind === 'takeaway' ? unwrapTakeawayMarkdown(rawContent) : rawContent;
 		const savedFile = await this.writeVaultFile(targetPath, markdown);
 
-		const extractedCodeUrl = kind === 'report2' ? extractCodeUrlFromReport(markdown) : null;
-		if (extractedCodeUrl && literatureFile && this.app.fileManager?.processFrontMatter) {
-			await this.app.fileManager.processFrontMatter(literatureFile, (frontmatter) => {
-				if (!frontmatter['code'] || !String(frontmatter['code']).trim()) {
-					frontmatter['code'] = extractedCodeUrl;
+		const extractedCodeUrl =
+			kind === 'report2' ? extractCodeUrlFromReport(markdown) : null;
+		if (
+			extractedCodeUrl &&
+			literatureFile &&
+			this.app.fileManager?.processFrontMatter
+		) {
+			await this.app.fileManager.processFrontMatter(
+				literatureFile,
+				(frontmatter) => {
+					if (!frontmatter['code'] || !String(frontmatter['code']).trim()) {
+						frontmatter['code'] = extractedCodeUrl;
+					}
 				}
-			});
+			);
 		}
 
 		return { file: savedFile, extractedCodeUrl };
@@ -823,17 +895,26 @@ export class PaperHubService {
 
 		const merged: CoreNoteData = {
 			citekey,
-			source: patch.source !== undefined ? patch.source : current.source || defaultSource,
-			projects: patch.projects !== undefined ? [...patch.projects] : current.projects,
+			source:
+				patch.source !== undefined
+					? patch.source
+					: current.source || defaultSource,
+			projects:
+				patch.projects !== undefined ? [...patch.projects] : current.projects,
 			linkedNotes:
-				patch.linkedNotes !== undefined ? [...patch.linkedNotes] : current.linkedNotes,
+				patch.linkedNotes !== undefined
+					? [...patch.linkedNotes]
+					: current.linkedNotes,
 			body: patch.body !== undefined ? patch.body : current.body,
 			...(nextExtra && Object.keys(nextExtra).length > 0
 				? { extraFrontmatter: nextExtra }
 				: {}),
 		};
 
-		const saved = await this.writeVaultFile(paths.coreNote, serializeCoreNoteContent(merged));
+		const saved = await this.writeVaultFile(
+			paths.coreNote,
+			serializeCoreNoteContent(merged)
+		);
 
 		if (
 			patch.projects !== undefined &&
@@ -841,15 +922,21 @@ export class PaperHubService {
 			this.app.fileManager?.processFrontMatter
 		) {
 			const projKey = settings.projectFrontmatterKey || 'projects';
-			await this.app.fileManager.processFrontMatter(literatureFile, (frontmatter) => {
-				frontmatter[projKey] = [...merged.projects];
-			});
+			await this.app.fileManager.processFrontMatter(
+				literatureFile,
+				(frontmatter) => {
+					frontmatter[projKey] = [...merged.projects];
+				}
+			);
 		}
 
 		return saved;
 	}
 
-	async updateLiteratureCodeUrl(literatureFile: TFile, codeUrl: string): Promise<void> {
+	async updateLiteratureCodeUrl(
+		literatureFile: TFile,
+		codeUrl: string
+	): Promise<void> {
 		const trimmed = codeUrl.trim();
 		const processFm = (
 			this.app as unknown as {
@@ -879,7 +966,10 @@ export class PaperHubService {
 			const nextFmBody = codeLineRe.test(fmBody)
 				? fmBody.replace(codeLineRe, () => `code: "${escaped}"`)
 				: `${fmBody}\ncode: "${escaped}"`;
-			await this.app.vault.modify(literatureFile, `---\n${nextFmBody}\n---${rest}`);
+			await this.app.vault.modify(
+				literatureFile,
+				`---\n${nextFmBody}\n---${rest}`
+			);
 		} else {
 			await this.app.vault.modify(
 				literatureFile,
@@ -934,9 +1024,13 @@ export class PaperHubService {
 		if (settings.zoteroTemplate && !settings.zoteroTemplate.vaultPath?.trim()) {
 			settings.zoteroTemplate.vaultPath = zotPath;
 		}
-		if (!this.getVaultFile(zotPath) && !this.app.vault.getAbstractFileByPath(zotPath)) {
+		if (
+			!this.getVaultFile(zotPath) &&
+			!this.app.vault.getAbstractFileByPath(zotPath)
+		) {
 			await this.ensureParentFolder(zotPath);
-			const zotContent = settings.zoteroTemplate?.content || DEFAULT_ZOTERO_TEMPLATE;
+			const zotContent =
+				settings.zoteroTemplate?.content || DEFAULT_ZOTERO_TEMPLATE;
 			await this.app.vault.create(zotPath, zotContent);
 			createdCount += 1;
 		}
@@ -949,7 +1043,9 @@ export class PaperHubService {
 			const rawEntryPath =
 				entry.vaultPath?.trim() || `${templatesFolder}/${defaultFilename}`;
 			const entryPath = normalizePath(
-				rawEntryPath.toLowerCase().endsWith('.md') ? rawEntryPath : `${rawEntryPath}.md`
+				rawEntryPath.toLowerCase().endsWith('.md')
+					? rawEntryPath
+					: `${rawEntryPath}.md`
 			);
 			if (!entry.vaultPath?.trim()) {
 				entry.vaultPath = entryPath;
@@ -980,7 +1076,9 @@ export class PaperHubService {
 		const oldPrefix = `${oldNorm}/`;
 		let movedCount = 0;
 
-		const relocateVaultPath = async (currentRawPath: string): Promise<string | null> => {
+		const relocateVaultPath = async (
+			currentRawPath: string
+		): Promise<string | null> => {
 			const trimmed = currentRawPath.trim();
 			if (!trimmed) return null;
 			const currentNorm = normalizePath(trimmed);
@@ -997,7 +1095,10 @@ export class PaperHubService {
 				const renameFn = (
 					this.app as unknown as {
 						fileManager?: {
-							renameFile?: (file: TFile, newPath: string) => Promise<void>;
+							renameFile?: (
+								file: TFile,
+								newPath: string
+							) => Promise<void>;
 						};
 					}
 				).fileManager?.renameFile;
@@ -1048,7 +1149,10 @@ export class PaperHubService {
 		return entry.content;
 	}
 
-	async savePromptToVault(entry: PromptTemplateEntry, content: string): Promise<string> {
+	async savePromptToVault(
+		entry: PromptTemplateEntry,
+		content: string
+	): Promise<string> {
 		const folder = normalizePath(
 			this.getSettings().paperWorkspace?.templatesFolder?.trim() ||
 				DEFAULT_PAPER_WORKSPACE.templatesFolder
@@ -1058,7 +1162,9 @@ export class PaperHubService {
 				? `${entry.id.replace(/^tpl-/, '')}-note-template.md`
 				: `prompt-${entry.id}.md`;
 		const rawPath = (entry.vaultPath || `${folder}/${defaultFile}`).trim();
-		const targetPath = normalizePath(rawPath.endsWith('.md') ? rawPath : `${rawPath}.md`);
+		const targetPath = normalizePath(
+			rawPath.endsWith('.md') ? rawPath : `${rawPath}.md`
+		);
 		await this.writeVaultFile(targetPath, content);
 		return targetPath;
 	}

@@ -1,5 +1,11 @@
 import type { DigestSettings } from './services/digest-types';
 
+export interface ZoteroAnnotationPosition {
+	pageIndex?: number;
+	rects?: number[][];
+	[key: string]: unknown;
+}
+
 export interface ZoteroAnnotation {
 	key: string;
 	citationKey: string;
@@ -11,7 +17,7 @@ export interface ZoteroAnnotation {
 	link: string;
 	attachmentTitle: string;
 	date: string;
-	position?: any;
+	position?: ZoteroAnnotationPosition | string | null;
 }
 
 export interface ZoteroItemMetadata {
@@ -25,7 +31,7 @@ export interface ZoteroItemMetadata {
 	url: string;
 	abstract: string;
 	tags: string[];
-	zoteroNotes: any[];
+	zoteroNotes: unknown[];
 	volume?: string;
 	issue?: string;
 	pages?: string;
@@ -73,7 +79,8 @@ export interface ZoteroTemplateConfig {
 export const DEFAULT_PAPER_WORKSPACE: PaperWorkspaceConfig = {
 	literatureNotePath: '002-Literature/{{citekey}}.md',
 	report1Path: '002-Literature/102-Analysis Report/Deep Research-{{citekey}}.md',
-	report2Path: '002-Literature/103-External Analysis Report/External Research-{{citekey}}.md',
+	report2Path:
+		'002-Literature/103-External Analysis Report/External Research-{{citekey}}.md',
 	takeawayPath: '002-Literature/101-Takeaways/Takeaway-{{citekey}}.md',
 	coreNotePath: '002-Literature/104-Paper Notes/{{citekey}}.md',
 	highlightNotesFolder: '001-Fleeting',
@@ -120,10 +127,10 @@ export const DEFAULT_ZOTERO_TEMPLATE: string = [
 	' TiArticle',
 	'{%- endif %}',
 	'key: {{itemKey}}',
-	'code: "{% for att in attachments %}{% if att.title == \'code\' %}{{ att.url | replace(\'"\', \'\\\\"\') }}{% endif %}{% endfor %}"',
-	'venue: "{% set currentVenue = publicationTitle if itemType == \'journalArticle\' else ((conferenceName or proceedingsTitle) if itemType == \'conferencePaper\' else \'\') %}{% if currentVenue and currentVenue | trim %}[[{{ currentVenue | trim | replace(\'\\"\', \'\\\\\\"\') }}]]{% endif %}"',
-	'deep-report: "{% for att in attachments %}{% if att.title == \'deep-report\' %}{{ att.url | replace(\'"\', \'\\\\"\') }}{% endif %}{% endfor %}"',
-	'external-report: "{% for att in attachments %}{% if att.title == \'external-report\' %}{{ att.url | replace(\'"\', \'\\\\"\') }}{% endif %}{% endfor %}"',
+	"code: \"{% for att in attachments %}{% if att.title == 'code' %}{{ att.url | replace('\"', '\\\\\"') }}{% endif %}{% endfor %}\"",
+	"venue: \"{% set currentVenue = publicationTitle if itemType == 'journalArticle' else ((conferenceName or proceedingsTitle) if itemType == 'conferencePaper' else '') %}{% if currentVenue and currentVenue | trim %}[[{{ currentVenue | trim | replace('\\\"', '\\\\\\\"') }}]]{% endif %}\"",
+	"deep-report: \"{% for att in attachments %}{% if att.title == 'deep-report' %}{{ att.url | replace('\"', '\\\\\"') }}{% endif %}{% endfor %}\"",
+	"external-report: \"{% for att in attachments %}{% if att.title == 'external-report' %}{{ att.url | replace('\"', '\\\\\"') }}{% endif %}{% endfor %}\"",
 	'---',
 	'',
 	'```zotero-assistant',
@@ -538,8 +545,18 @@ export const DEFAULT_SETTINGS: MyPluginSettings = {
 	metadataMapping: [
 		{ label: 'Title', zoteroProp: 'title', noteProp: 'title', enabled: true },
 		{ label: 'Date', zoteroProp: 'date', noteProp: 'date', enabled: true },
-		{ label: 'Publication', zoteroProp: 'publication', noteProp: 'publication', enabled: true },
-		{ label: 'Authors', zoteroProp: 'creators', noteProp: 'authors', enabled: true },
+		{
+			label: 'Publication',
+			zoteroProp: 'publication',
+			noteProp: 'publication',
+			enabled: true,
+		},
+		{
+			label: 'Authors',
+			zoteroProp: 'creators',
+			noteProp: 'authors',
+			enabled: true,
+		},
 		{ label: 'DOI', zoteroProp: 'doi', noteProp: 'doi', enabled: true },
 	],
 	assistantScript: DEFAULT_ASSISTANT_SCRIPT,

@@ -5,7 +5,7 @@ import { pureSeriesFromAcronym } from '../utils/series';
 const DELAY_MS = 1500;
 
 function delay(ms: number): Promise<void> {
-	return new Promise(resolve => setTimeout(resolve, ms));
+	return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function stripHtml(html: string): string {
@@ -54,7 +54,7 @@ function parseOpenresearchRow(rowHtml: string, pageUrl: string): CFPItem | null 
 		end,
 		submissionDdl,
 		source: 'openresearch',
-		url: pageUrl
+		url: pageUrl,
 	};
 }
 
@@ -64,7 +64,12 @@ function parseOpenresearchHtml(html: string, pageUrl: string): CFPItem[] {
 	let rowMatch: RegExpExecArray | null;
 	while ((rowMatch = rowRe.exec(html)) !== null) {
 		const rowHtml = rowMatch[1];
-		if (/<th[\s>]|Acronym\s*<\/|City\s*<\/|Country\s*<\/|Name\s*<\/|Start\s*<\/|End\s*<\/|Submission\s*<\//i.test(rowHtml)) continue;
+		if (
+			/<th[\s>]|Acronym\s*<\/|City\s*<\/|Country\s*<\/|Name\s*<\/|Start\s*<\/|End\s*<\/|Submission\s*<\//i.test(
+				rowHtml
+			)
+		)
+			continue;
 		const item = parseOpenresearchRow(rowHtml, pageUrl);
 		if (item) items.push(item);
 	}

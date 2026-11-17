@@ -185,7 +185,10 @@ class AddPromptModal extends Modal {
 	constructor(
 		app: App,
 		private readonly existingIds: Set<string>,
-		private readonly onSubmit: (result: { id: string; name: string }) => void | Promise<void>
+		private readonly onSubmit: (result: {
+			id: string;
+			name: string;
+		}) => void | Promise<void>
 	) {
 		super(app);
 	}
@@ -306,7 +309,9 @@ export class ZoteroSettingTab extends PluginSettingTab {
 		else if (this.activeTab === 'digest') {
 			import('./ui/digest-settings')
 				.then((digest) =>
-					digest.renderDigestSettings(bodyEl, this.plugin, () => this.display())
+					digest.renderDigestSettings(bodyEl, this.plugin, () =>
+						this.display()
+					)
 				)
 				.catch((e) => console.error('[Paper Digest] settings failed', e));
 		}
@@ -375,7 +380,10 @@ export class ZoteroSettingTab extends PluginSettingTab {
 						await this.plugin.saveSettings();
 					});
 					labelInput.inputEl.addClass('zotero-workspace-label-input');
-					labelInput.inputEl.setAttribute('aria-label', `${name} button label`);
+					labelInput.inputEl.setAttribute(
+						'aria-label',
+						`${name} button label`
+					);
 					labelInput.inputEl.setAttribute('title', 'Button label');
 				});
 			}
@@ -397,16 +405,21 @@ export class ZoteroSettingTab extends PluginSettingTab {
 					? `Reset to default (${options.defaultLabel} · ${defaultVal})`
 					: `Reset to default (${defaultVal})`;
 
-			addSettingIconAction(setting.controlEl, 'rotate-ccw', resetTooltip, async () => {
-				if (options?.labelKey && options.defaultLabel) {
-					ws[options.labelKey] = options.defaultLabel;
-					labelRef.current?.setValue(options.defaultLabel);
+			addSettingIconAction(
+				setting.controlEl,
+				'rotate-ccw',
+				resetTooltip,
+				async () => {
+					if (options?.labelKey && options.defaultLabel) {
+						ws[options.labelKey] = options.defaultLabel;
+						labelRef.current?.setValue(options.defaultLabel);
+					}
+					ws[key] = defaultVal;
+					if (options?.afterSave) options.afterSave(defaultVal);
+					rowRef.current?.setValue(defaultVal);
+					await this.plugin.saveSettings();
 				}
-				ws[key] = defaultVal;
-				if (options?.afterSave) options.afterSave(defaultVal);
-				rowRef.current?.setValue(defaultVal);
-				await this.plugin.saveSettings();
-			});
+			);
 		};
 
 		addPathRow(
@@ -522,7 +535,8 @@ export class ZoteroSettingTab extends PluginSettingTab {
 				text
 					.setValue(this.plugin.settings.citationKeyName)
 					.onChange(async (value) => {
-						this.plugin.settings.citationKeyName = value.trim() || 'citation-key';
+						this.plugin.settings.citationKeyName =
+							value.trim() || 'citation-key';
 						await this.plugin.saveSettings();
 					})
 			);
@@ -544,7 +558,10 @@ export class ZoteroSettingTab extends PluginSettingTab {
 
 		// === CARD 4: PROJECT LINKER ===
 		const projectCard = container.createDiv({ cls: 'zotero-setting-card' });
-		projectCard.createEl('h3', { text: 'Project Linker', cls: 'zotero-card-title' });
+		projectCard.createEl('h3', {
+			text: 'Project Linker',
+			cls: 'zotero-card-title',
+		});
 
 		new Setting(projectCard)
 			.setName('Projects Folder')
@@ -688,7 +705,9 @@ export class ZoteroSettingTab extends PluginSettingTab {
 					})
 			);
 
-		const scriptHeaderRow = customJsCard.createDiv({ cls: 'zotero-legacy-script-bar' });
+		const scriptHeaderRow = customJsCard.createDiv({
+			cls: 'zotero-legacy-script-bar',
+		});
 		scriptHeaderRow.createSpan({
 			text: 'Available params: dv, input',
 			cls: 'setting-item-description',
@@ -737,7 +756,9 @@ export class ZoteroSettingTab extends PluginSettingTab {
 			return normalized;
 		}
 		await this.app.workspace.getLeaf(false).openFile(fileToOpen);
-		(this.app as unknown as { setting?: { close?: () => void } }).setting?.close?.();
+		(
+			this.app as unknown as { setting?: { close?: () => void } }
+		).setting?.close?.();
 		return normalized;
 	}
 
@@ -804,7 +825,8 @@ export class ZoteroSettingTab extends PluginSettingTab {
 					return;
 				}
 				const oldFolder = normalizePath(
-					ws.templatesFolder?.trim() || DEFAULT_PAPER_WORKSPACE.templatesFolder
+					ws.templatesFolder?.trim() ||
+						DEFAULT_PAPER_WORKSPACE.templatesFolder
 				).replace(/\/+$/, '');
 				const moved = await this.plugin.paperHub.moveTemplatesFolder(
 					oldFolder,
@@ -850,7 +872,9 @@ export class ZoteroSettingTab extends PluginSettingTab {
 		const zotDefaultPath = currentFolder
 			? `${currentFolder}/zotero-note-template.md`
 			: 'zotero-note-template.md';
-		const resolvedZotPath = normalizePath(tplConfig.vaultPath?.trim() || zotDefaultPath);
+		const resolvedZotPath = normalizePath(
+			tplConfig.vaultPath?.trim() || zotDefaultPath
+		);
 		const zotRow = tplList.createDiv({ cls: 'zotero-template-file-row' });
 		const zotInfo = zotRow.createDiv({ cls: 'zotero-template-file-info' });
 		zotInfo.createDiv({
@@ -993,10 +1017,11 @@ export class ZoteroSettingTab extends PluginSettingTab {
 						async () => {
 							const snap = entry.snapshot || entry.content;
 							entry.vaultPath = entryPath;
-							const savedPath = await this.plugin.paperHub.savePromptToVault(
-								entry,
-								snap
-							);
+							const savedPath =
+								await this.plugin.paperHub.savePromptToVault(
+									entry,
+									snap
+								);
 							entry.vaultPath = savedPath;
 							entry.content = snap;
 							await this.plugin.saveSettings();
@@ -1008,7 +1033,9 @@ export class ZoteroSettingTab extends PluginSettingTab {
 			}
 
 			addActionBtn(actions, 'Reset', () => {
-				const builtInDefault = this.plugin.paperHub.getBuiltInDefaultContent(entry.id);
+				const builtInDefault = this.plugin.paperHub.getBuiltInDefaultContent(
+					entry.id
+				);
 				if (!builtInDefault) return;
 				new ConfirmActionModal(
 					this.app,
@@ -1092,8 +1119,13 @@ export class ZoteroSettingTab extends PluginSettingTab {
 			const row = promptList.createDiv({ cls: 'zotero-template-file-row' });
 			const info = row.createDiv({ cls: 'zotero-template-file-info' });
 
-			const titleLine = info.createDiv({ cls: 'zotero-template-file-title-line' });
-			titleLine.createSpan({ cls: 'zotero-template-file-name', text: entry.name });
+			const titleLine = info.createDiv({
+				cls: 'zotero-template-file-title-line',
+			});
+			titleLine.createSpan({
+				cls: 'zotero-template-file-name',
+				text: entry.name,
+			});
 			const placeholderToken = `{{prompt.${entry.id}}}`;
 			const chip = titleLine.createEl('button', {
 				cls: 'zotero-placeholder-chip',
@@ -1153,10 +1185,11 @@ export class ZoteroSettingTab extends PluginSettingTab {
 						async () => {
 							const snap = entry.snapshot || entry.content;
 							entry.vaultPath = entryPath;
-							const savedPath = await this.plugin.paperHub.savePromptToVault(
-								entry,
-								snap
-							);
+							const savedPath =
+								await this.plugin.paperHub.savePromptToVault(
+									entry,
+									snap
+								);
 							entry.vaultPath = savedPath;
 							entry.content = snap;
 							await this.plugin.saveSettings();
@@ -1169,9 +1202,8 @@ export class ZoteroSettingTab extends PluginSettingTab {
 
 			if (entry.builtIn) {
 				addActionBtn(actions, 'Reset', () => {
-					const builtInDefault = this.plugin.paperHub.getBuiltInDefaultContent(
-						entry.id
-					);
+					const builtInDefault =
+						this.plugin.paperHub.getBuiltInDefaultContent(entry.id);
 					if (!builtInDefault) return;
 					new ConfirmActionModal(
 						this.app,
@@ -1180,10 +1212,11 @@ export class ZoteroSettingTab extends PluginSettingTab {
 						'Reset',
 						async () => {
 							entry.vaultPath = entryPath;
-							const savedPath = await this.plugin.paperHub.savePromptToVault(
-								entry,
-								builtInDefault
-							);
+							const savedPath =
+								await this.plugin.paperHub.savePromptToVault(
+									entry,
+									builtInDefault
+								);
 							entry.vaultPath = savedPath;
 							entry.content = builtInDefault;
 							await this.plugin.saveSettings();
@@ -1426,7 +1459,9 @@ export class ZoteroSettingTab extends PluginSettingTab {
 			)
 			.addText((text) =>
 				text
-					.setValue(this.plugin.settings.cfpAcronymKey ?? 'conference-acronym')
+					.setValue(
+						this.plugin.settings.cfpAcronymKey ?? 'conference-acronym'
+					)
 					.setPlaceholder('conference-acronym')
 					.onChange(async (value) => {
 						this.plugin.settings.cfpAcronymKey = (
@@ -1463,7 +1498,9 @@ export class ZoteroSettingTab extends PluginSettingTab {
 			cls: 'zotero-cfp-letters-container',
 		});
 		const allLetters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
-		const selectedLetters = Array.isArray(this.plugin.settings.cfpSeriesIndexLetters)
+		const selectedLetters = Array.isArray(
+			this.plugin.settings.cfpSeriesIndexLetters
+		)
 			? new Set(this.plugin.settings.cfpSeriesIndexLetters)
 			: new Set<string>();
 
@@ -1486,7 +1523,9 @@ export class ZoteroSettingTab extends PluginSettingTab {
 			checkbox.checked = selectedLetters.has(letter);
 			checkboxes.push(checkbox);
 			const updateSettings = async () => {
-				const current = Array.isArray(this.plugin.settings.cfpSeriesIndexLetters)
+				const current = Array.isArray(
+					this.plugin.settings.cfpSeriesIndexLetters
+				)
 					? [...this.plugin.settings.cfpSeriesIndexLetters]
 					: [];
 				if (checkbox.checked) {
@@ -1510,11 +1549,13 @@ export class ZoteroSettingTab extends PluginSettingTab {
 		const actionsRow = seriesCard.createDiv({
 			cls: 'zotero-cfp-series-actions-row',
 		});
-		new ButtonComponent(actionsRow).setButtonText('Select All').onClick(async () => {
-			checkboxes.forEach((cb) => (cb.checked = true));
-			this.plugin.settings.cfpSeriesIndexLetters = allLetters.slice();
-			await this.plugin.saveSettings();
-		});
+		new ButtonComponent(actionsRow)
+			.setButtonText('Select All')
+			.onClick(async () => {
+				checkboxes.forEach((cb) => (cb.checked = true));
+				this.plugin.settings.cfpSeriesIndexLetters = allLetters.slice();
+				await this.plugin.saveSettings();
+			});
 		new ButtonComponent(actionsRow)
 			.setButtonText('Deselect All')
 			.onClick(async () => {
@@ -1526,12 +1567,14 @@ export class ZoteroSettingTab extends PluginSettingTab {
 			.setButtonText('Refresh Series')
 			.setCta()
 			.onClick(() => {
-				new Notice('WikiCFP series refresh started. Notices will show progress.');
+				new Notice(
+					'WikiCFP series refresh started. Notices will show progress.'
+				);
 				this.plugin.cfpService
 					.refreshWikiCFPSeries((msg) => new Notice(msg))
 					.then(() => new Notice('WikiCFP series refresh done.'))
-					.catch(() =>
-						new Notice('WikiCFP series refresh failed. See console.')
+					.catch(
+						() => new Notice('WikiCFP series refresh failed. See console.')
 					);
 			});
 
@@ -1812,11 +1855,7 @@ class WebhookDebugConfirmModal extends Modal {
 	onConfirm: () => void | Promise<void>;
 	onCancel: () => void;
 
-	constructor(
-		app: App,
-		onConfirm: () => void | Promise<void>,
-		onCancel: () => void
-	) {
+	constructor(app: App, onConfirm: () => void | Promise<void>, onCancel: () => void) {
 		super(app);
 		this.onConfirm = onConfirm;
 		this.onCancel = onCancel;
@@ -1933,17 +1972,15 @@ export class WebhookEditModal extends Modal {
 				.inputEl.addClass('zotero-input-wide')
 		);
 
-		new Setting(reqContainer)
-			.setName('Method')
-			.addDropdown((d) =>
-				d
-					.addOption('POST', 'POST')
-					.addOption('GET', 'GET')
-					.addOption('PUT', 'PUT')
-					.addOption('DELETE', 'DELETE')
-					.setValue(this.webhook.method)
-					.onChange((v) => (this.webhook.method = v as WebhookProfile['method']))
-			);
+		new Setting(reqContainer).setName('Method').addDropdown((d) =>
+			d
+				.addOption('POST', 'POST')
+				.addOption('GET', 'GET')
+				.addOption('PUT', 'PUT')
+				.addOption('DELETE', 'DELETE')
+				.setValue(this.webhook.method)
+				.onChange((v) => (this.webhook.method = v as WebhookProfile['method']))
+		);
 
 		new Setting(reqContainer)
 			.setName('Body Content Type')

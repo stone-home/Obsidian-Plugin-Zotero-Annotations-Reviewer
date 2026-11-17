@@ -1,11 +1,11 @@
 import { requestUrl } from 'obsidian';
 import yaml from 'js-yaml';
-import { CFPItem, CFPRank } from '../types';
+import { CFPItem } from '../types';
 
 const DELAY_MS = 1500;
 
 function delay(ms: number): Promise<void> {
-	return new Promise(resolve => setTimeout(resolve, ms));
+	return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 export interface CcfRankInfo {
@@ -49,6 +49,13 @@ interface CcfddlEntry {
 	confs?: CcfddlConf[];
 }
 
+function extractRankField(rank: unknown, key: 'ccf' | 'thcpl'): string | undefined {
+	if (typeof rank !== 'object' || rank === null) return undefined;
+	const raw = (rank as Record<string, unknown>)[key];
+	if (raw === undefined || raw === null) return undefined;
+	return String(raw).trim();
+}
+
 /** Pick best submission deadline from timeline: prefer paper deadline, then abstract; skip TBD. */
 function deadlineFromTimeline(timeline: CcfddlTimelineEntry[]): string {
 	if (!Array.isArray(timeline) || timeline.length === 0) return 'N/A';
@@ -56,12 +63,12 @@ function deadlineFromTimeline(timeline: CcfddlTimelineEntry[]): string {
 	// Prefer last entry's deadline (often "final submission") then abstract_deadline
 	for (let i = timeline.length - 1; i >= 0; i--) {
 		const t = timeline[i];
-		if (valid(t?.deadline)) return (t!.deadline ?? '').trim();
-		if (valid(t?.abstract_deadline)) return (t!.abstract_deadline ?? '').trim();
+		if (valid(t?.deadline)) return (t.deadline ?? '').trim();
+		if (valid(t?.abstract_deadline)) return (t.abstract_deadline ?? '').trim();
 	}
 	for (const t of timeline) {
-		if (valid(t?.deadline)) return (t!.deadline ?? '').trim();
-		if (valid(t?.abstract_deadline)) return (t!.abstract_deadline ?? '').trim();
+		if (valid(t?.deadline)) return (t.deadline ?? '').trim();
+		if (valid(t?.abstract_deadline)) return (t.abstract_deadline ?? '').trim();
 	}
 	return 'N/A';
 }
@@ -85,15 +92,14 @@ export function parseCcfddlYaml(text: string): CFPItem[] {
 		if (!title) continue;
 
 		// Capture series-level CCF rank metadata.
-		const rankObj = (entry.rank ?? {}) as CFPRank['sources'] & { ccf?: unknown; thcpl?: unknown };
-		const ccf = (rankObj as any)?.ccf?.toString()?.trim();
-		const thcpl = (rankObj as any)?.thcpl?.toString()?.trim();
+		const ccf = extractRankField(entry.rank, 'ccf');
+		const thcpl = extractRankField(entry.rank, 'thcpl');
 		const sub = entry.sub?.toString()?.trim();
 		if (ccf || thcpl || sub) {
 			lastCcfRankMap[title] = {
 				ccf: ccf || undefined,
 				thcpl: thcpl || undefined,
-				sub: sub || undefined
+				sub: sub || undefined,
 			};
 		}
 
@@ -111,7 +117,7 @@ export function parseCcfddlYaml(text: string): CFPItem[] {
 				end: undefined,
 				submissionDdl,
 				source: 'ccfddl',
-				url: conf.link?.toString()
+				url: conf.link?.toString(),
 			});
 		}
 	}

@@ -307,7 +307,8 @@ export class PaperDigestView extends ItemView {
 	}
 
 	private ensureLibrarySelection(): void {
-		if (this.libraryEntries.some((e) => e.citekey === this.selectedLibraryKey)) return;
+		if (this.libraryEntries.some((e) => e.citekey === this.selectedLibraryKey))
+			return;
 		this.selectedLibraryKey = this.libraryEntries[0]?.citekey ?? '';
 	}
 
@@ -700,7 +701,10 @@ export class PaperDigestView extends ItemView {
 			'.zotero-digest-collections',
 			this.collectionScroll
 		);
-		this.libraryListScroll = scrollOf('.zotero-library-list', this.libraryListScroll);
+		this.libraryListScroll = scrollOf(
+			'.zotero-library-list',
+			this.libraryListScroll
+		);
 		this.libraryDetailScroll = scrollOf(
 			'.zotero-library-detail',
 			this.libraryDetailScroll
@@ -935,8 +939,8 @@ export class PaperDigestView extends ItemView {
 		if (this.libraryEntries.length === 0) {
 			const hasActiveFilter = Boolean(
 				this.libraryQuery.trim() ||
-					this.libraryVenueFilter ||
-					this.libraryQuickFilter !== 'all'
+				this.libraryVenueFilter ||
+				this.libraryQuickFilter !== 'all'
 			);
 			const emptyEl = list.createDiv({
 				cls: 'zotero-digest-empty zotero-library-empty',
@@ -989,13 +993,18 @@ export class PaperDigestView extends ItemView {
 					});
 				}
 
-				const badgeRow = textCol.createDiv({ cls: 'zotero-library-row-badges' });
+				const badgeRow = textCol.createDiv({
+					cls: 'zotero-library-row-badges',
+				});
 				badgeRow.createSpan({
 					cls: 'zotero-library-citekey-pill',
 					text: entry.citekey,
 				});
 				if (entry.hasCoreNote) {
-					badgeRow.createSpan({ cls: 'zotero-library-mini-badge is-core', text: 'Core' });
+					badgeRow.createSpan({
+						cls: 'zotero-library-mini-badge is-core',
+						text: 'Core',
+					});
 				}
 				if (entry.hasTakeaway) {
 					badgeRow.createSpan({
@@ -1004,10 +1013,16 @@ export class PaperDigestView extends ItemView {
 					});
 				}
 				if (entry.hasReport1) {
-					badgeRow.createSpan({ cls: 'zotero-library-mini-badge', text: 'R1' });
+					badgeRow.createSpan({
+						cls: 'zotero-library-mini-badge',
+						text: 'R1',
+					});
 				}
 				if (entry.hasReport2) {
-					badgeRow.createSpan({ cls: 'zotero-library-mini-badge', text: 'R2' });
+					badgeRow.createSpan({
+						cls: 'zotero-library-mini-badge',
+						text: 'R2',
+					});
 				}
 			}
 			list.scrollTop = this.libraryListScroll;
@@ -1031,7 +1046,9 @@ export class PaperDigestView extends ItemView {
 			return;
 		}
 
-		const headerCard = detail.createDiv({ cls: 'zotero-digest-card zotero-library-card' });
+		const headerCard = detail.createDiv({
+			cls: 'zotero-digest-card zotero-library-card',
+		});
 		headerCard.createEl('h3', { cls: 'zotero-digest-title', text: entry.title });
 
 		if (entry.authors.length > 0) {
@@ -1041,7 +1058,9 @@ export class PaperDigestView extends ItemView {
 			});
 		}
 
-		const metaRow = headerCard.createDiv({ cls: 'zotero-digest-meta zotero-library-meta-row' });
+		const metaRow = headerCard.createDiv({
+			cls: 'zotero-digest-meta zotero-library-meta-row',
+		});
 		if (entry.venueSeries || entry.venue) {
 			const venueBtn = metaRow.createEl('button', {
 				cls: 'zotero-library-venue-pill',
@@ -1125,10 +1144,14 @@ export class PaperDigestView extends ItemView {
 		};
 
 		// Core Note Section (Mutually Exclusive Action Button, No Inline Textarea)
-		const coreCard = detail.createDiv({ cls: 'zotero-digest-card zotero-library-core-card' });
+		const coreCard = detail.createDiv({
+			cls: 'zotero-digest-card zotero-library-core-card',
+		});
 		const coreHead = coreCard.createDiv({ cls: 'zotero-library-section-head' });
 		coreHead.createSpan({ cls: 'zotero-digest-panel-title', text: 'Core Note' });
-		const coreHeadActions = coreHead.createDiv({ cls: 'zotero-library-section-actions' });
+		const coreHeadActions = coreHead.createDiv({
+			cls: 'zotero-library-section-actions',
+		});
 
 		if (entry.hasCoreNote) {
 			const openCoreBtn = coreHeadActions.createEl('button', {
@@ -1190,7 +1213,9 @@ export class PaperDigestView extends ItemView {
 			});
 			const addProfileField = (label: string, val: string | undefined) => {
 				if (!val) return;
-				const row = profileCard.createDiv({ cls: 'zotero-library-profile-row' });
+				const row = profileCard.createDiv({
+					cls: 'zotero-library-profile-row',
+				});
 				row.createSpan({ cls: 'zotero-library-profile-key', text: label });
 				const valEl = row.createDiv({ cls: 'zotero-library-profile-val' });
 				void renderMarkdownContent(this.app, val, valEl, entry.file.path, this);
@@ -1206,7 +1231,11 @@ export class PaperDigestView extends ItemView {
 			const relCard = detail.createDiv({
 				cls: 'zotero-digest-card zotero-library-links-card',
 			});
-			const renderChipRow = (title: string, links: string[], isProject: boolean) => {
+			const renderChipRow = (
+				title: string,
+				links: string[],
+				isProject: boolean
+			) => {
 				if (links.length === 0) return;
 				const group = relCard.createDiv({ cls: 'zotero-links-group' });
 				group.createSpan({ cls: 'zotero-links-label', text: title });
@@ -1222,7 +1251,10 @@ export class PaperDigestView extends ItemView {
 					});
 					chip.onclick = (ev) => {
 						ev.preventDefault();
-						void this.app.workspace.openLinkText(target.trim(), entry.file.path);
+						void this.app.workspace.openLinkText(
+							target.trim(),
+							entry.file.path
+						);
 					};
 				}
 			};

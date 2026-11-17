@@ -1,5 +1,25 @@
 import { App, Component } from 'obsidian';
 
+export interface DataviewApi {
+	executeJs(
+		code: string,
+		container: HTMLElement,
+		component: Component,
+		filePath: string
+	): Promise<void> | void;
+}
+
+interface DataviewPluginInstance {
+	settings?: unknown;
+	api?: DataviewApi;
+}
+
+interface AppWithPlugins {
+	plugins?: {
+		getPlugin?: (id: string) => unknown;
+	};
+}
+
 export class DataviewService {
 	private app: App;
 
@@ -7,11 +27,15 @@ export class DataviewService {
 		this.app = app;
 	}
 
-	get api(): any | undefined {
-		const plugin = (this.app as any).plugins.getPlugin("dataview");
-		if (plugin && plugin.settings) {
-			// @ts-ignore
-			return plugin.api;
+	get api(): DataviewApi | undefined {
+		const rawPlugin = (this.app as unknown as AppWithPlugins).plugins?.getPlugin?.(
+			'dataview'
+		);
+		if (typeof rawPlugin === 'object' && rawPlugin !== null) {
+			const plugin = rawPlugin as DataviewPluginInstance;
+			if (plugin.settings) {
+				return plugin.api;
+			}
 		}
 		return undefined;
 	}
@@ -33,10 +57,11 @@ export class DataviewService {
 		container: HTMLElement,
 		component: Component,
 		filePath: string,
-		params: Record<string, any> = {}
-	) {
-		if (!this.api) {
-			container.createDiv({ text: "Dataview API not available." });
+		params: Record<string, unknown> = {}
+	): Promise<void> {
+		const api = this.api;
+		if (!api) {
+			container.createDiv({ text: 'Dataview API not available.' });
 			return;
 		}
 
@@ -47,18 +72,12 @@ export class DataviewService {
 			const codeWithParams = `const input = ${JSON.stringify(params)};\n\n${code}`;
 
 			// 2. Execute
-			await this.api.executeJs(
-				codeWithParams,
-				container,
-				component,
-				filePath
-			);
-
+			await api.executeJs(codeWithParams, container, component, filePath);
 		} catch (e) {
-			console.error("Dataview Script Execution Error:", e);
+			console.error('Dataview Script Execution Error:', e);
 			container.createDiv({
 				text: `Script Error: ${(e as Error).message}`,
-				cls: "zotero-text-error"
+				cls: 'zotero-text-error',
 			});
 		}
 	}

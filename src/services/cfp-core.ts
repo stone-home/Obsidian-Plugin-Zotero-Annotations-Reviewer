@@ -28,7 +28,11 @@ type CoreLetter = CFPRank['coreLetter'];
 const CORE_LETTERS: CoreLetter[] = ['A*', 'A', 'B', 'C'];
 
 function normName(s: string): string {
-	return s.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().replace(/\s+/g, ' ');
+	return s
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, ' ')
+		.trim()
+		.replace(/\s+/g, ' ');
 }
 
 function normAcronym(s: string): string {
@@ -79,7 +83,10 @@ export function parseCoreCsv(text: string): CoreRankIndex {
 		if (cols.length < 5) continue;
 
 		// Heuristic: skip header row if present (Conference name / Acronym etc.).
-		if (cols[0].toLowerCase().includes('id') && cols[1].toLowerCase().includes('conference')) {
+		if (
+			cols[0].toLowerCase().includes('id') &&
+			cols[1].toLowerCase().includes('conference')
+		) {
 			continue;
 		}
 
@@ -111,7 +118,10 @@ export interface CoreRankForSeries {
 }
 
 /** Derive the best CORE rank for a given series name using a pre-built index. */
-export function getCoreRankForSeries(index: CoreRankIndex, seriesName: string): CoreRankForSeries | null {
+export function getCoreRankForSeries(
+	index: CoreRankIndex,
+	seriesName: string
+): CoreRankForSeries | null {
 	const raw = seriesName?.trim();
 	if (!raw) return null;
 
@@ -151,7 +161,7 @@ export function getCoreRankForSeries(index: CoreRankIndex, seriesName: string): 
 	const letter = normaliseCoreLetter(best.rankRaw);
 	const result: CoreRankForSeries = {
 		coreLetter: letter,
-		collection: best.collection || undefined
+		collection: best.collection || undefined,
 	};
 	if (!letter && best.rankRaw) {
 		result.coreStatus = best.rankRaw;
@@ -168,4 +178,3 @@ function normaliseCoreLetter(rankRaw: string): CoreLetter | undefined {
 	}
 	return undefined;
 }
-
