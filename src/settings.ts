@@ -1,7 +1,6 @@
 import {
 	App,
 	ButtonComponent,
-	Component,
 	DropdownComponent,
 	ExtraButtonComponent,
 	FuzzyMatch,
@@ -13,6 +12,7 @@ import {
 	setIcon,
 	Setting,
 	TextComponent,
+	TFile,
 	ToggleComponent,
 } from 'obsidian';
 import {
@@ -36,7 +36,6 @@ import ZoteroGKPlugin from './main';
 import {
 	DEFAULT_ASSISTANT_SCRIPT,
 	DEFAULT_PAPER_WORKSPACE,
-	DEFAULT_PROMPTS,
 	DEFAULT_ZOTERO_TEMPLATE,
 	PaperWorkspaceConfig,
 	PromptTemplateEntry,
@@ -45,7 +44,6 @@ import {
 } from './types';
 import { ZoteroService } from './services/zotero';
 import { ZoteroConnectorService } from './services/zotero-connector';
-import { renderMarkdownContent } from './ui/connector-modal';
 import { normalizePath } from './utils/paths';
 
 type SettingTabId = 'general' | 'zotero' | 'prompts' | 'webhook' | 'cfp' | 'digest';
@@ -151,14 +149,118 @@ class ConfirmActionModal extends Modal {
 		});
 
 		const footer = contentEl.createDiv({ cls: 'zotero-modal-footer' });
-		new ButtonComponent(footer).setButtonText('Cancel').onClick(() => this.close());
-		const confirmBtn = new ButtonComponent(footer)
-			.setButtonText(this.confirmLabel)
-			.onClick(async () => {
-				await this.onConfirm();
-				this.close();
-			});
-		confirmBtn.setWarning?.();
+		const cancelBtn = footer.createEl('button', {
+			text: 'Cancel',
+			attr: { type: 'button' },
+		});
+		cancelBtn.onclick = () => this.close();
+
+		const confirmBtn = footer.createEl('button', {
+			cls: 'mod-warning',
+			text: this.confirmLabel,
+			attr: { type: 'button' },
+		});
+		confirmBtn.onclick = async () => {
+			await this.onConfirm();
+			this.close();
+		};
+	}
+
+	onClose(): void {
+		this.contentEl.empty();
+	}
+}
+
+function slugifyPromptId(raw: string): string {
+	return raw
+		.trim()
+		.toLowerCase()
+		.replace(/[^a-z0-9_-]+/g, '_')
+		.replace(/^_+|_+$/g, '');
+}
+
+class AddPromptModal extends Modal {
+	private idTouched = false;
+
+	constructor(
+		app: App,
+		private readonly existingIds: Set<string>,
+		private readonly onSubmit: (result: { id: string; name: string }) => void | Promise<void>
+	) {
+		super(app);
+	}
+
+	onOpen(): void {
+		const { contentEl } = this;
+		contentEl.empty();
+		contentEl.addClass('zotero-webhook-input-modal');
+		contentEl.createEl('h3', {
+			text: 'Add Custom Prompt',
+			cls: 'zotero-webhook-input-title',
+		});
+
+		const form = contentEl.createDiv({ cls: 'zotero-webhook-input-form' });
+		const nameRow = form.createDiv({ cls: 'zotero-webhook-input-row' });
+		nameRow.createEl('label', {
+			text: 'Prompt name',
+			cls: 'zotero-webhook-input-label',
+		});
+		const nameInput = nameRow.createEl('input', {
+			cls: 'zotero-webhook-input-field',
+			attr: {
+				type: 'text',
+				placeholder: 'e.g. Related Work Review',
+			},
+		}) as HTMLInputElement;
+
+		const idRow = form.createDiv({ cls: 'zotero-webhook-input-row' });
+		idRow.createEl('label', {
+			text: 'Prompt ID ({{prompt.<id>}})',
+			cls: 'zotero-webhook-input-label',
+		});
+		const idInput = idRow.createEl('input', {
+			cls: 'zotero-webhook-input-field',
+			attr: {
+				type: 'text',
+				placeholder: 'e.g. related_work_review',
+			},
+		}) as HTMLInputElement;
+
+		nameInput.oninput = () => {
+			if (!this.idTouched) {
+				idInput.value = slugifyPromptId(nameInput.value);
+			}
+		};
+		idInput.oninput = () => {
+			this.idTouched = true;
+		};
+
+		const footer = contentEl.createDiv({ cls: 'zotero-webhook-input-footer' });
+		const cancelBtn = footer.createEl('button', {
+			text: 'Cancel',
+			attr: { type: 'button' },
+		});
+		cancelBtn.onclick = () => this.close();
+
+		const createBtn = footer.createEl('button', {
+			cls: 'mod-cta',
+			text: 'Create Prompt',
+			attr: { type: 'button' },
+		});
+		createBtn.onclick = async () => {
+			const cleanName = nameInput.value.trim();
+			const cleanId = slugifyPromptId(idInput.value || cleanName);
+			if (!cleanName || !cleanId) {
+				new Notice('Please enter a valid prompt name and ID.');
+				return;
+			}
+			if (this.existingIds.has(cleanId)) {
+				new Notice(`Prompt ID "${cleanId}" already exists.`);
+				return;
+			}
+			await this.onSubmit({ id: cleanId, name: cleanName });
+			this.close();
+		};
 	}
 
 	onClose(): void {
@@ -172,9 +274,6 @@ class ConfirmActionModal extends Modal {
 export class ZoteroSettingTab extends PluginSettingTab {
 	plugin: ZoteroGKPlugin;
 	activeTab: SettingTabId = 'general';
-	activePromptKey = 'zotero-template';
-	promptPreviewMode = false;
-	private previewComponent: Component | null = null;
 
 	constructor(app: App, plugin: ZoteroGKPlugin) {
 		super(app, plugin);
@@ -182,21 +281,17 @@ export class ZoteroSettingTab extends PluginSettingTab {
 	}
 
 	display(): void {
-		if (this.previewComponent) {
-			this.previewComponent.unload();
-			this.previewComponent = null;
-		}
 		const { containerEl } = this;
 		containerEl.empty();
 		containerEl.addClass('zotero-settings-wrapper');
 
-		// --- 1. Tab Navigation ---
+		// --- 1. Tab Navigation (Single-Row 6 Equal Columns) ---
 		const tabsEl = containerEl.createDiv({ cls: 'zotero-settings-tabs' });
 
 		this.renderTabItem(tabsEl, 'general', 'General');
-		this.renderTabItem(tabsEl, 'zotero', 'Zotero & Highlights');
-		this.renderTabItem(tabsEl, 'prompts', 'Templates & Prompts');
-		this.renderTabItem(tabsEl, 'webhook', 'Modular Webhooks');
+		this.renderTabItem(tabsEl, 'zotero', 'Highlights');
+		this.renderTabItem(tabsEl, 'prompts', 'Templates');
+		this.renderTabItem(tabsEl, 'webhook', 'Webhooks');
 		this.renderTabItem(tabsEl, 'cfp', 'CFP');
 		this.renderTabItem(tabsEl, 'digest', 'Digest');
 
@@ -241,7 +336,7 @@ export class ZoteroSettingTab extends PluginSettingTab {
 			cls: 'zotero-card-title',
 		});
 		layoutCard.createDiv({
-			text: 'Vault-relative path patterns for each paper resource. Use {{citekey}} for automatic citation-key substitution.',
+			text: 'Configure button labels and Vault-relative path patterns for each paper resource. Use {{citekey}} for automatic citation-key substitution.',
 			cls: 'setting-item-description zotero-desc-tight',
 		});
 
@@ -258,62 +353,101 @@ export class ZoteroSettingTab extends PluginSettingTab {
 			desc: string,
 			key: keyof PaperWorkspaceConfig,
 			defaultVal: string,
-			afterSave?: (val: string) => void,
-			onInitRef?: (ref: TextComponent) => void
+			options?: {
+				labelKey?: keyof PaperWorkspaceConfig;
+				defaultLabel?: string;
+				afterSave?: (val: string) => void;
+				onInitRef?: (ref: TextComponent) => void;
+			}
 		): void => {
+			const labelRef: { current: TextComponent | null } = { current: null };
 			const rowRef: { current: TextComponent | null } = { current: null };
 			const setting = new Setting(layoutCard).setName(name).setDesc(desc);
+
+			if (options?.labelKey && options.defaultLabel) {
+				const lKey = options.labelKey;
+				const defLabel = options.defaultLabel;
+				setting.addText((labelInput) => {
+					labelRef.current = labelInput;
+					labelInput.setPlaceholder?.(defLabel);
+					labelInput.setValue(ws[lKey] || defLabel).onChange(async (val) => {
+						ws[lKey] = val.trim() || defLabel;
+						await this.plugin.saveSettings();
+					});
+					labelInput.inputEl.addClass('zotero-workspace-label-input');
+					labelInput.inputEl.setAttribute('aria-label', `${name} button label`);
+					labelInput.inputEl.setAttribute('title', 'Button label');
+				});
+			}
+
 			setting.addText((text) => {
 				rowRef.current = text;
-				if (onInitRef) onInitRef(text);
+				if (options?.onInitRef) options.onInitRef(text);
 				text.setPlaceholder?.(defaultVal);
 				text.setValue(ws[key]).onChange(async (val) => {
 					ws[key] = val.trim();
-					if (afterSave) afterSave(ws[key]);
+					if (options?.afterSave) options.afterSave(ws[key]);
 					await this.plugin.saveSettings();
 				});
 				text.inputEl.addClass('zotero-workspace-path-input');
 			});
-			addSettingIconAction(
-				setting.controlEl,
-				'rotate-ccw',
-				`Reset to default (${defaultVal})`,
-				async () => {
-					ws[key] = defaultVal;
-					if (afterSave) afterSave(defaultVal);
-					rowRef.current?.setValue(defaultVal);
-					await this.plugin.saveSettings();
+
+			const resetTooltip =
+				options?.labelKey && options.defaultLabel
+					? `Reset to default (${options.defaultLabel} · ${defaultVal})`
+					: `Reset to default (${defaultVal})`;
+
+			addSettingIconAction(setting.controlEl, 'rotate-ccw', resetTooltip, async () => {
+				if (options?.labelKey && options.defaultLabel) {
+					ws[options.labelKey] = options.defaultLabel;
+					labelRef.current?.setValue(options.defaultLabel);
 				}
-			);
+				ws[key] = defaultVal;
+				if (options?.afterSave) options.afterSave(defaultVal);
+				rowRef.current?.setValue(defaultVal);
+				await this.plugin.saveSettings();
+			});
 		};
 
 		addPathRow(
-			'Zotero Note (Paper Manager)',
+			'Zotero Note',
 			'Primary literature note imported from Zotero.',
 			'literatureNotePath',
 			DEFAULT_PAPER_WORKSPACE.literatureNotePath
 		);
 		addPathRow(
-			'Report 1 (Deep Research)',
-			'Internal manuscript deep-dive report.',
-			'report1Path',
-			DEFAULT_PAPER_WORKSPACE.report1Path
-		);
-		addPathRow(
-			'Report 2 (External Landscape)',
-			'External research landscape & code discovery report.',
-			'report2Path',
-			DEFAULT_PAPER_WORKSPACE.report2Path
-		);
-		addPathRow(
-			'Takeaway (Synthesized)',
-			'Synthesized Zettelkasten Incubator takeaway note.',
+			'Takeaway',
+			'Button label and Vault path pattern for synthesized takeaway notes.',
 			'takeawayPath',
-			DEFAULT_PAPER_WORKSPACE.takeawayPath
+			DEFAULT_PAPER_WORKSPACE.takeawayPath,
+			{
+				labelKey: 'takeawayLabel',
+				defaultLabel: DEFAULT_PAPER_WORKSPACE.takeawayLabel,
+			}
 		);
 		addPathRow(
-			'Core Note (Paper Note)',
-			'Concise personal core claim, projects, and linked Zettels.',
+			'Report 1',
+			'Button label and Vault path pattern for internal deep-research reports.',
+			'report1Path',
+			DEFAULT_PAPER_WORKSPACE.report1Path,
+			{
+				labelKey: 'report1Label',
+				defaultLabel: DEFAULT_PAPER_WORKSPACE.report1Label,
+			}
+		);
+		addPathRow(
+			'Report 2',
+			'Button label and Vault path pattern for external landscape & code discovery reports.',
+			'report2Path',
+			DEFAULT_PAPER_WORKSPACE.report2Path,
+			{
+				labelKey: 'report2Label',
+				defaultLabel: DEFAULT_PAPER_WORKSPACE.report2Label,
+			}
+		);
+		addPathRow(
+			'Core Note',
+			'Personal core claim, projects, and linked atomic notes.',
 			'coreNotePath',
 			DEFAULT_PAPER_WORKSPACE.coreNotePath
 		);
@@ -322,12 +456,14 @@ export class ZoteroSettingTab extends PluginSettingTab {
 			'Folder where exported PDF highlight / fleeting notes are saved.',
 			'highlightNotesFolder',
 			DEFAULT_PAPER_WORKSPACE.highlightNotesFolder,
-			(val) => {
-				this.plugin.settings.fleetingNoteFolder = val;
-				syncRefs.fleetingFolder?.setValue(val);
-			},
-			(ref) => {
-				syncRefs.highlightNotes = ref;
+			{
+				afterSave: (val) => {
+					this.plugin.settings.fleetingNoteFolder = val;
+					syncRefs.fleetingFolder?.setValue(val);
+				},
+				onInitRef: (ref) => {
+					syncRefs.highlightNotes = ref;
+				},
 			}
 		);
 		addPathRow(
@@ -579,420 +715,502 @@ export class ZoteroSettingTab extends PluginSettingTab {
 	}
 
 	// -------------------------------------------------------------------------
-	// TAB 3: TEMPLATES & PROMPTS
+	// TAB 3: TEMPLATES & PROMPTS (FILE-BASED MANAGEMENT)
 	// -------------------------------------------------------------------------
-	renderPromptsSettings(container: HTMLElement): void {
-		const selectorRow = container.createDiv({ cls: 'zotero-prompt-pills' });
-
-		const zoteroPill = selectorRow.createEl('button', {
-			cls: `zotero-prompt-pill ${
-				this.activePromptKey === 'zotero-template' ? 'is-active' : ''
-			}`,
-			text: 'Zotero Template',
-			attr: { type: 'button' },
-		});
-		zoteroPill.onclick = () => {
-			this.activePromptKey = 'zotero-template';
-			this.display();
-		};
-
-		for (const prompt of this.plugin.settings.prompts) {
-			const pill = selectorRow.createEl('button', {
-				cls: `zotero-prompt-pill ${
-					this.activePromptKey === prompt.id ? 'is-active' : ''
-				}`,
-				text: prompt.name,
-				attr: { type: 'button' },
-			});
-			pill.onclick = () => {
-				this.activePromptKey = prompt.id;
-				this.display();
-			};
-		}
-
-		const addPromptBtn = selectorRow.createEl('button', {
-			cls: 'zotero-prompt-pill is-add',
-			text: '+ New Prompt',
-			attr: { type: 'button' },
-		});
-		addPromptBtn.onclick = async () => {
-			const idx = this.plugin.settings.prompts.length + 1;
-			const id = `custom_${Date.now().toString(36)}`;
-			const entry: PromptTemplateEntry = {
-				id,
-				name: `Custom Prompt ${idx}`,
-				vaultPath: `002-Literature/100-Prompts/${id}.md`,
-				content: '# Custom Prompt\n\nWrite your prompt instructions here.\n',
-				builtIn: false,
-			};
-			this.plugin.settings.prompts.push(entry);
-			this.activePromptKey = id;
-			await this.plugin.saveSettings();
-			this.display();
-		};
-
-		if (this.activePromptKey === 'zotero-template') {
-			this.renderZoteroTemplateEditor(container);
-			return;
-		}
-
-		const selectedPrompt = this.plugin.settings.prompts.find(
-			(p) => p.id === this.activePromptKey
+	private async openVaultMarkdownInEditor(
+		rawPath: string,
+		fallbackContent: string
+	): Promise<string> {
+		const trimmed = rawPath.trim();
+		const normalized = normalizePath(
+			/\.[^/\\]+$/.test(trimmed) ? trimmed : `${trimmed}.md`
 		);
-		if (!selectedPrompt) {
-			this.activePromptKey = 'zotero-template';
-			this.renderZoteroTemplateEditor(container);
-			return;
+		await this.plugin.paperHub.ensureParentFolder(normalized);
+		const existing = this.app.vault.getAbstractFileByPath(normalized);
+		let fileToOpen: TFile;
+		if (existing instanceof TFile) {
+			fileToOpen = existing;
+		} else if (typeof this.app.vault.create === 'function') {
+			fileToOpen = await this.app.vault.create(normalized, fallbackContent);
+		} else {
+			new Notice(`File not found in Vault: ${normalized}`);
+			return normalized;
 		}
-		this.renderPromptEntryEditor(container, selectedPrompt);
+		await this.app.workspace.getLeaf(false).openFile(fileToOpen);
+		(this.app as unknown as { setting?: { close?: () => void } }).setting?.close?.();
+		return normalized;
 	}
 
-	private renderZoteroTemplateEditor(container: HTMLElement): void {
+	renderPromptsSettings(container: HTMLElement): void {
+		const ws = this.plugin.settings.paperWorkspace;
 		const connector = new ZoteroConnectorService(this.app, this.plugin.settings);
 		const tplConfig = this.plugin.settings.zoteroTemplate;
-		const card = container.createDiv({ cls: 'zotero-setting-card' });
+		const currentFolder = normalizePath(
+			ws.templatesFolder?.trim() || DEFAULT_PAPER_WORKSPACE.templatesFolder
+		).replace(/\/+$/, '');
+		let draftFolder = currentFolder;
 
-		card.createEl('h3', {
-			text: 'Zotero Integration Note Template (Nunjucks)',
+		const addActionBtn = (
+			parent: HTMLElement,
+			label: string,
+			onClick: () => void | Promise<void>,
+			isCta = false
+		): HTMLButtonElement => {
+			const btn = parent.createEl('button', {
+				cls: isCta ? 'mod-cta' : undefined,
+				text: label,
+				attr: { type: 'button' },
+			}) as HTMLButtonElement;
+			btn.onclick = () => {
+				void onClick();
+			};
+			return btn;
+		};
+
+		// === CARD 1: TEMPLATES & PROMPTS FOLDER ===
+		const folderCard = container.createDiv({ cls: 'zotero-setting-card' });
+		folderCard.createEl('h3', {
+			text: 'Templates & Prompts Folder',
 			cls: 'zotero-card-title',
 		});
-		card.createDiv({
-			text: 'Syncs with obsidian-zotero-desktop-connector export template. Use Detect to locate your active template file in the vault.',
+		folderCard.createDiv({
+			text: 'Unified Vault folder where customizable note templates and prompts live as standard Markdown files.',
 			cls: 'setting-item-description zotero-desc-tight',
 		});
 
-		const pathRow = card.createDiv({ cls: 'zotero-template-path-row' });
-		const pathInput = new TextComponent(pathRow);
-		pathInput
-			.setPlaceholder('e.g. 000-Templates/Zotero Literature.md')
-			.setValue(tplConfig.vaultPath || '')
-			.onChange(async (val) => {
-				tplConfig.vaultPath = val.trim();
-				await this.plugin.saveSettings();
-			});
-		pathInput.inputEl.addClass('zotero-input-wide');
+		const folderRow = folderCard.createDiv({ cls: 'zotero-template-folder-row' });
+		const folderInput = folderRow.createEl('input', {
+			cls: 'zotero-workspace-path-input zotero-flex-1',
+			attr: {
+				type: 'text',
+				placeholder: DEFAULT_PAPER_WORKSPACE.templatesFolder,
+			},
+		}) as HTMLInputElement;
+		folderInput.value = currentFolder;
+		folderInput.oninput = () => {
+			draftFolder = folderInput.value.trim();
+		};
 
-		new ButtonComponent(pathRow).setButtonText('Detect').onClick(async () => {
+		addActionBtn(
+			folderRow,
+			'Move Folder',
+			async () => {
+				const rawVal = folderInput.value.trim() || draftFolder;
+				const nextFolder = normalizePath(
+					rawVal || DEFAULT_PAPER_WORKSPACE.templatesFolder
+				).replace(/\/+$/, '');
+				if (!nextFolder) {
+					new Notice('Please enter a valid Vault folder path.');
+					return;
+				}
+				const oldFolder = normalizePath(
+					ws.templatesFolder?.trim() || DEFAULT_PAPER_WORKSPACE.templatesFolder
+				).replace(/\/+$/, '');
+				const moved = await this.plugin.paperHub.moveTemplatesFolder(
+					oldFolder,
+					nextFolder
+				);
+				ws.templatesFolder = nextFolder;
+				await this.plugin.saveSettings();
+				new Notice(
+					moved > 0
+						? `Moved ${moved} template/prompt file${moved === 1 ? '' : 's'} to ${nextFolder}.`
+						: `Templates folder set to ${nextFolder}.`
+				);
+				this.display();
+			},
+			true
+		);
+
+		addActionBtn(folderRow, 'Sync Missing Defaults', async () => {
+			const created = await this.plugin.paperHub.ensureBuiltinTemplatesInVault();
+			await this.plugin.saveSettings();
+			new Notice(
+				created > 0
+					? `Created ${created} missing default file${created === 1 ? '' : 's'} in Vault.`
+					: 'All built-in templates and prompts already exist in Vault.'
+			);
+			this.display();
+		});
+
+		// === CARD 2: NOTE TEMPLATES ===
+		const templatesCard = container.createDiv({ cls: 'zotero-setting-card' });
+		templatesCard.createEl('h3', {
+			text: 'Note Templates',
+			cls: 'zotero-card-title',
+		});
+		templatesCard.createDiv({
+			text: 'Standard YAML frontmatter and note templates materialized in your Vault. Click Open to edit directly in Obsidian.',
+			cls: 'setting-item-description zotero-desc-tight',
+		});
+
+		const tplList = templatesCard.createDiv({ cls: 'zotero-template-file-list' });
+
+		// 2a. Zotero Note Template row
+		const zotDefaultPath = currentFolder
+			? `${currentFolder}/zotero-note-template.md`
+			: 'zotero-note-template.md';
+		const resolvedZotPath = normalizePath(tplConfig.vaultPath?.trim() || zotDefaultPath);
+		const zotRow = tplList.createDiv({ cls: 'zotero-template-file-row' });
+		const zotInfo = zotRow.createDiv({ cls: 'zotero-template-file-info' });
+		zotInfo.createDiv({
+			cls: 'zotero-template-file-name',
+			text: 'Zotero Note Template',
+		});
+		zotInfo.createDiv({
+			cls: 'zotero-template-file-path',
+			text: resolvedZotPath,
+		});
+
+		const zotActions = zotRow.createDiv({ cls: 'zotero-template-file-actions' });
+		addActionBtn(zotActions, 'Detect', async () => {
 			const detected = connector.detectTemplatePath();
 			if (!detected) {
 				new Notice(
-					'Could not auto-detect template path from Zotero Desktop Connector.'
+					'Could not auto-detect template path from Zotero Integration.'
 				);
 				return;
 			}
 			tplConfig.vaultPath = detected;
 			await this.plugin.saveSettings();
-			new Notice(`Detected template: ${detected}`);
+			new Notice(`Detected Zotero template: ${detected}`);
 			this.display();
 		});
 
-		new ButtonComponent(pathRow).setButtonText('Load from File').onClick(async () => {
-			const loaded = await connector.loadTemplateContent(tplConfig.vaultPath);
-			if (!loaded.fromVault) {
-				new Notice('Template file not found in vault; keeping current editor text.');
-				return;
-			}
-			if (loaded.path) tplConfig.vaultPath = loaded.path;
-			tplConfig.content = loaded.content;
-			await this.plugin.saveSettings();
-			new Notice(`Loaded template from ${loaded.path}`);
-			this.display();
-		});
-
-		new ButtonComponent(pathRow)
-			.setButtonText('Save to Vault File')
-			.setCta()
-			.onClick(async () => {
-				const targetPath = tplConfig.vaultPath?.trim() || connector.detectTemplatePath();
-				if (!targetPath) {
-					new Notice('Set a Vault template path first.');
-					return;
-				}
-				const savedPath = await connector.saveTemplateToVault(
-					targetPath,
-					tplConfig.content
+		addActionBtn(
+			zotActions,
+			'Open',
+			async () => {
+				const openedPath = await this.openVaultMarkdownInEditor(
+					resolvedZotPath,
+					tplConfig.content || DEFAULT_ZOTERO_TEMPLATE
 				);
-				tplConfig.vaultPath = savedPath;
-				await this.plugin.saveSettings();
-				new Notice(`Saved template to ${savedPath}`);
-				this.display();
-			});
+				if (!tplConfig.vaultPath?.trim()) {
+					tplConfig.vaultPath = openedPath;
+					await this.plugin.saveSettings();
+				}
+			},
+			true
+		);
 
-		const actionsBar = card.createDiv({ cls: 'zotero-template-actions-bar' });
-		new ButtonComponent(actionsBar).setButtonText('Copy').onClick(async () => {
-			if (navigator.clipboard?.writeText) {
-				await navigator.clipboard.writeText(tplConfig.content);
-				new Notice('Copied Zotero template to clipboard.');
-			}
+		addActionBtn(zotActions, 'Snapshot', async () => {
+			const loaded = await connector.loadTemplateContent(resolvedZotPath);
+			tplConfig.content = loaded.content;
+			tplConfig.snapshot = loaded.content;
+			await this.plugin.saveSettings();
+			new Notice('Saved snapshot for Zotero Note Template.');
+			this.display();
 		});
-
-		new ButtonComponent(actionsBar)
-			.setButtonText('Save Snapshot')
-			.onClick(async () => {
-				tplConfig.snapshot = tplConfig.content;
-				await this.plugin.saveSettings();
-				new Notice('Saved Zotero template snapshot.');
-				this.display();
-			});
 
 		if (tplConfig.snapshot) {
-			new ButtonComponent(actionsBar)
-				.setButtonText('Restore Snapshot')
-				.onClick(() => {
-					new ConfirmActionModal(
-						this.app,
-						'Restore Template Snapshot?',
-						'Replace the current Zotero template content with your saved snapshot?',
-						'Restore Snapshot',
-						async () => {
-							tplConfig.content = tplConfig.snapshot || tplConfig.content;
-							await this.plugin.saveSettings();
-							new Notice('Restored snapshot.');
-							this.display();
-						}
-					).open();
-				});
-		}
-
-		new ButtonComponent(actionsBar)
-			.setButtonText('Reset to Default')
-			.onClick(() => {
+			addActionBtn(zotActions, 'Restore', () => {
 				new ConfirmActionModal(
 					this.app,
-					'Reset Zotero Template to Default?',
-					'This replaces the template with the canonical Zotero Integration template (and updates the Vault file if a path is configured).',
-					'Reset to Default',
+					'Restore Zotero Note Template Snapshot?',
+					`Overwrite ${resolvedZotPath} with your saved snapshot?`,
+					'Restore',
 					async () => {
-						tplConfig.content = DEFAULT_ZOTERO_TEMPLATE;
-						if (tplConfig.vaultPath?.trim()) {
-							await connector.saveTemplateToVault(
-								tplConfig.vaultPath,
-								DEFAULT_ZOTERO_TEMPLATE
-							);
-						}
+						const snap = tplConfig.snapshot || DEFAULT_ZOTERO_TEMPLATE;
+						const savedPath = await connector.saveTemplateToVault(
+							resolvedZotPath,
+							snap
+						);
+						tplConfig.vaultPath = savedPath;
+						tplConfig.content = snap;
 						await this.plugin.saveSettings();
-						new Notice('Reset Zotero template to default.');
+						new Notice('Restored Zotero Note Template snapshot.');
 						this.display();
 					}
 				).open();
 			});
-
-		const editorWrap = card.createDiv({ cls: 'zotero-template-editor-wrap' });
-		mountCodeMirror(
-			editorWrap,
-			tplConfig.content || DEFAULT_ZOTERO_TEMPLATE,
-			'markdown',
-			async (val) => {
-				tplConfig.content = val;
-				await this.plugin.saveSettings();
-			},
-			{ height: '380px', wrap: true }
-		);
-	}
-
-	private renderPromptEntryEditor(
-		container: HTMLElement,
-		entry: PromptTemplateEntry
-	): void {
-		const card = container.createDiv({ cls: 'zotero-setting-card' });
-		const topMeta = card.createDiv({ cls: 'zotero-prompt-meta-bar' });
-		topMeta.createEl('h3', { text: entry.name, cls: 'zotero-card-title zotero-no-margin' });
-
-		const chipsWrap = topMeta.createDiv({ cls: 'zotero-placeholder-chips' });
-		for (const token of [`{{prompt.${entry.id}}}`, `{{path.prompt.${entry.id}}}`]) {
-			const chip = chipsWrap.createEl('button', {
-				cls: 'zotero-placeholder-chip',
-				text: token,
-				attr: { type: 'button', title: 'Click to copy placeholder' },
-			});
-			chip.onclick = async () => {
-				if (navigator.clipboard?.writeText) {
-					await navigator.clipboard.writeText(token);
-					new Notice(`Copied ${token}`);
-				}
-			};
 		}
 
-		const fieldsGrid = card.createDiv({ cls: 'zotero-prompt-fields-grid' });
-		new Setting(fieldsGrid).setName('Prompt Name').addText((text) =>
-			text.setValue(entry.name).onChange(async (val) => {
-				entry.name = val.trim() || entry.id;
-				await this.plugin.saveSettings();
-			})
-		);
-
-		new Setting(fieldsGrid)
-			.setName('Vault .md Path')
-			.setDesc('Synced prompt Markdown file in your vault.')
-			.addText((text) => {
-				text.setPlaceholder(`002-Literature/100-Prompts/${entry.id}.md`)
-					.setValue(entry.vaultPath)
-					.onChange(async (val) => {
-						entry.vaultPath = val.trim();
-						await this.plugin.saveSettings();
-					});
-				text.inputEl.addClass('zotero-workspace-path-input');
-			});
-
-		const actionsBar = card.createDiv({ cls: 'zotero-template-actions-bar' });
-		new ButtonComponent(actionsBar)
-			.setButtonText('Save to Vault File')
-			.setCta()
-			.onClick(async () => {
-				const savedPath = await this.plugin.paperHub.savePromptToVault(
-					entry,
-					entry.content
-				);
-				entry.vaultPath = savedPath;
-				await this.plugin.saveSettings();
-				new Notice(`Saved prompt to ${savedPath}`);
-				this.display();
-			});
-
-		new ButtonComponent(actionsBar)
-			.setButtonText('Load from File')
-			.onClick(async () => {
-				const loaded = await this.plugin.paperHub.getPromptContent(entry.id);
-				entry.content = loaded;
-				await this.plugin.saveSettings();
-				new Notice(`Loaded prompt content for ${entry.name}`);
-				this.display();
-			});
-
-		new ButtonComponent(actionsBar)
-			.setButtonText('Copy Prompt')
-			.onClick(async () => {
-				if (navigator.clipboard?.writeText) {
-					await navigator.clipboard.writeText(entry.content);
-					new Notice(`Copied ${entry.name} prompt.`);
+		addActionBtn(zotActions, 'Reset', () => {
+			new ConfirmActionModal(
+				this.app,
+				'Reset Zotero Note Template?',
+				`Reset ${resolvedZotPath} to the factory default Nunjucks template?`,
+				'Reset',
+				async () => {
+					const savedPath = await connector.saveTemplateToVault(
+						resolvedZotPath,
+						DEFAULT_ZOTERO_TEMPLATE
+					);
+					tplConfig.vaultPath = savedPath;
+					tplConfig.content = DEFAULT_ZOTERO_TEMPLATE;
+					await this.plugin.saveSettings();
+					new Notice('Reset Zotero Note Template to default.');
+					this.display();
 				}
-			});
+			).open();
+		});
 
-		new ButtonComponent(actionsBar)
-			.setButtonText('Save Snapshot')
-			.onClick(async () => {
-				entry.snapshot = entry.content;
+		// 2b. Built-in Note Frontmatter Templates (kind === 'template')
+		const noteTemplates = this.plugin.settings.prompts.filter(
+			(entry) => entry.kind === 'template'
+		);
+		for (const entry of noteTemplates) {
+			const fallbackPath = `${currentFolder}/${entry.id.replace(/^tpl-/, '')}-note-template.md`;
+			const entryPath = normalizePath(entry.vaultPath?.trim() || fallbackPath);
+			const row = tplList.createDiv({ cls: 'zotero-template-file-row' });
+			const info = row.createDiv({ cls: 'zotero-template-file-info' });
+			info.createDiv({ cls: 'zotero-template-file-name', text: entry.name });
+			info.createDiv({ cls: 'zotero-template-file-path', text: entryPath });
+
+			const actions = row.createDiv({ cls: 'zotero-template-file-actions' });
+			addActionBtn(
+				actions,
+				'Open',
+				async () => {
+					const openedPath = await this.openVaultMarkdownInEditor(
+						entryPath,
+						entry.content
+					);
+					if (entry.vaultPath !== openedPath) {
+						entry.vaultPath = openedPath;
+						await this.plugin.saveSettings();
+					}
+				},
+				true
+			);
+
+			addActionBtn(actions, 'Snapshot', async () => {
+				const live = await this.plugin.paperHub.getPromptContent(entry.id);
+				entry.content = live;
+				entry.snapshot = live;
 				await this.plugin.saveSettings();
-				new Notice('Saved prompt snapshot.');
+				new Notice(`Saved snapshot for ${entry.name}.`);
 				this.display();
 			});
 
-		if (entry.snapshot) {
-			new ButtonComponent(actionsBar)
-				.setButtonText('Restore Snapshot')
-				.onClick(() => {
+			if (entry.snapshot) {
+				addActionBtn(actions, 'Restore', () => {
 					new ConfirmActionModal(
 						this.app,
-						'Restore Prompt Snapshot?',
-						`Replace "${entry.name}" with your saved snapshot?`,
-						'Restore Snapshot',
+						`Restore "${entry.name}" Snapshot?`,
+						`Overwrite ${entryPath} with your saved snapshot?`,
+						'Restore',
 						async () => {
-							entry.content = entry.snapshot || entry.content;
+							const snap = entry.snapshot || entry.content;
+							entry.vaultPath = entryPath;
+							const savedPath = await this.plugin.paperHub.savePromptToVault(
+								entry,
+								snap
+							);
+							entry.vaultPath = savedPath;
+							entry.content = snap;
 							await this.plugin.saveSettings();
-							new Notice('Restored prompt snapshot.');
+							new Notice(`Restored snapshot for ${entry.name}.`);
 							this.display();
 						}
 					).open();
 				});
+			}
+
+			addActionBtn(actions, 'Reset', () => {
+				const builtInDefault = this.plugin.paperHub.getBuiltInDefaultContent(entry.id);
+				if (!builtInDefault) return;
+				new ConfirmActionModal(
+					this.app,
+					`Reset "${entry.name}"?`,
+					`Reset ${entryPath} to the factory default template?`,
+					'Reset',
+					async () => {
+						entry.vaultPath = entryPath;
+						const savedPath = await this.plugin.paperHub.savePromptToVault(
+							entry,
+							builtInDefault
+						);
+						entry.vaultPath = savedPath;
+						entry.content = builtInDefault;
+						await this.plugin.saveSettings();
+						new Notice(`Reset ${entry.name} to default.`);
+						this.display();
+					}
+				).open();
+			});
 		}
 
-		if (entry.builtIn) {
-			new ButtonComponent(actionsBar)
-				.setButtonText('Reset to Default')
-				.onClick(() => {
-					const builtInDefault = DEFAULT_PROMPTS.find((d) => d.id === entry.id);
+		// === CARD 3: PROMPTS ===
+		const promptsCard = container.createDiv({ cls: 'zotero-setting-card' });
+		const promptsHeader = promptsCard.createDiv({
+			cls: 'zotero-template-card-header',
+		});
+		promptsHeader.createEl('h3', {
+			text: 'Prompts',
+			cls: 'zotero-card-title zotero-no-margin',
+		});
+		addActionBtn(
+			promptsHeader,
+			'+ Add Prompt',
+			() => {
+				const existingIds = new Set(
+					this.plugin.settings.prompts.map((p) => p.id)
+				);
+				new AddPromptModal(this.app, existingIds, async ({ id, name }) => {
+					const targetPath = normalizePath(
+						`${currentFolder}/prompt-${id}.md`
+					);
+					const initialContent = `# ${name}\n\nWrite your prompt instructions here.\n`;
+					const newEntry: PromptTemplateEntry = {
+						id,
+						name,
+						kind: 'prompt',
+						vaultPath: targetPath,
+						content: initialContent,
+						builtIn: false,
+					};
+					if (typeof this.app.vault.create === 'function') {
+						newEntry.vaultPath =
+							await this.plugin.paperHub.savePromptToVault(
+								newEntry,
+								initialContent
+							);
+					}
+					this.plugin.settings.prompts.push(newEntry);
+					await this.plugin.saveSettings();
+					new Notice(`Created prompt "${name}".`);
+					this.display();
+				}).open();
+			},
+			true
+		);
+
+		promptsCard.createDiv({
+			text: 'LLM synthesis and research prompts. Click a {{prompt.<id>}} chip to copy its webhook placeholder.',
+			cls: 'setting-item-description zotero-desc-tight',
+		});
+
+		const promptList = promptsCard.createDiv({ cls: 'zotero-template-file-list' });
+		const promptEntries = this.plugin.settings.prompts.filter(
+			(entry) => (entry.kind ?? 'prompt') === 'prompt'
+		);
+
+		for (const entry of promptEntries) {
+			const fallbackPath = `${currentFolder}/prompt-${entry.id}.md`;
+			const entryPath = normalizePath(entry.vaultPath?.trim() || fallbackPath);
+			const row = promptList.createDiv({ cls: 'zotero-template-file-row' });
+			const info = row.createDiv({ cls: 'zotero-template-file-info' });
+
+			const titleLine = info.createDiv({ cls: 'zotero-template-file-title-line' });
+			titleLine.createSpan({ cls: 'zotero-template-file-name', text: entry.name });
+			const placeholderToken = `{{prompt.${entry.id}}}`;
+			const chip = titleLine.createEl('button', {
+				cls: 'zotero-placeholder-chip',
+				text: placeholderToken,
+				attr: { type: 'button', title: 'Click to copy placeholder' },
+			});
+			chip.onclick = async () => {
+				if (navigator.clipboard?.writeText) {
+					await navigator.clipboard.writeText(placeholderToken);
+					new Notice(`Copied ${placeholderToken}`);
+				}
+			};
+
+			info.createDiv({ cls: 'zotero-template-file-path', text: entryPath });
+
+			const actions = row.createDiv({ cls: 'zotero-template-file-actions' });
+			addActionBtn(
+				actions,
+				'Open',
+				async () => {
+					const openedPath = await this.openVaultMarkdownInEditor(
+						entryPath,
+						entry.content
+					);
+					if (entry.vaultPath !== openedPath) {
+						entry.vaultPath = openedPath;
+						await this.plugin.saveSettings();
+					}
+				},
+				true
+			);
+
+			addActionBtn(actions, 'Copy', async () => {
+				const live = await this.plugin.paperHub.getPromptContent(entry.id);
+				if (navigator.clipboard?.writeText) {
+					await navigator.clipboard.writeText(live);
+					new Notice(`Copied "${entry.name}" prompt to clipboard.`);
+				}
+			});
+
+			addActionBtn(actions, 'Snapshot', async () => {
+				const live = await this.plugin.paperHub.getPromptContent(entry.id);
+				entry.content = live;
+				entry.snapshot = live;
+				await this.plugin.saveSettings();
+				new Notice(`Saved snapshot for ${entry.name}.`);
+				this.display();
+			});
+
+			if (entry.snapshot) {
+				addActionBtn(actions, 'Restore', () => {
+					new ConfirmActionModal(
+						this.app,
+						`Restore "${entry.name}" Snapshot?`,
+						`Overwrite ${entryPath} with your saved snapshot?`,
+						'Restore',
+						async () => {
+							const snap = entry.snapshot || entry.content;
+							entry.vaultPath = entryPath;
+							const savedPath = await this.plugin.paperHub.savePromptToVault(
+								entry,
+								snap
+							);
+							entry.vaultPath = savedPath;
+							entry.content = snap;
+							await this.plugin.saveSettings();
+							new Notice(`Restored snapshot for ${entry.name}.`);
+							this.display();
+						}
+					).open();
+				});
+			}
+
+			if (entry.builtIn) {
+				addActionBtn(actions, 'Reset', () => {
+					const builtInDefault = this.plugin.paperHub.getBuiltInDefaultContent(
+						entry.id
+					);
 					if (!builtInDefault) return;
 					new ConfirmActionModal(
 						this.app,
-						`Reset "${entry.name}" to Default?`,
-						'Overwrite current prompt text with the built-in canonical prompt?',
-						'Reset to Default',
+						`Reset "${entry.name}"?`,
+						`Reset ${entryPath} to the built-in default prompt?`,
+						'Reset',
 						async () => {
-							entry.content = builtInDefault.content;
-							if (entry.vaultPath?.trim()) {
-								const f = this.app.vault.getAbstractFileByPath(
-									normalizePath(entry.vaultPath.trim())
-								);
-								if (f) {
-									await this.plugin.paperHub.savePromptToVault(
-										entry,
-										entry.content
-									);
-								}
-							}
+							entry.vaultPath = entryPath;
+							const savedPath = await this.plugin.paperHub.savePromptToVault(
+								entry,
+								builtInDefault
+							);
+							entry.vaultPath = savedPath;
+							entry.content = builtInDefault;
 							await this.plugin.saveSettings();
 							new Notice(`Reset ${entry.name} to default.`);
 							this.display();
 						}
 					).open();
 				});
-		} else {
-			new ButtonComponent(actionsBar)
-				.setButtonText('Delete')
-				.onClick(() => {
+			} else {
+				addActionBtn(actions, 'Delete', () => {
 					new ConfirmActionModal(
 						this.app,
 						`Delete "${entry.name}"?`,
-						'Remove this custom prompt from plugin settings? (Any existing vault .md file will not be deleted.)',
-						'Delete Prompt',
+						'Remove this custom prompt from plugin settings? (Any existing .md file in your Vault is preserved.)',
+						'Delete',
 						async () => {
 							this.plugin.settings.prompts =
 								this.plugin.settings.prompts.filter(
 									(p) => p.id !== entry.id
 								);
-							this.activePromptKey = 'zotero-template';
 							await this.plugin.saveSettings();
+							new Notice(`Deleted prompt "${entry.name}".`);
 							this.display();
 						}
 					).open();
 				});
-		}
-
-		const modeSwitch = actionsBar.createDiv({ cls: 'zotero-prompt-mode-switch' });
-		const editModeBtn = modeSwitch.createEl('button', {
-			cls: `zotero-prompt-mode-btn ${!this.promptPreviewMode ? 'is-active' : ''}`,
-			text: 'Edit Source',
-			attr: { type: 'button' },
-		});
-		editModeBtn.onclick = () => {
-			if (!this.promptPreviewMode) return;
-			this.promptPreviewMode = false;
-			this.display();
-		};
-		const previewModeBtn = modeSwitch.createEl('button', {
-			cls: `zotero-prompt-mode-btn ${this.promptPreviewMode ? 'is-active' : ''}`,
-			text: 'Preview Markdown',
-			attr: { type: 'button' },
-		});
-		previewModeBtn.onclick = () => {
-			if (this.promptPreviewMode) return;
-			this.promptPreviewMode = true;
-			this.display();
-		};
-
-		const editorWrap = card.createDiv({ cls: 'zotero-template-editor-wrap' });
-		if (this.promptPreviewMode) {
-			const previewBox = editorWrap.createDiv({ cls: 'zotero-prompt-markdown-preview' });
-			this.previewComponent = new Component();
-			this.previewComponent.load();
-			void renderMarkdownContent(
-				this.app,
-				entry.content,
-				previewBox,
-				entry.vaultPath || '',
-				this.previewComponent
-			);
-		} else {
-			mountCodeMirror(
-				editorWrap,
-				entry.content,
-				'markdown',
-				async (val) => {
-					entry.content = val;
-					await this.plugin.saveSettings();
-				},
-				{ height: '380px', wrap: true }
-			);
+			}
 		}
 	}
 
@@ -1815,6 +2033,9 @@ export class WebhookEditModal extends Modal {
 			cls: 'zotero-placeholder-chips',
 		});
 
+		const promptEntries = this.prompts.filter(
+			(p) => (p.kind ?? 'prompt') === 'prompt'
+		);
 		const quickTokens = [
 			'{{citekey}}',
 			'{{path.zotero_note}}',
@@ -1822,8 +2043,8 @@ export class WebhookEditModal extends Modal {
 			'{{path.report2}}',
 			'{{path.takeaway}}',
 			'{{path.core_note}}',
-			...this.prompts.map((p) => `{{prompt.${p.id}}}`),
-			...this.prompts.map((p) => `{{path.prompt.${p.id}}}`),
+			...promptEntries.map((p) => `{{prompt.${p.id}}}`),
+			...promptEntries.map((p) => `{{path.prompt.${p.id}}}`),
 			'{{filename}}',
 			'{{content}}',
 		];

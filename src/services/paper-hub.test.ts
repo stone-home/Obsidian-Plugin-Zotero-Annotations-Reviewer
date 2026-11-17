@@ -1,8 +1,17 @@
 import { App, Notice, TFile } from 'obsidian';
 import yaml from 'js-yaml';
 import {
+	DEFAULT_ATOMIC_NOTE_TEMPLATE,
+	DEFAULT_CORE_NOTE_TEMPLATE,
 	DEFAULT_PAPER_WORKSPACE,
+	DEFAULT_PROMPTS,
+	DEFAULT_REPORT1_NOTE_TEMPLATE,
+	DEFAULT_REPORT1_PROMPT,
+	DEFAULT_REPORT2_NOTE_TEMPLATE,
+	DEFAULT_REPORT2_PROMPT,
 	DEFAULT_SETTINGS,
+	DEFAULT_SYNTHESIZE_PROMPT,
+	DEFAULT_TAKEAWAY_NOTE_TEMPLATE,
 	DEFAULT_ZOTERO_TEMPLATE,
 	MyPluginSettings,
 	PromptTemplateEntry,
@@ -14,6 +23,7 @@ import {
 	PaperHubService,
 	parseCoreNoteContent,
 	parseTakeawayCandidates,
+	renderNoteTemplateString,
 	resolveCitekeyTemplate,
 	resolvePaperPaths,
 	serializeCoreNoteContent,
@@ -370,6 +380,84 @@ describe('paper-hub pure helpers', () => {
 		});
 	});
 
+	describe('workspace, template, and prompt defaults', () => {
+		it('defines templatesFolder and report/takeaway labels on DEFAULT_PAPER_WORKSPACE and DEFAULT_SETTINGS', () => {
+			expect(DEFAULT_PAPER_WORKSPACE.templatesFolder).toBe('900-Templates');
+			expect(DEFAULT_PAPER_WORKSPACE.report1Label).toBe('Deep Report');
+			expect(DEFAULT_PAPER_WORKSPACE.report2Label).toBe('External Report');
+			expect(DEFAULT_PAPER_WORKSPACE.takeawayLabel).toBe('Takeaway');
+			expect(DEFAULT_SETTINGS.zoteroTemplate.vaultPath).toBe(
+				'900-Templates/zotero-note-template.md'
+			);
+
+			const templateEntries = DEFAULT_PROMPTS.filter((p) => p.kind === 'template');
+			const promptEntries = DEFAULT_PROMPTS.filter((p) => p.kind === 'prompt');
+			expect(templateEntries.map((p) => p.id)).toEqual([
+				'tpl-report1',
+				'tpl-report2',
+				'tpl-takeaway',
+				'tpl-core-note',
+				'tpl-atomic-note',
+			]);
+			expect(promptEntries.map((p) => p.id)).toEqual([
+				'synthesize',
+				'report1',
+				'report2',
+			]);
+		});
+	});
+
+	describe('renderNoteTemplateString', () => {
+		it('substitutes citekey, title (with single quote-escaping), source_path, custom date, and atomic_title', () => {
+			const rendered = renderNoteTemplateString(DEFAULT_REPORT1_NOTE_TEMPLATE, {
+				citekey: '  vaswani2017  ',
+				title: 'Attention "Is" Already \\"Escaped\\" $&',
+				sourcePath: '002-Literature/vaswani2017.md',
+				date: '2026-04-15',
+			});
+
+			expect(rendered).toContain('citation-key: vaswani2017');
+			expect(rendered).toContain('type: deep-report');
+			expect(rendered).toContain(
+				'title: "Deep Report - Attention \\"Is\\" Already \\"Escaped\\" $&"'
+			);
+			expect(rendered).toContain('source: "[[002-Literature/vaswani2017|vaswani2017]]"');
+			expect(rendered).toContain('create: 2026-04-15');
+
+			const fmMatch = rendered.match(/^---\n([\s\S]*?)\n---/);
+			expect(fmMatch).not.toBeNull();
+			expect(yaml.load(fmMatch![1])).toEqual({
+				'citation-key': 'vaswani2017',
+				type: 'deep-report',
+				title: 'Deep Report - Attention "Is" Already "Escaped" $&',
+				source: '[[002-Literature/vaswani2017|vaswani2017]]',
+				create: new Date('2026-04-15T00:00:00.000Z'),
+				tags: ['type/report/deep'],
+			});
+
+			const atomicRendered = renderNoteTemplateString(
+				'{{ citekey }} | {{ date }} | # {{ atomic_title }}',
+				{
+					citekey: 'smith2024',
+					atomicTitle: '  A - Systems - Leases  ',
+				}
+			);
+			expect(atomicRendered).toMatch(
+				/^smith2024 \| \d{4}-\d{2}-\d{2} \| # A - Systems - Leases$/
+			);
+
+			const fallbackRendered = renderNoteTemplateString(
+				'title="{{title}}" src="[[{{source_path}}]]" atom="{{atomic_title}}"',
+				{
+					citekey: 'bare2025',
+					title: '   ',
+					sourcePath: '   ',
+				}
+			);
+			expect(fallbackRendered).toBe('title="bare2025" src="[[bare2025]]" atom=""');
+		});
+	});
+
 	describe('parseCoreNoteContent and serializeCoreNoteContent', () => {
 		it('round-trips CoreNoteData with YAML frontmatter and markdown body', () => {
 			const input: CoreNoteData = {
@@ -382,6 +470,55 @@ describe('paper-hub pure helpers', () => {
 			const serialized = serializeCoreNoteContent(input);
 			const parsed = parseCoreNoteContent(serialized);
 			expect(parsed).toEqual(input);
+			expect(parsed.extraFrontmatter).toBeUndefined();
+		});
+
+		it('preserves extraFrontmatter keys (create, tags, title, custom type, nested dates) across parse and serialize', () => {
+			const rawWithExtras = [
+				'---',
+				'citation-key: extra2026',
+				'type: custom-paper-note',
+				'title: "Core - Extra Note"',
+				'source: "[[002-Literature/extra2026|extra2026]]"',
+				'create: 2026-05-01',
+				'reviewMeta:',
+				'  reviewedOn: 2026-05-02',
+				'  milestones:',
+				'    - 2026-05-03',
+				'projects:',
+				'  - "[[ProjX]]"',
+				'linked-notes:',
+				'  - "[[A - Extra - Claim]]"',
+				'tags:',
+				'  - type/paper-note',
+				'  - domain/systems',
+				'---',
+				'',
+				'Preserved body text.',
+			].join('\n');
+
+			const parsed = parseCoreNoteContent(rawWithExtras);
+			expect(parsed).toEqual({
+				citekey: 'extra2026',
+				source: '[[002-Literature/extra2026|extra2026]]',
+				projects: ['[[ProjX]]'],
+				linkedNotes: ['[[A - Extra - Claim]]'],
+				body: 'Preserved body text.',
+				extraFrontmatter: {
+					type: 'custom-paper-note',
+					title: 'Core - Extra Note',
+					create: '2026-05-01',
+					reviewMeta: {
+						reviewedOn: '2026-05-02',
+						milestones: ['2026-05-03'],
+					},
+					tags: ['type/paper-note', 'domain/systems'],
+				},
+			});
+
+			const reserialized = serializeCoreNoteContent(parsed);
+			expect(reserialized.indexOf('projects:')).toBeLessThan(reserialized.indexOf('tags:'));
+			expect(parseCoreNoteContent(reserialized)).toEqual(parsed);
 		});
 
 		it('serializes empty body cleanly and handles scalar strings, missing frontmatter, and invalid YAML', () => {
@@ -639,25 +776,63 @@ describe('PaperHubService', () => {
 		expect(state!.takeawayCandidates).toEqual([]);
 	});
 
-	it('createOrOpenReportFile returns existing files, creates empty markdown for report1/report2/takeaway, and serializes coreNote', async () => {
+	it('createOrOpenReportFile returns existing files untouched and renders YAML frontmatter templates for missing report1, report2, takeaway, and coreNote', async () => {
 		const litFile = makeVaultFile('002-Literature/open2025.md');
 		vaultFiles.set(litFile.path, litFile);
-		frontmatters.set(litFile.path, { 'citation-key': 'open2025' });
+		frontmatters.set(litFile.path, {
+			'citation-key': 'open2025',
+			title: 'Systems "Scale" Study',
+		});
 
-		// 1. Creates empty '' .md files for report1, report2, and takeaway without reading clipboard
+		const parseFm = (raw: string): Record<string, any> => {
+			const match = raw.match(/^---\n([\s\S]*?)\n---\n/);
+			expect(match).not.toBeNull();
+			const parsed = yaml.load(match![1]) as Record<string, any>;
+			if (parsed.create instanceof Date) {
+				parsed.create = parsed.create.toISOString().slice(0, 10);
+			}
+			return parsed;
+		};
+
+		// 1. Renders YAML frontmatter for report1, report2, and takeaway (not empty string '')
 		const r1 = await service.createOrOpenReportFile('open2025', 'report1', litFile);
 		expect(r1.path).toBe('002-Literature/102-Analysis Report/Deep Research-open2025.md');
-		expect(vaultContents.get(r1.path)).toBe('');
+		expect(vaultContents.get(r1.path)).not.toBe('');
+		expect(parseFm(vaultContents.get(r1.path)!)).toEqual({
+			'citation-key': 'open2025',
+			type: 'deep-report',
+			title: 'Deep Report - Systems "Scale" Study',
+			source: '[[002-Literature/open2025|open2025]]',
+			create: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+			tags: ['type/report/deep'],
+		});
 
 		const r2 = await service.createOrOpenReportFile('open2025', 'report2', litFile);
 		expect(r2.path).toBe(
 			'002-Literature/103-External Analysis Report/External Research-open2025.md'
 		);
-		expect(vaultContents.get(r2.path)).toBe('');
+		expect(vaultContents.get(r2.path)).not.toBe('');
+		expect(parseFm(vaultContents.get(r2.path)!)).toEqual({
+			'citation-key': 'open2025',
+			type: 'external-report',
+			title: 'External Report - Systems "Scale" Study',
+			source: '[[002-Literature/open2025|open2025]]',
+			create: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+			tags: ['type/report/external'],
+		});
 
+		// Resolves literatureFile from vault when omitted
 		const tw = await service.createOrOpenReportFile('open2025', 'takeaway');
 		expect(tw.path).toBe('002-Literature/101-Takeaways/Takeaway-open2025.md');
-		expect(vaultContents.get(tw.path)).toBe('');
+		expect(vaultContents.get(tw.path)).not.toBe('');
+		expect(parseFm(vaultContents.get(tw.path)!)).toEqual({
+			'citation-key': 'open2025',
+			type: 'takeaway',
+			title: 'Takeaway - Systems "Scale" Study',
+			source: '[[002-Literature/open2025|open2025]]',
+			create: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+			tags: ['literature-note', 'type/takeaway'],
+		});
 
 		// 2. Returns existing TFile without overwriting its content
 		vaultContents.set(r1.path, '# Populated Deep Report');
@@ -667,16 +842,36 @@ describe('PaperHubService', () => {
 		expect(vaultContents.get(r1.path)).toBe('# Populated Deep Report');
 		expect(app.vault.create).not.toHaveBeenCalled();
 
-		// 3. Creates serialized Core Note when missing
+		// 3. Renders tpl-core-note when missing and preserves create + tags in extraFrontmatter
 		const core = await service.createOrOpenReportFile('open2025', 'coreNote', litFile);
 		expect(core.path).toBe('002-Literature/104-Paper Notes/open2025.md');
+		expect(parseFm(vaultContents.get(core.path)!)).toEqual({
+			'citation-key': 'open2025',
+			type: 'paper-note',
+			source: '[[002-Literature/open2025|open2025]]',
+			create: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+			projects: [],
+			'linked-notes': [],
+			tags: ['type/paper-note'],
+		});
 		expect(parseCoreNoteContent(vaultContents.get(core.path)!)).toEqual({
 			citekey: 'open2025',
 			source: '[[002-Literature/open2025|open2025]]',
 			projects: [],
 			linkedNotes: [],
 			body: '',
+			extraFrontmatter: {
+				create: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+				tags: ['type/paper-note'],
+			},
 		});
+
+		// 4. Falls back to citekey title and built-in template constant when prompts array is empty
+		settings.prompts = [];
+		const noTitleR1 = await service.createOrOpenReportFile('notitle2026', 'report1');
+		expect(parseFm(vaultContents.get(noTitleR1.path)!).title).toBe(
+			'Deep Report - notitle2026'
+		);
 	});
 
 	it('rewriteCandidateLinkInTakeaway handles missing files, raw Markdown updates/insertions with word boundaries, and JSON envelopes', async () => {
@@ -847,7 +1042,7 @@ describe('PaperHubService', () => {
 		expect(frontmatters.get(litFile.path)?.code).toBe('https://github.com/org/first');
 	});
 
-	it('saveCoreNote creates and patches Core Note and syncs projects to literature frontmatter', async () => {
+	it('saveCoreNote creates and patches Core Note, preserves extraFrontmatter, and syncs projects to literature frontmatter', async () => {
 		const litFile = makeVaultFile('002-Literature/core2024.md');
 		frontmatters.set(litFile.path, { 'citation-key': 'core2024' });
 
@@ -857,6 +1052,11 @@ describe('PaperHubService', () => {
 				projects: ['[[Proj1]]'],
 				linkedNotes: ['[[A - Domain - Topic - Claim]]'],
 				body: 'Initial draft.',
+				extraFrontmatter: {
+					create: '2026-06-01',
+					title: 'Core Synthesis',
+					tags: ['type/paper-note', 'priority/high'],
+				},
 			},
 			litFile
 		);
@@ -867,9 +1067,14 @@ describe('PaperHubService', () => {
 			projects: ['[[Proj1]]'],
 			linkedNotes: ['[[A - Domain - Topic - Claim]]'],
 			body: 'Initial draft.',
+			extraFrontmatter: {
+				create: '2026-06-01',
+				title: 'Core Synthesis',
+				tags: ['type/paper-note', 'priority/high'],
+			},
 		});
 
-		// Patch body only -> preserves projects & linkedNotes without touching frontmatter again
+		// Patch body only -> preserves projects, linkedNotes, and extraFrontmatter
 		await service.saveCoreNote('core2024', { body: 'Refined claim.' });
 		expect(parseCoreNoteContent(vaultContents.get(created.path)!)).toEqual({
 			citekey: 'core2024',
@@ -877,10 +1082,202 @@ describe('PaperHubService', () => {
 			projects: ['[[Proj1]]'],
 			linkedNotes: ['[[A - Domain - Topic - Claim]]'],
 			body: 'Refined claim.',
+			extraFrontmatter: {
+				create: '2026-06-01',
+				title: 'Core Synthesis',
+				tags: ['type/paper-note', 'priority/high'],
+			},
 		});
 	});
 
-	it('getPromptContent and savePromptToVault read/write vault prompt files with fallback', async () => {
+	it('getBuiltInDefaultContent returns factory defaults for built-in templates and prompts and null for unknown ids', () => {
+		expect(service.getBuiltInDefaultContent('zotero-template')).toBe(DEFAULT_ZOTERO_TEMPLATE);
+		expect(service.getBuiltInDefaultContent('tpl-report1')).toBe(DEFAULT_REPORT1_NOTE_TEMPLATE);
+		expect(service.getBuiltInDefaultContent('tpl-report2')).toBe(DEFAULT_REPORT2_NOTE_TEMPLATE);
+		expect(service.getBuiltInDefaultContent('tpl-takeaway')).toBe(
+			DEFAULT_TAKEAWAY_NOTE_TEMPLATE
+		);
+		expect(service.getBuiltInDefaultContent('tpl-core-note')).toBe(DEFAULT_CORE_NOTE_TEMPLATE);
+		expect(service.getBuiltInDefaultContent('tpl-atomic-note')).toBe(
+			DEFAULT_ATOMIC_NOTE_TEMPLATE
+		);
+		expect(service.getBuiltInDefaultContent('synthesize')).toBe(DEFAULT_SYNTHESIZE_PROMPT);
+		expect(service.getBuiltInDefaultContent('report1')).toBe(DEFAULT_REPORT1_PROMPT);
+		expect(service.getBuiltInDefaultContent('report2')).toBe(DEFAULT_REPORT2_PROMPT);
+		expect(service.getBuiltInDefaultContent('custom-user-prompt')).toBeNull();
+		expect(service.getBuiltInDefaultContent('')).toBeNull();
+	});
+
+	it('ensureBuiltinTemplatesInVault guards bare App mocks without vault.create, materializes missing files, and skips existing files', async () => {
+		// 1. Bare App mock without vault.create returns 0 cleanly
+		const bareApp = new App();
+		delete (bareApp.vault as any).create;
+		const bareService = new PaperHubService(bareApp, () => settings);
+		await expect(bareService.ensureBuiltinTemplatesInVault()).resolves.toBe(0);
+
+		// 2. Pre-populate one existing prompt file with user customization -> must NOT be overwritten
+		const existingSynthPath = '900-Templates/prompt-synthesize.md';
+		const existingSynthFile = makeVaultFile(existingSynthPath);
+		vaultFiles.set(existingSynthPath, existingSynthFile);
+		vaultContents.set(existingSynthPath, '# User Customized Synthesize Prompt');
+
+		// Also verify empty vaultPath entries get populated under templatesFolder
+		settings.zoteroTemplate = { vaultPath: '', content: '' };
+		settings.prompts = settings.prompts.map((p) =>
+			p.id === 'tpl-report1' || p.id === 'report1'
+				? { ...p, vaultPath: '', content: '' }
+				: { ...p }
+		);
+
+		// 1 zoteroTemplate + 8 prompts - 1 pre-existing = 8 created files
+		const createdCount = await service.ensureBuiltinTemplatesInVault();
+		expect(createdCount).toBe(8);
+		expect(settings.zoteroTemplate.vaultPath).toBe('900-Templates/zotero-note-template.md');
+		expect(vaultContents.get('900-Templates/zotero-note-template.md')).toBe(
+			DEFAULT_ZOTERO_TEMPLATE
+		);
+		expect(vaultContents.get('900-Templates/report1-note-template.md')).toBe(
+			DEFAULT_REPORT1_NOTE_TEMPLATE
+		);
+		expect(vaultContents.get('900-Templates/prompt-report1.md')).toBe(DEFAULT_REPORT1_PROMPT);
+		expect(vaultContents.get(existingSynthPath)).toBe('# User Customized Synthesize Prompt');
+
+		// 3. Re-running when all files exist creates 0 files
+		(app.vault.create as jest.Mock).mockClear();
+		await expect(service.ensureBuiltinTemplatesInVault()).resolves.toBe(0);
+		expect(app.vault.create).not.toHaveBeenCalled();
+	});
+
+	it('moveTemplatesFolder handles no-op guards, fileManager.renameFile relocation, and read+create+delete fallback', async () => {
+		await service.ensureBuiltinTemplatesInVault();
+		settings.prompts.push({
+			id: 'outside',
+			name: 'Outside Custom',
+			kind: 'prompt',
+			vaultPath: 'CustomPrompts/outside.md',
+			content: 'Stay put',
+		});
+
+		// 1. Same or empty folder returns 0
+		await expect(service.moveTemplatesFolder('', '950-Templates')).resolves.toBe(0);
+		await expect(service.moveTemplatesFolder('900-Templates', '   ')).resolves.toBe(0);
+		await expect(
+			service.moveTemplatesFolder('900-Templates/', '900-Templates')
+		).resolves.toBe(0);
+
+		// 2. Relocates via fileManager.renameFile when available
+		const renameFile = jest.fn(async (file: TFile, newPath: string) => {
+			const content = vaultContents.get(file.path) ?? '';
+			vaultFiles.delete(file.path);
+			vaultContents.delete(file.path);
+			const moved = makeVaultFile(newPath);
+			vaultFiles.set(newPath, moved);
+			vaultContents.set(newPath, content);
+		});
+		(app as any).fileManager.renameFile = renameFile;
+
+		const movedViaRename = await service.moveTemplatesFolder(
+			'900-Templates',
+			'910-CustomTemplates'
+		);
+		expect(movedViaRename).toBe(9);
+		expect(renameFile).toHaveBeenCalledTimes(9);
+		expect(settings.zoteroTemplate.vaultPath).toBe(
+			'910-CustomTemplates/zotero-note-template.md'
+		);
+		expect(
+			settings.prompts.find((p) => p.id === 'tpl-takeaway')?.vaultPath
+		).toBe('910-CustomTemplates/takeaway-note-template.md');
+		expect(settings.prompts.find((p) => p.id === 'outside')?.vaultPath).toBe(
+			'CustomPrompts/outside.md'
+		);
+		expect(vaultFiles.has('910-CustomTemplates/zotero-note-template.md')).toBe(true);
+		expect(vaultFiles.has('900-Templates/zotero-note-template.md')).toBe(false);
+
+		// 3. Relocates via vault.read + vault.create + vault.delete fallback when renameFile is absent
+		delete (app as any).fileManager.renameFile;
+		const deleteMock = jest.fn(async (file: TFile) => {
+			vaultFiles.delete(file.path);
+			vaultContents.delete(file.path);
+		});
+		(app.vault as any).delete = deleteMock;
+
+		const movedViaFallback = await service.moveTemplatesFolder(
+			'910-CustomTemplates',
+			'920-FallbackTemplates'
+		);
+		expect(movedViaFallback).toBe(9);
+		expect(deleteMock).toHaveBeenCalledTimes(9);
+		expect(settings.zoteroTemplate.vaultPath).toBe(
+			'920-FallbackTemplates/zotero-note-template.md'
+		);
+		expect(vaultContents.get('920-FallbackTemplates/zotero-note-template.md')).toBe(
+			DEFAULT_ZOTERO_TEMPLATE
+		);
+		expect(vaultFiles.has('910-CustomTemplates/zotero-note-template.md')).toBe(false);
+	});
+
+	it('updateLiteratureCodeUrl updates frontmatter via processFrontMatter and supports regex update/insert/prepend fallbacks', async () => {
+		const litFile = makeVaultFile('002-Literature/code2026.md');
+		vaultFiles.set(litFile.path, litFile);
+		frontmatters.set(litFile.path, { 'citation-key': 'code2026', code: '' });
+
+		// 1. processFrontMatter branch
+		await service.updateLiteratureCodeUrl(litFile, '  https://github.com/org/repo-one  ');
+		expect((app as any).fileManager.processFrontMatter).toHaveBeenCalledTimes(1);
+		expect(frontmatters.get(litFile.path)?.code).toBe('https://github.com/org/repo-one');
+		expect(app.vault.modify).not.toHaveBeenCalled();
+
+		// 2. Fallback when fileManager.processFrontMatter is unavailable
+		(app as any).fileManager = undefined;
+
+		// 2a. Replaces existing `code:` line in YAML frontmatter
+		vaultContents.set(
+			litFile.path,
+			['---', 'citation-key: code2026', 'code: ""', 'year: 2026', '---', '', '# Body'].join(
+				'\n'
+			)
+		);
+		await service.updateLiteratureCodeUrl(litFile, 'https://github.com/org/repo-two');
+		expect(vaultContents.get(litFile.path)).toBe(
+			[
+				'---',
+				'citation-key: code2026',
+				'code: "https://github.com/org/repo-two"',
+				'year: 2026',
+				'---',
+				'',
+				'# Body',
+			].join('\n')
+		);
+
+		// 2b. Appends `code:` line into existing YAML frontmatter when absent
+		vaultContents.set(
+			litFile.path,
+			['---', 'citation-key: code2026', 'year: 2026', '---', '', '# Body'].join('\n')
+		);
+		await service.updateLiteratureCodeUrl(litFile, 'https://github.com/org/repo-three');
+		expect(vaultContents.get(litFile.path)).toBe(
+			[
+				'---',
+				'citation-key: code2026',
+				'year: 2026',
+				'code: "https://github.com/org/repo-three"',
+				'---',
+				'',
+				'# Body',
+			].join('\n')
+		);
+
+		// 2c. Prepends new YAML frontmatter block when file has no frontmatter
+		vaultContents.set(litFile.path, '# Plain Literature Note');
+		await service.updateLiteratureCodeUrl(litFile, 'https://github.com/org/repo-four');
+		expect(vaultContents.get(litFile.path)).toBe(
+			'---\ncode: "https://github.com/org/repo-four"\n---\n\n# Plain Literature Note'
+		);
+	});
+
+	it('getPromptContent and savePromptToVault read/write vault prompt and template files with fallback', async () => {
 		expect(await service.getPromptContent('nonexistent')).toBe('');
 
 		// Fallback to in-memory content when vault file doesn't exist yet
@@ -900,6 +1297,28 @@ describe('PaperHubService', () => {
 		customEntry.vaultPath = savedPath;
 
 		expect(await service.getPromptContent('custom1')).toBe('# Custom Vault Content');
+
+		// Default vaultPath resolution under templatesFolder for kind: 'template' vs 'prompt'
+		const blankTplEntry: PromptTemplateEntry = {
+			id: 'tpl-custom',
+			name: 'Custom Template',
+			kind: 'template',
+			vaultPath: '',
+			content: '',
+		};
+		const blankPromptEntry: PromptTemplateEntry = {
+			id: 'custom-prompt',
+			name: 'Custom Prompt',
+			kind: 'prompt',
+			vaultPath: '',
+			content: '',
+		};
+		await expect(service.savePromptToVault(blankTplEntry, '---\ntype: custom\n---')).resolves.toBe(
+			'900-Templates/custom-note-template.md'
+		);
+		await expect(service.savePromptToVault(blankPromptEntry, '# Prompt')).resolves.toBe(
+			'900-Templates/prompt-custom-prompt.md'
+		);
 	});
 });
 

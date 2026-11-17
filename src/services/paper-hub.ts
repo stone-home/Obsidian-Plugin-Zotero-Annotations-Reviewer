@@ -1,6 +1,16 @@
 import { App, TFile } from 'obsidian';
 import yaml from 'js-yaml';
 import {
+	DEFAULT_ATOMIC_NOTE_TEMPLATE,
+	DEFAULT_CORE_NOTE_TEMPLATE,
+	DEFAULT_PAPER_WORKSPACE,
+	DEFAULT_REPORT1_NOTE_TEMPLATE,
+	DEFAULT_REPORT1_PROMPT,
+	DEFAULT_REPORT2_NOTE_TEMPLATE,
+	DEFAULT_REPORT2_PROMPT,
+	DEFAULT_SYNTHESIZE_PROMPT,
+	DEFAULT_TAKEAWAY_NOTE_TEMPLATE,
+	DEFAULT_ZOTERO_TEMPLATE,
 	MyPluginSettings,
 	PaperWorkspaceConfig,
 	PromptTemplateEntry,
@@ -48,6 +58,15 @@ export interface CoreNoteData {
 	projects: string[];
 	linkedNotes: string[];
 	body: string;
+	extraFrontmatter?: Record<string, unknown>;
+}
+
+export interface NoteTemplateVars {
+	citekey: string;
+	title?: string;
+	sourcePath?: string;
+	date?: string;
+	atomicTitle?: string;
 }
 
 export interface FleetingNoteSummary {
@@ -316,6 +335,51 @@ export function parseTakeawayCandidates(raw: string): TakeawayCandidate[] {
 	});
 }
 
+function formatTodayIso(): string {
+	return new Date().toISOString().slice(0, 10);
+}
+
+export function renderNoteTemplateString(template: string, vars: NoteTemplateVars): string {
+	const cleanCitekey = vars.citekey.trim();
+	const rawTitle = (
+		vars.title !== undefined && vars.title.trim() ? vars.title : cleanCitekey
+	).trim();
+	const escapedTitle = rawTitle.replace(/\\"/g, '"').replace(/"/g, '\\"');
+	const cleanSourcePath = (
+		vars.sourcePath !== undefined && vars.sourcePath.trim()
+			? vars.sourcePath
+			: cleanCitekey
+	)
+		.trim()
+		.replace(/\.md$/i, '');
+	const cleanDate = vars.date?.trim() || formatTodayIso();
+	const cleanAtomicTitle = (vars.atomicTitle ?? '').trim();
+
+	return template
+		.replace(/\{\{\s*citekey\s*\}\}/g, () => cleanCitekey)
+		.replace(/\{\{\s*title\s*\}\}/g, () => escapedTitle)
+		.replace(/\{\{\s*source_path\s*\}\}/g, () => cleanSourcePath)
+		.replace(/\{\{\s*date\s*\}\}/g, () => cleanDate)
+		.replace(/\{\{\s*atomic_title\s*\}\}/g, () => cleanAtomicTitle);
+}
+
+function normalizeYamlScalar(val: unknown): unknown {
+	if (val instanceof Date && !isNaN(val.getTime())) {
+		return val.toISOString().slice(0, 10);
+	}
+	if (Array.isArray(val)) {
+		return val.map(normalizeYamlScalar);
+	}
+	if (val && typeof val === 'object') {
+		const out: Record<string, unknown> = {};
+		for (const [k, v] of Object.entries(val as Record<string, unknown>)) {
+			out[k] = normalizeYamlScalar(v);
+		}
+		return out;
+	}
+	return val;
+}
+
 export function parseCoreNoteContent(raw: string, fallbackCitekey = ''): CoreNoteData {
 	const fmMatch = raw.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/);
 	if (!fmMatch) {
@@ -344,23 +408,62 @@ export function parseCoreNoteContent(raw: string, fallbackCitekey = ''): CoreNot
 	const projects = toStringList(fm['projects']);
 	const linkedNotes = toStringList(fm['linked-notes'] ?? fm['linkedNotes']);
 
+	const extra: Record<string, unknown> = {};
+	for (const [key, value] of Object.entries(fm)) {
+		if (
+			key === 'citation-key' ||
+			key === 'citekey' ||
+			key === 'source' ||
+			key === 'projects' ||
+			key === 'linked-notes' ||
+			key === 'linkedNotes' ||
+			(key === 'type' && value === 'paper-note')
+		) {
+			continue;
+		}
+		extra[key] = normalizeYamlScalar(value);
+	}
+
 	return {
 		citekey,
 		source,
 		projects,
 		linkedNotes,
 		body: fmMatch[2].trim(),
+		...(Object.keys(extra).length > 0 ? { extraFrontmatter: extra } : {}),
 	};
 }
 
 export function serializeCoreNoteContent(data: CoreNoteData): string {
+	const extra = data.extraFrontmatter ?? {};
 	const fmObj: Record<string, unknown> = {
 		'citation-key': data.citekey,
-		type: 'paper-note',
+		type:
+			typeof extra['type'] === 'string' && extra['type'].trim()
+				? extra['type'].trim()
+				: 'paper-note',
 		source: data.source || (data.citekey ? `[[${data.citekey}]]` : ''),
-		projects: data.projects,
-		'linked-notes': data.linkedNotes,
 	};
+	for (const [key, value] of Object.entries(extra)) {
+		if (
+			key === 'citation-key' ||
+			key === 'citekey' ||
+			key === 'type' ||
+			key === 'source' ||
+			key === 'projects' ||
+			key === 'linked-notes' ||
+			key === 'linkedNotes' ||
+			key === 'tags'
+		) {
+			continue;
+		}
+		fmObj[key] = value;
+	}
+	fmObj['projects'] = data.projects;
+	fmObj['linked-notes'] = data.linkedNotes;
+	if ('tags' in extra && extra['tags'] !== undefined) {
+		fmObj['tags'] = extra['tags'];
+	}
 	const yamlBlock = yaml.dump(fmObj, { lineWidth: -1 }).trimEnd();
 	const body = data.body.trim();
 	return body ? `---\n${yamlBlock}\n---\n\n${body}\n` : `---\n${yamlBlock}\n---\n`;
@@ -382,11 +485,12 @@ export class PaperHubService {
 		return trimmed.length > 0 ? trimmed : null;
 	}
 
-	async ensureParentFolder(filePath: string): Promise<void> {
-		const normalized = normalizePath(filePath);
-		const folders = normalized.split('/').slice(0, -1).filter(Boolean);
+	private async ensureFolderExists(folderPath: string): Promise<void> {
+		const normalized = normalizePath(folderPath).replace(/\/+$/, '');
+		if (!normalized) return;
+		const segments = normalized.split('/').filter(Boolean);
 		let current = '';
-		for (const segment of folders) {
+		for (const segment of segments) {
 			current = current ? `${current}/${segment}` : segment;
 			if (!this.app.vault.getAbstractFileByPath(current)) {
 				try {
@@ -397,6 +501,12 @@ export class PaperHubService {
 				}
 			}
 		}
+	}
+
+	async ensureParentFolder(filePath: string): Promise<void> {
+		const normalized = normalizePath(filePath);
+		const parentFolder = normalized.split('/').slice(0, -1).filter(Boolean).join('/');
+		await this.ensureFolderExists(parentFolder);
 	}
 
 	private getVaultFile(path: string): TFile | null {
@@ -546,17 +656,46 @@ export class PaperHubService {
 		kind: 'takeaway' | 'report1' | 'report2' | 'coreNote',
 		literatureFile?: TFile
 	): Promise<TFile> {
-		const paths = resolvePaperPaths(this.getSettings().paperWorkspace, citekey);
+		const cleanKey = citekey.trim();
+		const paths = resolvePaperPaths(this.getSettings().paperWorkspace, cleanKey);
 		const targetPath = normalizePath(paths[kind]);
 		const existing = this.getVaultFile(targetPath);
 		if (existing) return existing;
 
-		if (kind === 'coreNote') {
-			return await this.saveCoreNote(citekey, {}, literatureFile);
-		}
+		const tplMap: Record<
+			'takeaway' | 'report1' | 'report2' | 'coreNote',
+			{ id: string; fallback: string }
+		> = {
+			report1: { id: 'tpl-report1', fallback: DEFAULT_REPORT1_NOTE_TEMPLATE },
+			report2: { id: 'tpl-report2', fallback: DEFAULT_REPORT2_NOTE_TEMPLATE },
+			takeaway: { id: 'tpl-takeaway', fallback: DEFAULT_TAKEAWAY_NOTE_TEMPLATE },
+			coreNote: { id: 'tpl-core-note', fallback: DEFAULT_CORE_NOTE_TEMPLATE },
+		};
+
+		const { id: tplId, fallback } = tplMap[kind];
+		const rawTemplate = (await this.getPromptContent(tplId)) || fallback;
+
+		const resolvedLitFile = literatureFile ?? this.getVaultFile(paths.literatureNote);
+		const fm = resolvedLitFile
+			? this.app.metadataCache.getFileCache(resolvedLitFile)?.frontmatter
+			: undefined;
+		const rawTitle =
+			fm?.['title'] !== undefined && fm?.['title'] !== null
+				? String(fm['title']).trim()
+				: '';
+		const sourcePath = (literatureFile?.path ?? paths.literatureNote).replace(
+			/\.md$/i,
+			''
+		);
+
+		const initialContent = renderNoteTemplateString(rawTemplate, {
+			citekey: cleanKey,
+			title: rawTitle || cleanKey,
+			sourcePath,
+		});
 
 		await this.ensureParentFolder(targetPath);
-		return await this.app.vault.create(targetPath, '');
+		return await this.app.vault.create(targetPath, initialContent);
 	}
 
 	async rewriteCandidateLinkInTakeaway(
@@ -674,6 +813,11 @@ export class PaperHubService {
 					body: '',
 				};
 
+		const nextExtra =
+			patch.extraFrontmatter !== undefined
+				? patch.extraFrontmatter
+				: current.extraFrontmatter;
+
 		const merged: CoreNoteData = {
 			citekey,
 			source: patch.source !== undefined ? patch.source : current.source || defaultSource,
@@ -681,6 +825,9 @@ export class PaperHubService {
 			linkedNotes:
 				patch.linkedNotes !== undefined ? [...patch.linkedNotes] : current.linkedNotes,
 			body: patch.body !== undefined ? patch.body : current.body,
+			...(nextExtra && Object.keys(nextExtra).length > 0
+				? { extraFrontmatter: nextExtra }
+				: {}),
 		};
 
 		const saved = await this.writeVaultFile(paths.coreNote, serializeCoreNoteContent(merged));
@@ -699,6 +846,193 @@ export class PaperHubService {
 		return saved;
 	}
 
+	async updateLiteratureCodeUrl(literatureFile: TFile, codeUrl: string): Promise<void> {
+		const trimmed = codeUrl.trim();
+		const processFm = (
+			this.app as unknown as {
+				fileManager?: {
+					processFrontMatter?: (
+						f: TFile,
+						cb: (frontmatter: Record<string, unknown>) => void
+					) => Promise<void>;
+				};
+			}
+		).fileManager?.processFrontMatter;
+
+		if (typeof processFm === 'function') {
+			await processFm.call(this.app.fileManager, literatureFile, (fm) => {
+				fm['code'] = trimmed;
+			});
+			return;
+		}
+
+		const escaped = trimmed.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+		const raw = await this.app.vault.read(literatureFile);
+		const fmMatch = raw.match(/^---\r?\n([\s\S]*?)\r?\n---(\r?\n?[\s\S]*)$/);
+		if (fmMatch) {
+			const fmBody = fmMatch[1];
+			const rest = fmMatch[2];
+			const codeLineRe = /^code[ \t]*:.*$/m;
+			const nextFmBody = codeLineRe.test(fmBody)
+				? fmBody.replace(codeLineRe, () => `code: "${escaped}"`)
+				: `${fmBody}\ncode: "${escaped}"`;
+			await this.app.vault.modify(literatureFile, `---\n${nextFmBody}\n---${rest}`);
+		} else {
+			await this.app.vault.modify(
+				literatureFile,
+				`---\ncode: "${escaped}"\n---\n\n${raw}`
+			);
+		}
+	}
+
+	getBuiltInDefaultContent(id: string): string | null {
+		switch (id) {
+			case 'zotero-template':
+				return DEFAULT_ZOTERO_TEMPLATE;
+			case 'tpl-report1':
+				return DEFAULT_REPORT1_NOTE_TEMPLATE;
+			case 'tpl-report2':
+				return DEFAULT_REPORT2_NOTE_TEMPLATE;
+			case 'tpl-takeaway':
+				return DEFAULT_TAKEAWAY_NOTE_TEMPLATE;
+			case 'tpl-core-note':
+				return DEFAULT_CORE_NOTE_TEMPLATE;
+			case 'tpl-atomic-note':
+				return DEFAULT_ATOMIC_NOTE_TEMPLATE;
+			case 'synthesize':
+				return DEFAULT_SYNTHESIZE_PROMPT;
+			case 'report1':
+				return DEFAULT_REPORT1_PROMPT;
+			case 'report2':
+				return DEFAULT_REPORT2_PROMPT;
+			default:
+				return null;
+		}
+	}
+
+	async ensureBuiltinTemplatesInVault(): Promise<number> {
+		if (typeof this.app.vault.create !== 'function') return 0;
+
+		const settings = this.getSettings();
+		const templatesFolder = normalizePath(
+			settings.paperWorkspace?.templatesFolder?.trim() ||
+				DEFAULT_PAPER_WORKSPACE.templatesFolder
+		).replace(/\/+$/, '');
+		await this.ensureFolderExists(templatesFolder);
+
+		let createdCount = 0;
+
+		const rawZotPath =
+			settings.zoteroTemplate?.vaultPath?.trim() ||
+			`${templatesFolder}/zotero-note-template.md`;
+		const zotPath = normalizePath(
+			/\.[^/\\]+$/.test(rawZotPath) ? rawZotPath : `${rawZotPath}.md`
+		);
+		if (settings.zoteroTemplate && !settings.zoteroTemplate.vaultPath?.trim()) {
+			settings.zoteroTemplate.vaultPath = zotPath;
+		}
+		if (!this.getVaultFile(zotPath) && !this.app.vault.getAbstractFileByPath(zotPath)) {
+			await this.ensureParentFolder(zotPath);
+			const zotContent = settings.zoteroTemplate?.content || DEFAULT_ZOTERO_TEMPLATE;
+			await this.app.vault.create(zotPath, zotContent);
+			createdCount += 1;
+		}
+
+		for (const entry of settings.prompts || []) {
+			const defaultFilename =
+				entry.kind === 'template'
+					? `${entry.id.replace(/^tpl-/, '')}-note-template.md`
+					: `prompt-${entry.id}.md`;
+			const rawEntryPath =
+				entry.vaultPath?.trim() || `${templatesFolder}/${defaultFilename}`;
+			const entryPath = normalizePath(
+				rawEntryPath.toLowerCase().endsWith('.md') ? rawEntryPath : `${rawEntryPath}.md`
+			);
+			if (!entry.vaultPath?.trim()) {
+				entry.vaultPath = entryPath;
+			}
+			if (
+				!this.getVaultFile(entryPath) &&
+				!this.app.vault.getAbstractFileByPath(entryPath)
+			) {
+				await this.ensureParentFolder(entryPath);
+				const initialContent =
+					entry.content || this.getBuiltInDefaultContent(entry.id) || '';
+				await this.app.vault.create(entryPath, initialContent);
+				createdCount += 1;
+			}
+		}
+
+		return createdCount;
+	}
+
+	async moveTemplatesFolder(oldFolder: string, newFolder: string): Promise<number> {
+		const oldNorm = normalizePath(oldFolder.trim()).replace(/\/+$/, '');
+		const newNorm = normalizePath(newFolder.trim()).replace(/\/+$/, '');
+		if (!oldNorm || !newNorm || oldNorm === newNorm) return 0;
+
+		await this.ensureFolderExists(newNorm);
+
+		const settings = this.getSettings();
+		const oldPrefix = `${oldNorm}/`;
+		let movedCount = 0;
+
+		const relocateVaultPath = async (currentRawPath: string): Promise<string | null> => {
+			const trimmed = currentRawPath.trim();
+			if (!trimmed) return null;
+			const currentNorm = normalizePath(trimmed);
+			if (!currentNorm.startsWith(oldPrefix)) return null;
+
+			const relSubpath = currentNorm.slice(oldPrefix.length);
+			if (!relSubpath) return null;
+			const destPath = normalizePath(`${newNorm}/${relSubpath}`);
+			await this.ensureParentFolder(destPath);
+
+			const srcFile = this.getVaultFile(currentNorm);
+			const destExisting = this.app.vault.getAbstractFileByPath(destPath);
+			if (srcFile && !destExisting) {
+				const renameFn = (
+					this.app as unknown as {
+						fileManager?: {
+							renameFile?: (file: TFile, newPath: string) => Promise<void>;
+						};
+					}
+				).fileManager?.renameFile;
+				if (typeof renameFn === 'function') {
+					await renameFn.call(this.app.fileManager, srcFile, destPath);
+				} else if (typeof this.app.vault.create === 'function') {
+					const content = await this.app.vault.read(srcFile);
+					await this.app.vault.create(destPath, content);
+					await (
+						this.app.vault as unknown as {
+							delete?: (f: TFile) => Promise<void>;
+						}
+					).delete?.(srcFile);
+				}
+			}
+			return destPath;
+		};
+
+		if (settings.zoteroTemplate?.vaultPath) {
+			const nextZot = await relocateVaultPath(settings.zoteroTemplate.vaultPath);
+			if (nextZot) {
+				settings.zoteroTemplate.vaultPath = nextZot;
+				movedCount += 1;
+			}
+		}
+
+		for (const entry of settings.prompts || []) {
+			if (!entry.vaultPath) continue;
+			const nextPath = await relocateVaultPath(entry.vaultPath);
+			if (nextPath) {
+				entry.vaultPath = nextPath;
+				movedCount += 1;
+			}
+		}
+
+		return movedCount;
+	}
+
 	async getPromptContent(promptId: string): Promise<string> {
 		const entry = this.getSettings().prompts.find((p) => p.id === promptId);
 		if (!entry) return '';
@@ -712,7 +1046,15 @@ export class PaperHubService {
 	}
 
 	async savePromptToVault(entry: PromptTemplateEntry, content: string): Promise<string> {
-		const rawPath = (entry.vaultPath || `002-Literature/100-Prompts/${entry.id}.md`).trim();
+		const folder = normalizePath(
+			this.getSettings().paperWorkspace?.templatesFolder?.trim() ||
+				DEFAULT_PAPER_WORKSPACE.templatesFolder
+		).replace(/\/+$/, '');
+		const defaultFile =
+			entry.kind === 'template'
+				? `${entry.id.replace(/^tpl-/, '')}-note-template.md`
+				: `prompt-${entry.id}.md`;
+		const rawPath = (entry.vaultPath || `${folder}/${defaultFile}`).trim();
 		const targetPath = normalizePath(rawPath.endsWith('.md') ? rawPath : `${rawPath}.md`);
 		await this.writeVaultFile(targetPath, content);
 		return targetPath;

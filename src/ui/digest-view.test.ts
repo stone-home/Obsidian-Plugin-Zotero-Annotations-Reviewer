@@ -1,4 +1,4 @@
-import { requestUrl } from 'obsidian';
+import { requestUrl, TFile } from 'obsidian';
 import { PaperDigestView } from './digest-view';
 
 type El = HTMLElement & Record<string, any>;
@@ -23,7 +23,7 @@ function enhance(el: HTMLElement): El {
 	node.empty = () => {
 		node.innerHTML = '';
 	};
-	node.addClass = (cls: string) => node.classList.add(cls);
+	node.addClass = (...cls: string[]) => node.classList.add(...cls);
 	node.toggleClass = (cls: string, on: boolean) => node.classList.toggle(cls, on);
 	node.setAttr = (key: string, value: string) => node.setAttribute(key, value);
 	return node;
@@ -42,11 +42,56 @@ function makePlugin(digest: Record<string, unknown>, store: Record<string, unkno
 			JSON.stringify({ version: 1, records: store, invalid: [] }),
 		],
 	]);
+	const vaultFiles = new Map<string, TFile>();
+	const vaultContents = new Map<string, string>();
+	const frontmatters = new Map<string, Record<string, unknown>>();
+	const openFile = jest.fn(async () => undefined);
+
+	const addVaultNote = (
+		path: string,
+		fm: Record<string, unknown> = {},
+		content = '',
+		mtime = 1000
+	): TFile => {
+		const file = new TFile();
+		const name = path.split('/').pop() || path;
+		const basename = name.replace(/\.md$/i, '');
+		Object.assign(file, {
+			path,
+			name,
+			basename,
+			extension: 'md',
+			stat: { mtime, ctime: mtime, size: content.length },
+		});
+		vaultFiles.set(path, file);
+		vaultContents.set(path, content);
+		frontmatters.set(path, fm);
+		return file;
+	};
+
 	const plugin: any = {
 		app: {
 			scope: {},
+			workspace: {
+				getLeaf: jest.fn(() => ({ openFile })),
+				openLinkText: jest.fn(async () => undefined),
+			},
+			metadataCache: {
+				getFileCache: (f: TFile) => {
+					const fm = frontmatters.get(f.path);
+					return fm ? { frontmatter: fm } : null;
+				},
+			},
 			vault: {
 				configDir: '.obsidian',
+				getMarkdownFiles: () => Array.from(vaultFiles.values()),
+				getAbstractFileByPath: (p: string) => vaultFiles.get(p) ?? null,
+				read: async (f: TFile) => vaultContents.get(f.path) ?? '',
+				modify: async (f: TFile, content: string) => {
+					vaultContents.set(f.path, content);
+				},
+				create: async (p: string, content: string) => addVaultNote(p, {}, content),
+				createFolder: async () => undefined,
 				adapter: {
 					exists: async (path: string) => disk.has(path),
 					read: async (path: string) => disk.get(path),
@@ -62,7 +107,7 @@ function makePlugin(digest: Record<string, unknown>, store: Record<string, unkno
 		settings: { zoteroPort: 23119, digest },
 		saveSettings: jest.fn(async () => undefined),
 	};
-	return { plugin, disk };
+	return { plugin, disk, addVaultNote, openFile, vaultContents };
 }
 
 const paper = (key: string, extra: Record<string, unknown> = {}) => ({
@@ -78,7 +123,7 @@ async function openView(
 	digest: Record<string, unknown>,
 	store: Record<string, unknown>
 ) {
-	const { plugin, disk } = makePlugin(digest, store);
+	const { plugin, disk, addVaultNote, openFile, vaultContents } = makePlugin(digest, store);
 	const view = new PaperDigestView({} as any, plugin) as any;
 	view.app = plugin.app;
 	view.contentEl = enhance(document.createElement('div'));
@@ -96,7 +141,7 @@ async function openView(
 	};
 	const saved = () =>
 		JSON.parse(disk.get('plugin/digest-store.json') as string).records;
-	return { view, root, texts, click, saved, plugin };
+	return { view, root, texts, click, saved, plugin, addVaultNote, openFile, vaultContents };
 }
 
 describe('PaperDigestView', () => {
@@ -320,5 +365,120 @@ describe('PaperDigestView', () => {
 			'.zotero-digest-actions button'
 		);
 		expect(Array.from(buttons).every((button) => button.disabled)).toBe(true);
+	});
+
+	it('displays "Paper House" and renders segmented tabs in [Digest, Library] order with Digest active by default', async () => {
+		const { view, root, texts } = await openView({}, { a: paper('a') });
+
+		expect(view.getDisplayText()).toBe('Paper House');
+		expect(texts('.zotero-hub-seg-btn')).toEqual(['Digest', 'Library']);
+
+		const segButtons = Array.from(
+			root.querySelectorAll<HTMLButtonElement>('.zotero-hub-seg-btn')
+		);
+		expect(segButtons[0].classList.contains('is-active')).toBe(true);
+		expect(segButtons[1].classList.contains('is-active')).toBe(false);
+	});
+
+	it('renders "Open Note" without Enter binding in Library tab and renders mutually exclusive "Write Core Note" vs "Open" Core Note actions', async () => {
+		const { view, root, texts, click, addVaultNote, openFile, vaultContents } =
+			await openView({}, {});
+
+		const alphaFile = addVaultNote('002-Literature/alpha2025.md', {
+			'citation-key': 'alpha2025',
+			title: 'Alpha Systems Paper',
+			year: 2025,
+			type: 'literature',
+		});
+		addVaultNote('002-Literature/beta2024.md', {
+			'citation-key': 'beta2024',
+			title: 'Beta Storage Paper',
+			year: 2024,
+			type: 'literature',
+		});
+		const betaCoreFile = addVaultNote(
+			'002-Literature/104-Paper Notes/beta2024.md',
+			{ 'citation-key': 'beta2024', type: 'paper-note' },
+			[
+				'---',
+				'citation-key: beta2024',
+				'type: paper-note',
+				'source: "[[002-Literature/beta2024|beta2024]]"',
+				'projects: []',
+				'linked-notes: []',
+				'---',
+				'',
+				'Existing core synthesis body.',
+			].join('\n')
+		);
+
+		// Switch from Digest to Library
+		await click('.zotero-hub-seg-btn', 'Library');
+		const segButtons = Array.from(
+			root.querySelectorAll<HTMLButtonElement>('.zotero-hub-seg-btn')
+		);
+		expect(segButtons[0].classList.contains('is-active')).toBe(false);
+		expect(segButtons[1].classList.contains('is-active')).toBe(true);
+		expect(texts('.zotero-library-row .zotero-digest-list-title')).toEqual([
+			'Alpha Systems Paper',
+			'Beta Storage Paper',
+		]);
+
+		// Action button says "Open Note", never "Open Note (Enter)"
+		const actionTexts = texts('.zotero-library-actions button');
+		expect(actionTexts).toContain('Open Note');
+		expect(actionTexts).not.toContain('Open Note (Enter)');
+		expect(root.textContent).not.toContain('Open Note (Enter)');
+
+		// Pressing Enter in Library does NOT open the selected note
+		const enterEvt = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true });
+		Object.defineProperty(enterEvt, 'target', { value: root });
+		root.dispatchEvent(enterEvt);
+		const enterBinding = (view.scope.register as jest.Mock).mock.calls.find(
+			(call: any[]) => call[1] === 'Enter'
+		);
+		expect(enterBinding).toBeDefined();
+		enterBinding![2](enterEvt);
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		expect(openFile).not.toHaveBeenCalled();
+
+		// Clicking "Open Note" explicitly opens the selected note
+		await click('.zotero-library-actions button', 'Open Note');
+		expect(openFile).toHaveBeenCalledTimes(1);
+		expect(openFile).toHaveBeenCalledWith(alphaFile);
+		openFile.mockClear();
+
+		// 1. When hasCoreNote is false (alpha2025): renders ONLY "Write Core Note" (never "Open")
+		expect(texts('.zotero-library-core-card button')).toEqual(['Write Core Note']);
+		expect(texts('.zotero-library-core-card button')).not.toContain('Open');
+		expect(root.querySelector('.zotero-library-core-card')?.textContent).toContain(
+			'No Core Note yet.'
+		);
+		expect(root.querySelectorAll('.zotero-library-core-card textarea')).toHaveLength(0);
+
+		// 2. When hasCoreNote is true (beta2024): renders ONLY "Open" (never "Write Core Note")
+		await click('.zotero-library-row', 'Beta Storage Paper');
+		expect(texts('.zotero-library-core-card button')).toEqual(['Open']);
+		expect(texts('.zotero-library-core-card button')).not.toContain('Write Core Note');
+		expect(root.querySelector('.zotero-library-core-text')?.textContent).toContain(
+			'Existing core synthesis body.'
+		);
+		expect(root.querySelectorAll('.zotero-library-core-card textarea')).toHaveLength(0);
+
+		await click('.zotero-library-core-card button', 'Open');
+		expect(openFile).toHaveBeenCalledTimes(1);
+		expect(openFile).toHaveBeenCalledWith(betaCoreFile);
+		openFile.mockClear();
+
+		// 3. Clicking "Write Core Note" on alpha2025 materializes the Core Note and switches action exclusively to "Open"
+		await click('.zotero-library-row', 'Alpha Systems Paper');
+		expect(texts('.zotero-library-core-card button')).toEqual(['Write Core Note']);
+		await click('.zotero-library-core-card button', 'Write Core Note');
+		expect(openFile).toHaveBeenCalledTimes(1);
+		expect(vaultContents.get('002-Literature/104-Paper Notes/alpha2025.md')).toContain(
+			'type: paper-note'
+		);
+		expect(texts('.zotero-library-core-card button')).toEqual(['Open']);
+		expect(texts('.zotero-library-core-card button')).not.toContain('Write Core Note');
 	});
 });

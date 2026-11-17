@@ -1,4 +1,5 @@
 import { App, TFile } from 'obsidian';
+import yaml from 'js-yaml';
 import {
 	DEFAULT_PAPER_WORKSPACE,
 	DEFAULT_SETTINGS,
@@ -220,6 +221,9 @@ describe('VaultLibraryService', () => {
 		const permanentNote = registerFile('003-Permanent/A - Sys - Cache - Lease.md');
 		const cfpNote = registerFile('CFP/OSDI/OSDI 2025.md');
 		const promptNote = registerFile('002-Literature/100-Prompts/synthesize.md');
+		const templateNote = registerFile('900-Templates/zotero-note-template.md', {
+			type: 'literature',
+		});
 
 		expect(library.isPrimaryLiteratureFile(primary)).toBe(true);
 		expect(library.isPrimaryLiteratureFile(outsideTyped)).toBe(true);
@@ -237,6 +241,7 @@ describe('VaultLibraryService', () => {
 		expect(library.isPrimaryLiteratureFile(permanentNote)).toBe(false);
 		expect(library.isPrimaryLiteratureFile(cfpNote)).toBe(false);
 		expect(library.isPrimaryLiteratureFile(promptNote)).toBe(false);
+		expect(library.isPrimaryLiteratureFile(templateNote)).toBe(false);
 	});
 
 	it('listLiteraturePapers and searchPapers sort and filter across venue, Core Note, Takeaway, and query text', async () => {
@@ -635,7 +640,7 @@ describe('VaultLibraryService', () => {
 		});
 		expect(vaultContents.get(silentAtomic.path)).toBe('# Batching');
 
-		// 3. Create mode sanitizes filename, writes permanent frontmatter, and updates CoreNote.linkedNotes
+		// 3. Create mode sanitizes filename, renders tpl-atomic-note frontmatter with merged tags, and updates CoreNote.linkedNotes
 		const createdAtomic = await library.connectCandidateToVault({
 			literatureFile: litFile,
 			citekey: 'smith2024',
@@ -648,7 +653,7 @@ describe('VaultLibraryService', () => {
 				evidence: '3x lower write amplification',
 				brief: 'Tiered compaction amortizes SSTable merges.',
 				relatedPapers: '',
-				tags: ['storage/lsm'],
+				tags: ['storage/lsm', '#type/atomic'],
 			},
 			mode: 'create',
 		});
@@ -658,9 +663,19 @@ describe('VaultLibraryService', () => {
 		);
 		const createdText = vaultContents.get(createdAtomic.path)!;
 		expect(createdText).toContain('type: permanent');
+		expect(createdText).toMatch(/^create: \d{4}-\d{2}-\d{2}$/m);
 		expect(createdText).toContain('sources:\n  - "[[002-Literature/smith2024|smith2024]]"');
-		expect(createdText).toContain('tags:\n  - storage/lsm');
+		expect(createdText).toContain('# A - Systems - Storage- Write-Amplification-');
 		expect(createdText).toContain('Tiered compaction amortizes SSTable merges.');
+		expect(createdText).toContain('### Evidence from [[002-Literature/smith2024|smith2024]]');
+
+		const createdFmMatch = createdText.match(/^---\n([\s\S]*?)\n---/);
+		expect(createdFmMatch).not.toBeNull();
+		const createdFm = yaml.load(createdFmMatch![1]) as Record<string, any>;
+		expect(createdFm.type).toBe('permanent');
+		expect(createdFm.sources).toEqual(['[[002-Literature/smith2024|smith2024]]']);
+		expect(createdFm.tags).toEqual(expect.arrayContaining(['type/atomic', 'storage/lsm']));
+		expect(createdFm.tags).toHaveLength(2);
 
 		const coreNotePath = resolvePaperPaths(settings.paperWorkspace, 'smith2024').coreNote;
 		const savedCore = parseCoreNoteContent(vaultContents.get(coreNotePath)!);
@@ -669,6 +684,69 @@ describe('VaultLibraryService', () => {
 			'[[A - Systems - RPC - Batching]]',
 			'[[A - Systems - Storage- Write-Amplification-]]',
 		]);
+	});
+
+	it('connectCandidateToVault in create mode merges tags into custom tpl-atomic-note templates with empty or missing tags keys', async () => {
+		const litFile = registerFile('002-Literature/customtpl2026.md', {
+			'citation-key': 'customtpl2026',
+			title: 'Custom Atomic Template Paper',
+		});
+		const tplEntry = settings.prompts.find((p) => p.id === 'tpl-atomic-note')!;
+
+		// 1. Custom template with `tags: []`
+		tplEntry.content = [
+			'---',
+			'type: permanent',
+			'paper: "{{title}}"',
+			'tags: []',
+			'---',
+			'',
+			'# {{atomic_title}}',
+		].join('\n');
+		const emptyTagsCreated = await library.connectCandidateToVault({
+			literatureFile: litFile,
+			citekey: 'customtpl2026',
+			candidate: {
+				index: 1,
+				heading: '[[A - Custom - Empty Tags]]',
+				linkTitle: 'A - Custom - Empty Tags',
+				linkStatus: 'Proposed',
+				storyline: '',
+				evidence: '',
+				brief: '',
+				relatedPapers: '',
+				tags: ['#custom/one', 'custom/two'],
+			},
+			mode: 'create',
+			appendEvidence: false,
+		});
+		const emptyTagsText = vaultContents.get(emptyTagsCreated.path)!;
+		expect(emptyTagsText).toContain('paper: "Custom Atomic Template Paper"');
+		expect(emptyTagsText).toContain('tags:\n  - custom/one\n  - custom/two');
+		expect(emptyTagsText.trimEnd().endsWith('# A - Custom - Empty Tags')).toBe(true);
+
+		// 2. Custom template without any `tags:` key
+		tplEntry.content = ['---', 'type: permanent', '---', '', '# {{atomic_title}}'].join('\n');
+		const noTagsKeyCreated = await library.connectCandidateToVault({
+			literatureFile: litFile,
+			citekey: 'customtpl2026',
+			candidate: {
+				index: 2,
+				heading: '[[A - Custom - Missing Tags Key]]',
+				linkTitle: 'A - Custom - Missing Tags Key',
+				linkStatus: 'Proposed',
+				storyline: '',
+				evidence: '',
+				brief: '',
+				relatedPapers: '',
+				tags: ['custom/appended'],
+			},
+			mode: 'create',
+			appendEvidence: false,
+		});
+		expect(vaultContents.get(noTagsKeyCreated.path)).toContain(
+			'type: permanent\ntags:\n  - custom/appended\n---'
+		);
 	});
 
 	it('connectCandidateToVault in reuse mode rewrites Takeaway Link when chosen basename differs and includes Validation in evidence', async () => {

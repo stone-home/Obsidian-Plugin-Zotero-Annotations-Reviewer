@@ -1,8 +1,8 @@
-/* --- Settings Tabs (Segmented Bar) --- */
+/* --- Settings Tabs (Single-Row 6 Equal Columns) --- */
 .zotero-settings-tabs {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 6px;
+	display: grid;
+	grid-template-columns: repeat(6, minmax(0, 1fr));
+	gap: 4px;
 	padding: 4px;
 	margin-bottom: 18px;
 	background-color: var(--background-secondary);
@@ -11,7 +11,11 @@
 }
 
 .zotero-tab-item {
-	padding: 7px 14px;
+	text-align: center;
+	padding: 6px 8px;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
 	cursor: pointer;
 	font-weight: 600;
 	font-size: var(--font-ui-small);
@@ -70,11 +74,33 @@
 .zotero-setting-block {
 	display: flex;
 	align-items: center;
-	gap: 10px;
+	gap: 8px;
+	width: 100%;
+	box-sizing: border-box;
 	padding: 8px;
 	background-color: var(--background-primary);
 	border: 1px solid var(--background-modifier-border);
 	border-radius: 6px;
+}
+
+.zotero-setting-block input[type="text"],
+.zotero-setting-block input {
+	flex: 1 1 0;
+	min-width: 0;
+	width: 0;
+}
+
+.zotero-setting-block .checkbox-container {
+	flex: 0 0 auto;
+}
+
+.zotero-setting-block .checkbox-container input[type="checkbox"] {
+	flex: none;
+	width: auto;
+}
+
+.zotero-setting-block .zotero-flex-1 {
+	display: flex;
 }
 
 /* --- Inputs --- */
@@ -1174,9 +1200,92 @@
    PAPER WORKSPACE, TEMPLATES & PROMPTS SETTINGS
    ========================================================================== */
 
+.zotero-workspace-label-input {
+	width: 125px;
+	flex: 0 0 125px;
+	font-size: var(--font-ui-small);
+}
+
 .zotero-workspace-path-input {
-	min-width: 280px;
+	min-width: 180px;
+	flex: 1 1 200px;
 	font-family: var(--font-monospace);
+	font-size: var(--font-ui-smaller);
+}
+
+.zotero-template-folder-row {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px;
+}
+
+.zotero-template-card-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 10px;
+	margin-bottom: 8px;
+}
+
+.zotero-template-file-list {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.zotero-template-file-row {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px 12px;
+	padding: 10px 12px;
+	border-radius: 7px;
+	border: 1px solid var(--background-modifier-border);
+	background-color: var(--background-primary);
+}
+
+.zotero-template-file-info {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	min-width: 0;
+	flex: 1 1 220px;
+}
+
+.zotero-template-file-title-line {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px;
+}
+
+.zotero-template-file-name {
+	font-size: var(--font-ui-small);
+	font-weight: 600;
+	color: var(--text-normal);
+}
+
+.zotero-template-file-path {
+	font-size: var(--font-ui-smaller);
+	font-family: var(--font-monospace);
+	color: var(--text-muted);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.zotero-template-file-actions {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 6px;
+}
+
+.zotero-template-file-actions button {
+	height: 26px;
+	padding: 2px 10px;
 	font-size: var(--font-ui-smaller);
 }
 
@@ -1390,7 +1499,7 @@
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
-	justify-content: space-between;
+	justify-content: flex-start;
 	gap: 8px 12px;
 }
 
@@ -1510,12 +1619,14 @@
 	padding: 4px 7px;
 }
 
-.zotero-res-pill-copy {
+.zotero-res-pill-copy,
+.zotero-res-pill-edit {
 	padding: 3px;
 	color: var(--text-muted);
 }
 
-.zotero-res-pill-copy svg {
+.zotero-res-pill-copy svg,
+.zotero-res-pill-edit svg {
 	width: 13px;
 	height: 13px;
 }
@@ -1524,8 +1635,9 @@
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
+	justify-content: flex-start;
 	gap: 5px;
-	margin-left: auto;
+	margin-left: 0;
 }
 
 .zotero-assistant-toolbar-divider {
@@ -1604,6 +1716,8 @@
 	font-size: var(--font-ui-small);
 	font-weight: 600;
 	color: var(--text-normal);
+	white-space: nowrap;
+	flex-shrink: 0;
 }
 
 .zotero-core-note-path {
@@ -1618,7 +1732,8 @@
 .zotero-core-note-actions {
 	display: flex;
 	align-items: center;
-	gap: 6px;
+	gap: 4px;
+	flex-shrink: 0;
 }
 
 .zotero-core-note-action-btn {
@@ -2433,7 +2548,17 @@
 .zotero-library-core-text {
 	font-size: var(--font-ui-small);
 	line-height: 1.55;
-	cursor: text;
+}
+
+.zotero-library-core-text:empty::before {
+	content: "No Core Note yet.";
+	color: var(--text-muted);
+	font-style: italic;
+}
+
+.zotero-library-core-empty {
+	font-style: italic;
+	color: var(--text-muted);
 }
 
 .zotero-library-core-text.markdown-rendered p:first-child {

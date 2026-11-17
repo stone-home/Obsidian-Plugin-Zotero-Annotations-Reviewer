@@ -48,11 +48,16 @@ export interface PaperWorkspaceConfig {
 	coreNotePath: string;
 	highlightNotesFolder: string;
 	atomicNotesFolder: string;
+	templatesFolder: string;
+	report1Label: string;
+	report2Label: string;
+	takeawayLabel: string;
 }
 
 export interface PromptTemplateEntry {
 	id: string;
 	name: string;
+	kind?: 'template' | 'prompt';
 	vaultPath: string;
 	content: string;
 	snapshot?: string;
@@ -73,6 +78,10 @@ export const DEFAULT_PAPER_WORKSPACE: PaperWorkspaceConfig = {
 	coreNotePath: '002-Literature/104-Paper Notes/{{citekey}}.md',
 	highlightNotesFolder: '001-Fleeting',
 	atomicNotesFolder: '003-Permanent',
+	templatesFolder: '900-Templates',
+	report1Label: 'Deep Report',
+	report2Label: 'External Report',
+	takeawayLabel: 'Takeaway',
 };
 
 export const DEFAULT_ZOTERO_TEMPLATE: string = [
@@ -221,25 +230,141 @@ export const DEFAULT_REPORT2_PROMPT: string = [
 	'```',
 ].join('\n');
 
+export const DEFAULT_REPORT1_NOTE_TEMPLATE: string = [
+	'---',
+	'citation-key: {{citekey}}',
+	'type: deep-report',
+	'title: "Deep Report - {{title}}"',
+	'source: "[[{{source_path}}|{{citekey}}]]"',
+	'create: {{date}}',
+	'tags:',
+	'  - type/report/deep',
+	'---',
+	'',
+	'',
+].join('\n');
+
+export const DEFAULT_REPORT2_NOTE_TEMPLATE: string = [
+	'---',
+	'citation-key: {{citekey}}',
+	'type: external-report',
+	'title: "External Report - {{title}}"',
+	'source: "[[{{source_path}}|{{citekey}}]]"',
+	'create: {{date}}',
+	'tags:',
+	'  - type/report/external',
+	'---',
+	'',
+	'',
+].join('\n');
+
+export const DEFAULT_TAKEAWAY_NOTE_TEMPLATE: string = [
+	'---',
+	'citation-key: {{citekey}}',
+	'type: takeaway',
+	'title: "Takeaway - {{title}}"',
+	'source: "[[{{source_path}}|{{citekey}}]]"',
+	'create: {{date}}',
+	'tags:',
+	'  - literature-note',
+	'  - type/takeaway',
+	'---',
+	'',
+	'',
+].join('\n');
+
+export const DEFAULT_CORE_NOTE_TEMPLATE: string = [
+	'---',
+	'citation-key: {{citekey}}',
+	'type: paper-note',
+	'source: "[[{{source_path}}|{{citekey}}]]"',
+	'create: {{date}}',
+	'projects: []',
+	'linked-notes: []',
+	'tags:',
+	'  - type/paper-note',
+	'---',
+	'',
+	'',
+].join('\n');
+
+export const DEFAULT_ATOMIC_NOTE_TEMPLATE: string = [
+	'---',
+	'type: permanent',
+	'create: {{date}}',
+	'sources:',
+	'  - "[[{{source_path}}|{{citekey}}]]"',
+	'tags:',
+	'  - type/atomic',
+	'---',
+	'',
+	'# {{atomic_title}}',
+	'',
+	'',
+].join('\n');
+
 export const DEFAULT_PROMPTS: PromptTemplateEntry[] = [
+	{
+		id: 'tpl-report1',
+		name: 'Deep Report Template',
+		kind: 'template',
+		vaultPath: '900-Templates/report1-note-template.md',
+		content: DEFAULT_REPORT1_NOTE_TEMPLATE,
+		builtIn: true,
+	},
+	{
+		id: 'tpl-report2',
+		name: 'External Report Template',
+		kind: 'template',
+		vaultPath: '900-Templates/report2-note-template.md',
+		content: DEFAULT_REPORT2_NOTE_TEMPLATE,
+		builtIn: true,
+	},
+	{
+		id: 'tpl-takeaway',
+		name: 'Takeaway Template',
+		kind: 'template',
+		vaultPath: '900-Templates/takeaway-note-template.md',
+		content: DEFAULT_TAKEAWAY_NOTE_TEMPLATE,
+		builtIn: true,
+	},
+	{
+		id: 'tpl-core-note',
+		name: 'Core Note Template',
+		kind: 'template',
+		vaultPath: '900-Templates/core-note-template.md',
+		content: DEFAULT_CORE_NOTE_TEMPLATE,
+		builtIn: true,
+	},
+	{
+		id: 'tpl-atomic-note',
+		name: 'Atomic Note Template',
+		kind: 'template',
+		vaultPath: '900-Templates/atomic-note-template.md',
+		content: DEFAULT_ATOMIC_NOTE_TEMPLATE,
+		builtIn: true,
+	},
 	{
 		id: 'synthesize',
 		name: 'Synthesize Takeaway',
-		vaultPath: '002-Literature/100-Prompts/synthesize.md',
+		kind: 'prompt',
+		vaultPath: '900-Templates/prompt-synthesize.md',
 		content: DEFAULT_SYNTHESIZE_PROMPT,
 		builtIn: true,
 	},
 	{
 		id: 'report1',
 		name: 'Report 1 (Deep Research)',
-		vaultPath: '002-Literature/100-Prompts/report1.md',
+		kind: 'prompt',
+		vaultPath: '900-Templates/prompt-report1.md',
 		content: DEFAULT_REPORT1_PROMPT,
 		builtIn: true,
 	},
 	{
 		id: 'report2',
 		name: 'Report 2 (External Landscape)',
-		vaultPath: '002-Literature/100-Prompts/report2.md',
+		kind: 'prompt',
+		vaultPath: '900-Templates/prompt-report2.md',
 		content: DEFAULT_REPORT2_PROMPT,
 		builtIn: true,
 	},
@@ -429,7 +554,7 @@ export const DEFAULT_SETTINGS: MyPluginSettings = {
 	paperWorkspace: { ...DEFAULT_PAPER_WORKSPACE },
 	prompts: DEFAULT_PROMPTS.map((p) => ({ ...p })),
 	zoteroTemplate: {
-		vaultPath: '',
+		vaultPath: '900-Templates/zotero-note-template.md',
 		content: DEFAULT_ZOTERO_TEMPLATE,
 	},
 	webhookShowInRibbon: false,

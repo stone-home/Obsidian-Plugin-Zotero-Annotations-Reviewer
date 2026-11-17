@@ -43,7 +43,7 @@ var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: tru
 var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "symbol" ? key + "" : key, value);
 
 // src/types.ts
-var DEFAULT_PAPER_WORKSPACE, DEFAULT_ZOTERO_TEMPLATE, DEFAULT_SYNTHESIZE_PROMPT, DEFAULT_REPORT1_PROMPT, DEFAULT_REPORT2_PROMPT, DEFAULT_PROMPTS, DEFAULT_ASSISTANT_SCRIPT, DEFAULT_SETTINGS;
+var DEFAULT_PAPER_WORKSPACE, DEFAULT_ZOTERO_TEMPLATE, DEFAULT_SYNTHESIZE_PROMPT, DEFAULT_REPORT1_PROMPT, DEFAULT_REPORT2_PROMPT, DEFAULT_REPORT1_NOTE_TEMPLATE, DEFAULT_REPORT2_NOTE_TEMPLATE, DEFAULT_TAKEAWAY_NOTE_TEMPLATE, DEFAULT_CORE_NOTE_TEMPLATE, DEFAULT_ATOMIC_NOTE_TEMPLATE, DEFAULT_PROMPTS, DEFAULT_ASSISTANT_SCRIPT, DEFAULT_SETTINGS;
 var init_types = __esm({
   "src/types.ts"() {
     "use strict";
@@ -54,7 +54,11 @@ var init_types = __esm({
       takeawayPath: "002-Literature/101-Takeaways/Takeaway-{{citekey}}.md",
       coreNotePath: "002-Literature/104-Paper Notes/{{citekey}}.md",
       highlightNotesFolder: "001-Fleeting",
-      atomicNotesFolder: "003-Permanent"
+      atomicNotesFolder: "003-Permanent",
+      templatesFolder: "900-Templates",
+      report1Label: "Deep Report",
+      report2Label: "External Report",
+      takeawayLabel: "Takeaway"
     };
     DEFAULT_ZOTERO_TEMPLATE = [
       "---",
@@ -198,25 +202,136 @@ var init_types = __esm({
       "}",
       "```"
     ].join("\n");
+    DEFAULT_REPORT1_NOTE_TEMPLATE = [
+      "---",
+      "citation-key: {{citekey}}",
+      "type: deep-report",
+      'title: "Deep Report - {{title}}"',
+      'source: "[[{{source_path}}|{{citekey}}]]"',
+      "create: {{date}}",
+      "tags:",
+      "  - type/report/deep",
+      "---",
+      "",
+      ""
+    ].join("\n");
+    DEFAULT_REPORT2_NOTE_TEMPLATE = [
+      "---",
+      "citation-key: {{citekey}}",
+      "type: external-report",
+      'title: "External Report - {{title}}"',
+      'source: "[[{{source_path}}|{{citekey}}]]"',
+      "create: {{date}}",
+      "tags:",
+      "  - type/report/external",
+      "---",
+      "",
+      ""
+    ].join("\n");
+    DEFAULT_TAKEAWAY_NOTE_TEMPLATE = [
+      "---",
+      "citation-key: {{citekey}}",
+      "type: takeaway",
+      'title: "Takeaway - {{title}}"',
+      'source: "[[{{source_path}}|{{citekey}}]]"',
+      "create: {{date}}",
+      "tags:",
+      "  - literature-note",
+      "  - type/takeaway",
+      "---",
+      "",
+      ""
+    ].join("\n");
+    DEFAULT_CORE_NOTE_TEMPLATE = [
+      "---",
+      "citation-key: {{citekey}}",
+      "type: paper-note",
+      'source: "[[{{source_path}}|{{citekey}}]]"',
+      "create: {{date}}",
+      "projects: []",
+      "linked-notes: []",
+      "tags:",
+      "  - type/paper-note",
+      "---",
+      "",
+      ""
+    ].join("\n");
+    DEFAULT_ATOMIC_NOTE_TEMPLATE = [
+      "---",
+      "type: permanent",
+      "create: {{date}}",
+      "sources:",
+      '  - "[[{{source_path}}|{{citekey}}]]"',
+      "tags:",
+      "  - type/atomic",
+      "---",
+      "",
+      "# {{atomic_title}}",
+      "",
+      ""
+    ].join("\n");
     DEFAULT_PROMPTS = [
+      {
+        id: "tpl-report1",
+        name: "Deep Report Template",
+        kind: "template",
+        vaultPath: "900-Templates/report1-note-template.md",
+        content: DEFAULT_REPORT1_NOTE_TEMPLATE,
+        builtIn: true
+      },
+      {
+        id: "tpl-report2",
+        name: "External Report Template",
+        kind: "template",
+        vaultPath: "900-Templates/report2-note-template.md",
+        content: DEFAULT_REPORT2_NOTE_TEMPLATE,
+        builtIn: true
+      },
+      {
+        id: "tpl-takeaway",
+        name: "Takeaway Template",
+        kind: "template",
+        vaultPath: "900-Templates/takeaway-note-template.md",
+        content: DEFAULT_TAKEAWAY_NOTE_TEMPLATE,
+        builtIn: true
+      },
+      {
+        id: "tpl-core-note",
+        name: "Core Note Template",
+        kind: "template",
+        vaultPath: "900-Templates/core-note-template.md",
+        content: DEFAULT_CORE_NOTE_TEMPLATE,
+        builtIn: true
+      },
+      {
+        id: "tpl-atomic-note",
+        name: "Atomic Note Template",
+        kind: "template",
+        vaultPath: "900-Templates/atomic-note-template.md",
+        content: DEFAULT_ATOMIC_NOTE_TEMPLATE,
+        builtIn: true
+      },
       {
         id: "synthesize",
         name: "Synthesize Takeaway",
-        vaultPath: "002-Literature/100-Prompts/synthesize.md",
+        kind: "prompt",
+        vaultPath: "900-Templates/prompt-synthesize.md",
         content: DEFAULT_SYNTHESIZE_PROMPT,
         builtIn: true
       },
       {
         id: "report1",
         name: "Report 1 (Deep Research)",
-        vaultPath: "002-Literature/100-Prompts/report1.md",
+        kind: "prompt",
+        vaultPath: "900-Templates/prompt-report1.md",
         content: DEFAULT_REPORT1_PROMPT,
         builtIn: true
       },
       {
         id: "report2",
         name: "Report 2 (External Landscape)",
-        vaultPath: "002-Literature/100-Prompts/report2.md",
+        kind: "prompt",
+        vaultPath: "900-Templates/prompt-report2.md",
         content: DEFAULT_REPORT2_PROMPT,
         builtIn: true
       }
@@ -247,7 +362,7 @@ dv.table(["File"], dv.pages('"Fleeting Notes"')
       paperWorkspace: { ...DEFAULT_PAPER_WORKSPACE },
       prompts: DEFAULT_PROMPTS.map((p) => ({ ...p })),
       zoteroTemplate: {
-        vaultPath: "",
+        vaultPath: "900-Templates/zotero-note-template.md",
         content: DEFAULT_ZOTERO_TEMPLATE
       },
       webhookShowInRibbon: false,
@@ -406,586 +521,6 @@ var init_zotero_connector = __esm({
           await this.app.vault.create(normalized, content);
         }
         return normalized;
-      }
-    };
-  }
-});
-
-// src/ui/connector-modal.ts
-function getBasename(file) {
-  if (file.basename) return file.basename;
-  return (file.name || file.path.split("/").pop() || "").replace(/\.md$/i, "");
-}
-async function renderMarkdownContent(app, markdown, container, sourcePath, component) {
-  const extContainer = container;
-  if (typeof extContainer.addClass === "function") {
-    extContainer.addClass("markdown-rendered");
-  } else {
-    container.classList.add("markdown-rendered");
-  }
-  if (typeof extContainer.setText !== "function") {
-    extContainer.setText = (text) => {
-      container.textContent = text;
-    };
-  }
-  await import_obsidian3.MarkdownRenderer.render(app, markdown, container, sourcePath, component);
-  container.addEventListener("click", (ev) => {
-    var _a, _b;
-    const target = ev.target;
-    const linkEl = (_a = target == null ? void 0 : target.closest) == null ? void 0 : _a.call(target, "a.internal-link");
-    if (!linkEl) return;
-    ev.preventDefault();
-    ev.stopPropagation();
-    const linkTarget = linkEl.getAttribute("data-href") || linkEl.getAttribute("href") || "";
-    if (linkTarget && ((_b = app.workspace) == null ? void 0 : _b.openLinkText)) {
-      void app.workspace.openLinkText(linkTarget, sourcePath);
-    }
-  });
-}
-var import_obsidian3, VaultMarkdownSuggestModal, ConnectorModal;
-var init_connector_modal = __esm({
-  "src/ui/connector-modal.ts"() {
-    "use strict";
-    import_obsidian3 = require("obsidian");
-    init_paths();
-    VaultMarkdownSuggestModal = class extends import_obsidian3.FuzzySuggestModal {
-      constructor(app, onChoose, filterFn, placeholder = "Choose a note in Vault...") {
-        var _a;
-        super(app);
-        this.onChoose = onChoose;
-        this.filterFn = filterFn;
-        (_a = this.setPlaceholder) == null ? void 0 : _a.call(this, placeholder);
-      }
-      getItems() {
-        const files = this.app.vault.getMarkdownFiles();
-        return this.filterFn ? files.filter(this.filterFn) : files;
-      }
-      getItemText(file) {
-        return `${getBasename(file)} \u2014 ${file.path}`;
-      }
-      onChooseItem(file) {
-        void this.onChoose(file);
-      }
-    };
-    ConnectorModal = class extends import_obsidian3.Modal {
-      constructor(app, plugin, literatureFile, onUpdated) {
-        super(app);
-        this.plugin = plugin;
-        this.literatureFile = literatureFile;
-        this.onUpdated = onUpdated;
-        this.state = null;
-        this.matchResult = { candidateMatches: [], citedPapers: [] };
-        this.selectedIndex = 0;
-        this.appendEvidence = true;
-        this.mdComponent = new import_obsidian3.Component();
-      }
-      async onOpen() {
-        var _a;
-        this.mdComponent.load();
-        (_a = this.modalEl) == null ? void 0 : _a.addClass("zotero-connector-modal-shell");
-        this.contentEl.addClass("zotero-connector-modal");
-        await this.refreshState();
-      }
-      onClose() {
-        this.mdComponent.unload();
-        this.contentEl.empty();
-      }
-      async refreshState() {
-        this.state = await this.plugin.paperHub.getPaperState(this.literatureFile);
-        if (!this.state) {
-          this.renderNoCitekey();
-          return;
-        }
-        const report1Raw = this.state.report1File ? await this.app.vault.read(this.state.report1File) : "";
-        const reportTexts = [this.state.takeawayRaw, this.state.report2Raw, report1Raw].filter(
-          Boolean
-        );
-        this.matchResult = this.plugin.vaultLibrary.matchCandidatesAgainstVault(
-          this.state.takeawayCandidates,
-          reportTexts,
-          this.state.citekey
-        );
-        if (this.selectedIndex >= this.matchResult.candidateMatches.length) {
-          this.selectedIndex = 0;
-        }
-        await this.renderContent();
-      }
-      renderNoCitekey() {
-        const { contentEl } = this;
-        contentEl.empty();
-        contentEl.createEl("h3", { text: "Vault Knowledge Connector" });
-        contentEl.createDiv({
-          cls: "zotero-connector-empty",
-          text: "No citation key found in this note frontmatter."
-        });
-      }
-      isNoteLinked(basenameOrLink) {
-        var _a;
-        if (!this.state) return false;
-        const clean = (_a = basenameOrLink.replace(/^\[\[|\]\]$/g, "").split("|")[0].split("/").pop()) == null ? void 0 : _a.replace(/\.md$/i, "").trim().toLowerCase();
-        if (!clean) return false;
-        return this.state.coreNote.linkedNotes.some((item) => {
-          var _a2;
-          const inner = item.replace(/^\[\[|\]\]$/g, "").trim();
-          const [rawTarget, rawAlias] = inner.split("|");
-          const targetBase = (_a2 = rawTarget == null ? void 0 : rawTarget.split("/").pop()) == null ? void 0 : _a2.replace(/\.md$/i, "").trim().toLowerCase();
-          const aliasBase = rawAlias == null ? void 0 : rawAlias.replace(/\.md$/i, "").trim().toLowerCase();
-          return targetBase === clean || aliasBase === clean;
-        });
-      }
-      async renderContent() {
-        var _a;
-        this.mdComponent.unload();
-        this.mdComponent = new import_obsidian3.Component();
-        this.mdComponent.load();
-        const { contentEl } = this;
-        contentEl.empty();
-        const state = this.state;
-        if (!state) return;
-        const header = contentEl.createDiv({ cls: "zotero-connector-header" });
-        const titleWrap = header.createDiv({ cls: "zotero-connector-title-wrap" });
-        const iconEl = titleWrap.createSpan({ cls: "zotero-connector-title-icon" });
-        (0, import_obsidian3.setIcon)(iconEl, "link-2");
-        titleWrap.createEl("h3", {
-          text: `Connect Paper to Vault \xB7 ${state.citekey}`,
-          cls: "zotero-connector-title"
-        });
-        const { candidateMatches, citedPapers } = this.matchResult;
-        if (candidateMatches.length === 0 && citedPapers.length === 0) {
-          this.renderEmptyState(contentEl, state);
-          return;
-        }
-        const columns = contentEl.createDiv({ cls: "zotero-connector-columns" });
-        const leftPane = columns.createDiv({ cls: "zotero-connector-left" });
-        const rightPane = columns.createDiv({ cls: "zotero-connector-right" });
-        this.renderLeftPane(leftPane, state, candidateMatches, citedPapers);
-        await this.renderRightPane(rightPane, state, (_a = candidateMatches[this.selectedIndex]) != null ? _a : null);
-      }
-      renderEmptyState(container, state) {
-        const box = container.createDiv({ cls: "zotero-connector-empty" });
-        box.createEl("h4", { text: "No Takeaway Candidates Yet" });
-        box.createEl("p", {
-          text: "Create and open the Takeaway.md file in Obsidian to paste synthesized Markdown directly, or trigger a synthesis webhook.",
-          cls: "zotero-text-muted"
-        });
-        const actions = box.createDiv({ cls: "zotero-connector-empty-actions" });
-        const createOpenBtn = actions.createEl("button", {
-          cls: "mod-cta zotero-connector-btn",
-          text: "+ Create & Open Takeaway.md",
-          attr: { type: "button" }
-        });
-        createOpenBtn.onclick = async () => {
-          var _a;
-          try {
-            const created = await this.plugin.paperHub.createOrOpenReportFile(
-              state.citekey,
-              "takeaway",
-              this.literatureFile
-            );
-            await this.app.workspace.getLeaf(false).openFile(created);
-            await this.notifyUpdated();
-            this.close();
-          } catch (err) {
-            console.error("[ConnectorModal] Failed to create/open Takeaway.md", err);
-            new import_obsidian3.Notice(`Failed to open Takeaway.md: ${(_a = err == null ? void 0 : err.message) != null ? _a : String(err)}`);
-          }
-        };
-        const copyPromptBtn = actions.createEl("button", {
-          cls: "zotero-connector-btn",
-          text: "Copy Synthesize Prompt",
-          attr: { type: "button" }
-        });
-        copyPromptBtn.onclick = async () => {
-          var _a, _b;
-          try {
-            const prompt = await this.plugin.paperHub.getPromptContent("synthesize");
-            if ((_a = navigator.clipboard) == null ? void 0 : _a.writeText) {
-              await navigator.clipboard.writeText(prompt);
-              new import_obsidian3.Notice("Copied synthesize prompt to clipboard.");
-            }
-          } catch (err) {
-            console.error("[ConnectorModal] Failed to copy prompt", err);
-            new import_obsidian3.Notice(`Failed to copy prompt: ${(_b = err == null ? void 0 : err.message) != null ? _b : String(err)}`);
-          }
-        };
-        const visibleHooks = (this.plugin.settings.webhooks || []).filter((h) => !h.hidden);
-        for (const hook of visibleHooks) {
-          const hookBtn = actions.createEl("button", {
-            cls: "zotero-connector-btn",
-            text: `Trigger: ${hook.name}`,
-            attr: { type: "button" }
-          });
-          hookBtn.onclick = async () => {
-            var _a;
-            try {
-              await this.plugin.webhookService.triggerWebhook(
-                hook,
-                this.literatureFile,
-                void 0,
-                this.plugin.settings.webhookDebugMode
-              );
-            } catch (err) {
-              console.error("[ConnectorModal] Webhook trigger failed", err);
-              new import_obsidian3.Notice(`Webhook failed: ${(_a = err == null ? void 0 : err.message) != null ? _a : String(err)}`);
-            }
-          };
-        }
-      }
-      renderLeftPane(leftPane, state, candidateMatches, citedPapers) {
-        leftPane.createDiv({
-          cls: "zotero-connector-section-label",
-          text: `Candidate Atomic Zettels (${candidateMatches.length})`
-        });
-        if (candidateMatches.length === 0) {
-          leftPane.createDiv({
-            cls: "zotero-connector-subtle",
-            text: "No ### Candidate blocks found in Takeaway."
-          });
-        } else {
-          const candList = leftPane.createDiv({ cls: "zotero-connector-list" });
-          candidateMatches.forEach((match, idx) => {
-            const item = candList.createDiv({
-              cls: `zotero-connector-item ${idx === this.selectedIndex ? "is-selected" : ""}`
-            });
-            item.onclick = () => {
-              this.selectedIndex = idx;
-              void this.renderContent();
-            };
-            const topRow = item.createDiv({ cls: "zotero-connector-item-top" });
-            const leftMeta = topRow.createDiv({ cls: "zotero-connector-item-meta" });
-            leftMeta.createSpan({
-              cls: "zotero-connector-item-index",
-              text: `#${match.candidate.index}`
-            });
-            if (match.candidate.typeLabel) {
-              leftMeta.createSpan({
-                cls: "zotero-connector-type-chip",
-                text: match.candidate.typeLabel
-              });
-            }
-            const linked = match.matchedFile && this.isNoteLinked(getBasename(match.matchedFile)) || this.isNoteLinked(match.candidate.linkTitle);
-            const badgeText = linked ? "\u2713 \u5DF2\u5173\u8054" : match.matchedFile ? "\u25CF \u5E93\u5185\u5DF2\u6709" : "+ \u5F85\u65B0\u5EFA";
-            const badgeCls = linked ? "is-linked" : match.matchedFile ? "is-matched" : "is-proposed";
-            topRow.createSpan({
-              cls: `zotero-connector-badge ${badgeCls}`,
-              text: badgeText
-            });
-            item.createDiv({
-              cls: "zotero-connector-item-title",
-              text: match.candidate.linkTitle
-            });
-            const subText = match.candidate.brief || match.candidate.storyline;
-            if (subText) {
-              item.createDiv({
-                cls: "zotero-connector-item-sub",
-                text: subText
-              });
-            }
-          });
-        }
-        leftPane.createDiv({
-          cls: "zotero-connector-section-label zotero-connector-section-spaced",
-          text: `Cited Vault Papers (${citedPapers.length})`
-        });
-        if (citedPapers.length === 0) {
-          leftPane.createDiv({
-            cls: "zotero-connector-subtle",
-            text: "No cited papers matched existing Literature notes."
-          });
-        } else {
-          const citedList = leftPane.createDiv({ cls: "zotero-connector-cited-list" });
-          for (const cited of citedPapers) {
-            const row = citedList.createDiv({ cls: "zotero-connector-cited-row" });
-            const info = row.createDiv({ cls: "zotero-connector-cited-info" });
-            const titleLink = info.createEl("a", {
-              cls: "zotero-connector-cited-title",
-              text: cited.title,
-              href: "#"
-            });
-            titleLink.onclick = (ev) => {
-              ev.preventDefault();
-              void this.app.workspace.getLeaf(false).openFile(cited.file);
-              this.close();
-            };
-            const metaParts = [cited.citekey, cited.year, `via ${cited.matchedBy}`].filter(
-              Boolean
-            );
-            info.createDiv({
-              cls: "zotero-connector-item-sub",
-              text: metaParts.join(" \xB7 ")
-            });
-            const base = getBasename(cited.file);
-            const alreadyLinked = this.isNoteLinked(base);
-            const btn = row.createEl("button", {
-              cls: `zotero-connector-mini-btn ${alreadyLinked ? "is-linked" : ""}`,
-              text: alreadyLinked ? "Linked" : "Link",
-              attr: { type: "button" }
-            });
-            btn.disabled = alreadyLinked;
-            btn.onclick = async () => {
-              var _a;
-              try {
-                const wiki = `[[${base}]]`;
-                const next = state.coreNote.linkedNotes.includes(wiki) ? state.coreNote.linkedNotes : [...state.coreNote.linkedNotes, wiki];
-                await this.plugin.paperHub.saveCoreNote(
-                  state.citekey,
-                  { linkedNotes: next },
-                  this.literatureFile
-                );
-                new import_obsidian3.Notice(`Linked ${wiki} to Core Note.`);
-                await this.notifyUpdated();
-                await this.refreshState();
-              } catch (err) {
-                console.error("[ConnectorModal] Failed to link cited paper", err);
-                new import_obsidian3.Notice(`Failed to link paper: ${(_a = err == null ? void 0 : err.message) != null ? _a : String(err)}`);
-              }
-            };
-          }
-        }
-      }
-      async renderRightPane(rightPane, state, selected) {
-        if (!selected) {
-          rightPane.createDiv({
-            cls: "zotero-connector-subtle",
-            text: "Select a Candidate Atomic Zettel on the left to review and link it."
-          });
-          return;
-        }
-        const { candidate, matchedFile, matchType } = selected;
-        const head = rightPane.createDiv({ cls: "zotero-connector-detail-head" });
-        head.createEl("h4", {
-          cls: "zotero-connector-detail-title",
-          text: candidate.linkTitle
-        });
-        const metaChips = [
-          { label: "Type", value: candidate.typeLabel || "" },
-          { label: "Source", value: candidate.source || "" },
-          { label: "Storyline", value: candidate.storyline },
-          { label: "Answers", value: candidate.answers || "" },
-          { label: "Link Status", value: candidate.linkStatus }
-        ].filter((m) => Boolean(m.value));
-        if (metaChips.length > 0) {
-          const chipsRow = head.createDiv({ cls: "zotero-connector-meta-chips" });
-          for (const item of metaChips) {
-            chipsRow.createSpan({
-              cls: "zotero-connector-meta-chip",
-              text: `${item.label}: ${item.value}`
-            });
-          }
-        }
-        const fields = rightPane.createDiv({ cls: "zotero-connector-fields" });
-        const renderTasks = [];
-        const addMarkdownField = (label, value) => {
-          if (!value) return;
-          const row = fields.createDiv({ cls: "zotero-connector-field-row" });
-          row.createSpan({ cls: "zotero-connector-field-key", text: label });
-          const valEl = row.createDiv({
-            cls: "zotero-connector-field-val zotero-connector-md-val"
-          });
-          renderTasks.push(
-            renderMarkdownContent(
-              this.app,
-              value,
-              valEl,
-              this.literatureFile.path,
-              this.mdComponent
-            )
-          );
-        };
-        addMarkdownField("Brief", candidate.brief);
-        addMarkdownField("Evidence", candidate.evidence);
-        addMarkdownField("Validation", candidate.validation);
-        addMarkdownField("Related Papers", candidate.relatedPapers);
-        if (candidate.tags.length > 0) {
-          const row = fields.createDiv({ cls: "zotero-connector-field-row" });
-          row.createSpan({ cls: "zotero-connector-field-key", text: "Tags" });
-          row.createSpan({
-            cls: "zotero-connector-field-val zotero-connector-tags-val",
-            text: candidate.tags.map((t) => `#${t}`).join("  ")
-          });
-        }
-        if (matchedFile) {
-          const previewWrap = rightPane.createDiv({ cls: "zotero-connector-preview-card" });
-          const previewHead = previewWrap.createDiv({ cls: "zotero-connector-preview-head" });
-          const isLinked = this.isNoteLinked(getBasename(matchedFile)) || this.isNoteLinked(candidate.linkTitle);
-          previewHead.createSpan({
-            text: `${isLinked ? "\u2713 \u5DF2\u5173\u8054" : "\u25CF \u5E93\u5185\u5DF2\u6709"} (${matchType === "exact" ? "Exact Title" : "Concept Overlap"}): ${matchedFile.path}`
-          });
-          const openExisting = previewHead.createEl("a", {
-            text: "Open in Obsidian",
-            href: "#",
-            cls: "zotero-connector-open-link"
-          });
-          openExisting.onclick = (ev) => {
-            ev.preventDefault();
-            void this.app.workspace.getLeaf(false).openFile(matchedFile);
-            this.close();
-          };
-          const previewBody = previewWrap.createDiv({
-            cls: "zotero-connector-preview-rendered"
-          });
-          renderTasks.push(
-            this.app.vault.read(matchedFile).then(
-              (existingContent) => renderMarkdownContent(
-                this.app,
-                existingContent,
-                previewBody,
-                matchedFile.path,
-                this.mdComponent
-              )
-            )
-          );
-        }
-        await Promise.all(renderTasks);
-        const sanitizedName = (candidate.linkTitle || `A - Concept - ${state.citekey}`).replace(/\.md$/i, "").replace(/[\\/:*?"<>|]/g, "-").trim();
-        const atomicFolder = normalizePath(
-          this.plugin.settings.paperWorkspace.atomicNotesFolder || "003-Permanent"
-        );
-        const targetPathHint = atomicFolder ? `${atomicFolder}/${sanitizedName}.md` : `${sanitizedName}.md`;
-        if (!matchedFile) {
-          rightPane.createDiv({
-            cls: "zotero-connector-target-hint",
-            text: `\u5C06\u521B\u5EFA\u4E8E: ${targetPathHint}`
-          });
-        }
-        const appendRow = rightPane.createEl("label", { cls: "zotero-connector-checkbox-row" });
-        const checkbox = appendRow.createEl("input", {
-          attr: { type: "checkbox" }
-        });
-        checkbox.checked = this.appendEvidence;
-        checkbox.onchange = () => {
-          this.appendEvidence = checkbox.checked;
-        };
-        appendRow.createSpan({
-          text: `Append "Evidence from [[${state.citekey}]]" section to the target Atomic Note`
-        });
-        const actions = rightPane.createDiv({ cls: "zotero-connector-actions" });
-        if (matchedFile) {
-          const matchedBasename = getBasename(matchedFile);
-          const connectExistingBtn = actions.createEl("button", {
-            cls: "mod-cta zotero-connector-btn",
-            text: `\u5173\u8054\u5E76\u8FFD\u52A0\u8BC1\u636E \u2192 [[${matchedBasename}]]`,
-            attr: { type: "button" }
-          });
-          connectExistingBtn.onclick = async () => {
-            var _a;
-            try {
-              const target = await this.plugin.vaultLibrary.connectCandidateToVault({
-                literatureFile: this.literatureFile,
-                citekey: state.citekey,
-                candidate,
-                mode: "reuse",
-                targetFile: matchedFile,
-                appendEvidence: this.appendEvidence
-              });
-              new import_obsidian3.Notice(`Connected to existing note: ${getBasename(target)}`);
-              await this.notifyUpdated();
-              await this.refreshState();
-            } catch (err) {
-              console.error("[ConnectorModal] Failed to connect existing note", err);
-              new import_obsidian3.Notice(
-                `Failed to connect note: ${(_a = err == null ? void 0 : err.message) != null ? _a : String(err)}`
-              );
-            }
-          };
-          const rebindBtn = actions.createEl("button", {
-            cls: "zotero-connector-btn",
-            text: "\u6362\u7ED1\u5E93\u5185\u5176\u4ED6\u5DF2\u6709\u7B14\u8BB0\u2026",
-            attr: { type: "button" }
-          });
-          rebindBtn.onclick = () => {
-            new VaultMarkdownSuggestModal(
-              this.app,
-              async (chosenFile) => {
-                var _a;
-                try {
-                  const target = await this.plugin.vaultLibrary.connectCandidateToVault({
-                    literatureFile: this.literatureFile,
-                    citekey: state.citekey,
-                    candidate,
-                    mode: "reuse",
-                    targetFile: chosenFile,
-                    appendEvidence: this.appendEvidence,
-                    rewriteTakeaway: true
-                  });
-                  new import_obsidian3.Notice(`\u5DF2\u6362\u7ED1\u5E76\u5173\u8054: ${getBasename(target)}`);
-                  await this.notifyUpdated();
-                  await this.refreshState();
-                } catch (err) {
-                  console.error("[ConnectorModal] Failed to rebind vault note", err);
-                  new import_obsidian3.Notice(`\u6362\u7ED1\u5931\u8D25: ${(_a = err == null ? void 0 : err.message) != null ? _a : String(err)}`);
-                }
-              },
-              (f) => f.path !== this.literatureFile.path,
-              "Choose an existing Atomic or Vault note..."
-            ).open();
-          };
-        } else {
-          const createBtn = actions.createEl("button", {
-            cls: "mod-cta zotero-connector-btn",
-            text: `\u65B0\u5EFA\u539F\u5B50\u7B14\u8BB0\uFF1A${sanitizedName}.md`,
-            attr: { type: "button" }
-          });
-          createBtn.onclick = async () => {
-            var _a;
-            try {
-              const target = await this.plugin.vaultLibrary.connectCandidateToVault({
-                literatureFile: this.literatureFile,
-                citekey: state.citekey,
-                candidate,
-                mode: "create",
-                appendEvidence: this.appendEvidence
-              });
-              new import_obsidian3.Notice(`Created & linked Atomic Note: ${getBasename(target)}`);
-              await this.notifyUpdated();
-              await this.refreshState();
-            } catch (err) {
-              console.error("[ConnectorModal] Failed to create atomic note", err);
-              new import_obsidian3.Notice(
-                `Failed to create Atomic Note: ${(_a = err == null ? void 0 : err.message) != null ? _a : String(err)}`
-              );
-            }
-          };
-          const chooseExistingBtn = actions.createEl("button", {
-            cls: "zotero-connector-btn",
-            text: "\u4E0D\u65B0\u5EFA\uFF0C\u6539\u8FDE\u5E93\u5185\u5DF2\u6709\u7B14\u8BB0\u2026",
-            attr: { type: "button" }
-          });
-          chooseExistingBtn.onclick = () => {
-            new VaultMarkdownSuggestModal(
-              this.app,
-              async (chosenFile) => {
-                var _a;
-                try {
-                  const target = await this.plugin.vaultLibrary.connectCandidateToVault({
-                    literatureFile: this.literatureFile,
-                    citekey: state.citekey,
-                    candidate,
-                    mode: "reuse",
-                    targetFile: chosenFile,
-                    appendEvidence: this.appendEvidence,
-                    rewriteTakeaway: true
-                  });
-                  new import_obsidian3.Notice(`\u5DF2\u5173\u8054\u5230\u5DF2\u6709\u7B14\u8BB0: ${getBasename(target)}`);
-                  await this.notifyUpdated();
-                  await this.refreshState();
-                } catch (err) {
-                  console.error("[ConnectorModal] Failed to link chosen note", err);
-                  new import_obsidian3.Notice(
-                    `\u6539\u8FDE\u5DF2\u6709\u7B14\u8BB0\u5931\u8D25: ${(_a = err == null ? void 0 : err.message) != null ? _a : String(err)}`
-                  );
-                }
-              },
-              (f) => f.path !== this.literatureFile.path,
-              "Choose an existing Atomic or Vault note..."
-            ).open();
-          };
-        }
-      }
-      async notifyUpdated() {
-        if (this.onUpdated) {
-          await this.onUpdated();
-        }
       }
     };
   }
@@ -4966,6 +4501,35 @@ function parseTakeawayCandidates(raw) {
     };
   });
 }
+function formatTodayIso() {
+  return (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+}
+function renderNoteTemplateString(template, vars) {
+  var _a, _b;
+  const cleanCitekey = vars.citekey.trim();
+  const rawTitle = (vars.title !== void 0 && vars.title.trim() ? vars.title : cleanCitekey).trim();
+  const escapedTitle = rawTitle.replace(/\\"/g, '"').replace(/"/g, '\\"');
+  const cleanSourcePath = (vars.sourcePath !== void 0 && vars.sourcePath.trim() ? vars.sourcePath : cleanCitekey).trim().replace(/\.md$/i, "");
+  const cleanDate = ((_a = vars.date) == null ? void 0 : _a.trim()) || formatTodayIso();
+  const cleanAtomicTitle = ((_b = vars.atomicTitle) != null ? _b : "").trim();
+  return template.replace(/\{\{\s*citekey\s*\}\}/g, () => cleanCitekey).replace(/\{\{\s*title\s*\}\}/g, () => escapedTitle).replace(/\{\{\s*source_path\s*\}\}/g, () => cleanSourcePath).replace(/\{\{\s*date\s*\}\}/g, () => cleanDate).replace(/\{\{\s*atomic_title\s*\}\}/g, () => cleanAtomicTitle);
+}
+function normalizeYamlScalar(val) {
+  if (val instanceof Date && !isNaN(val.getTime())) {
+    return val.toISOString().slice(0, 10);
+  }
+  if (Array.isArray(val)) {
+    return val.map(normalizeYamlScalar);
+  }
+  if (val && typeof val === "object") {
+    const out = {};
+    for (const [k, v] of Object.entries(val)) {
+      out[k] = normalizeYamlScalar(v);
+    }
+    return out;
+  }
+  return val;
+}
 function parseCoreNoteContent(raw, fallbackCitekey = "") {
   var _a, _b, _c, _d;
   const fmMatch = raw.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/);
@@ -4992,22 +4556,41 @@ function parseCoreNoteContent(raw, fallbackCitekey = "") {
   const source = String((_c = fm["source"]) != null ? _c : citekey ? `[[${citekey}]]` : "").trim();
   const projects = toStringList(fm["projects"]);
   const linkedNotes = toStringList((_d = fm["linked-notes"]) != null ? _d : fm["linkedNotes"]);
+  const extra = {};
+  for (const [key, value] of Object.entries(fm)) {
+    if (key === "citation-key" || key === "citekey" || key === "source" || key === "projects" || key === "linked-notes" || key === "linkedNotes" || key === "type" && value === "paper-note") {
+      continue;
+    }
+    extra[key] = normalizeYamlScalar(value);
+  }
   return {
     citekey,
     source,
     projects,
     linkedNotes,
-    body: fmMatch[2].trim()
+    body: fmMatch[2].trim(),
+    ...Object.keys(extra).length > 0 ? { extraFrontmatter: extra } : {}
   };
 }
 function serializeCoreNoteContent(data) {
+  var _a;
+  const extra = (_a = data.extraFrontmatter) != null ? _a : {};
   const fmObj = {
     "citation-key": data.citekey,
-    type: "paper-note",
-    source: data.source || (data.citekey ? `[[${data.citekey}]]` : ""),
-    projects: data.projects,
-    "linked-notes": data.linkedNotes
+    type: typeof extra["type"] === "string" && extra["type"].trim() ? extra["type"].trim() : "paper-note",
+    source: data.source || (data.citekey ? `[[${data.citekey}]]` : "")
   };
+  for (const [key, value] of Object.entries(extra)) {
+    if (key === "citation-key" || key === "citekey" || key === "type" || key === "source" || key === "projects" || key === "linked-notes" || key === "linkedNotes" || key === "tags") {
+      continue;
+    }
+    fmObj[key] = value;
+  }
+  fmObj["projects"] = data.projects;
+  fmObj["linked-notes"] = data.linkedNotes;
+  if ("tags" in extra && extra["tags"] !== void 0) {
+    fmObj["tags"] = extra["tags"];
+  }
   const yamlBlock = yaml.dump(fmObj, { lineWidth: -1 }).trimEnd();
   const body = data.body.trim();
   return body ? `---
@@ -5020,12 +4603,13 @@ ${yamlBlock}
 ---
 `;
 }
-var import_obsidian4, INVALID_URL_TOKENS, PaperHubService;
+var import_obsidian3, INVALID_URL_TOKENS, PaperHubService;
 var init_paper_hub = __esm({
   "src/services/paper-hub.ts"() {
     "use strict";
-    import_obsidian4 = require("obsidian");
+    import_obsidian3 = require("obsidian");
     init_js_yaml();
+    init_types();
     init_paths();
     INVALID_URL_TOKENS = /* @__PURE__ */ new Set(["null", "none", "n/a", "na", "unknown", "tbd", "-"]);
     PaperHubService = class {
@@ -5043,12 +4627,13 @@ var init_paper_hub = __esm({
         const trimmed = String(raw).trim();
         return trimmed.length > 0 ? trimmed : null;
       }
-      async ensureParentFolder(filePath) {
+      async ensureFolderExists(folderPath) {
         var _a;
-        const normalized = normalizePath(filePath);
-        const folders = normalized.split("/").slice(0, -1).filter(Boolean);
+        const normalized = normalizePath(folderPath).replace(/\/+$/, "");
+        if (!normalized) return;
+        const segments = normalized.split("/").filter(Boolean);
         let current = "";
-        for (const segment of folders) {
+        for (const segment of segments) {
           current = current ? `${current}/${segment}` : segment;
           if (!this.app.vault.getAbstractFileByPath(current)) {
             try {
@@ -5060,9 +4645,14 @@ var init_paper_hub = __esm({
           }
         }
       }
+      async ensureParentFolder(filePath) {
+        const normalized = normalizePath(filePath);
+        const parentFolder = normalized.split("/").slice(0, -1).filter(Boolean).join("/");
+        await this.ensureFolderExists(parentFolder);
+      }
       getVaultFile(path2) {
         const f = this.app.vault.getAbstractFileByPath(normalizePath(path2));
-        return f instanceof import_obsidian4.TFile ? f : null;
+        return f instanceof import_obsidian3.TFile ? f : null;
       }
       async writeVaultFile(filePath, content) {
         const normalized = normalizePath(filePath);
@@ -5168,15 +4758,34 @@ var init_paper_hub = __esm({
         };
       }
       async createOrOpenReportFile(citekey, kind, literatureFile) {
-        const paths = resolvePaperPaths(this.getSettings().paperWorkspace, citekey);
+        var _a, _b;
+        const cleanKey = citekey.trim();
+        const paths = resolvePaperPaths(this.getSettings().paperWorkspace, cleanKey);
         const targetPath = normalizePath(paths[kind]);
         const existing = this.getVaultFile(targetPath);
         if (existing) return existing;
-        if (kind === "coreNote") {
-          return await this.saveCoreNote(citekey, {}, literatureFile);
-        }
+        const tplMap = {
+          report1: { id: "tpl-report1", fallback: DEFAULT_REPORT1_NOTE_TEMPLATE },
+          report2: { id: "tpl-report2", fallback: DEFAULT_REPORT2_NOTE_TEMPLATE },
+          takeaway: { id: "tpl-takeaway", fallback: DEFAULT_TAKEAWAY_NOTE_TEMPLATE },
+          coreNote: { id: "tpl-core-note", fallback: DEFAULT_CORE_NOTE_TEMPLATE }
+        };
+        const { id: tplId, fallback } = tplMap[kind];
+        const rawTemplate = await this.getPromptContent(tplId) || fallback;
+        const resolvedLitFile = literatureFile != null ? literatureFile : this.getVaultFile(paths.literatureNote);
+        const fm = resolvedLitFile ? (_a = this.app.metadataCache.getFileCache(resolvedLitFile)) == null ? void 0 : _a.frontmatter : void 0;
+        const rawTitle = (fm == null ? void 0 : fm["title"]) !== void 0 && (fm == null ? void 0 : fm["title"]) !== null ? String(fm["title"]).trim() : "";
+        const sourcePath = ((_b = literatureFile == null ? void 0 : literatureFile.path) != null ? _b : paths.literatureNote).replace(
+          /\.md$/i,
+          ""
+        );
+        const initialContent = renderNoteTemplateString(rawTemplate, {
+          citekey: cleanKey,
+          title: rawTitle || cleanKey,
+          sourcePath
+        });
         await this.ensureParentFolder(targetPath);
-        return await this.app.vault.create(targetPath, "");
+        return await this.app.vault.create(targetPath, initialContent);
       }
       async rewriteCandidateLinkInTakeaway(citekey, candidateIndex, newWikiLink) {
         const paths = resolvePaperPaths(this.getSettings().paperWorkspace, citekey);
@@ -5255,12 +4864,14 @@ var init_paper_hub = __esm({
           linkedNotes: [],
           body: ""
         };
+        const nextExtra = patch.extraFrontmatter !== void 0 ? patch.extraFrontmatter : current.extraFrontmatter;
         const merged = {
           citekey,
           source: patch.source !== void 0 ? patch.source : current.source || defaultSource,
           projects: patch.projects !== void 0 ? [...patch.projects] : current.projects,
           linkedNotes: patch.linkedNotes !== void 0 ? [...patch.linkedNotes] : current.linkedNotes,
-          body: patch.body !== void 0 ? patch.body : current.body
+          body: patch.body !== void 0 ? patch.body : current.body,
+          ...nextExtra && Object.keys(nextExtra).length > 0 ? { extraFrontmatter: nextExtra } : {}
         };
         const saved = await this.writeVaultFile(paths.coreNote, serializeCoreNoteContent(merged));
         if (patch.projects !== void 0 && literatureFile && ((_a = this.app.fileManager) == null ? void 0 : _a.processFrontMatter)) {
@@ -5270,6 +4881,153 @@ var init_paper_hub = __esm({
           });
         }
         return saved;
+      }
+      async updateLiteratureCodeUrl(literatureFile, codeUrl) {
+        var _a;
+        const trimmed = codeUrl.trim();
+        const processFm = (_a = this.app.fileManager) == null ? void 0 : _a.processFrontMatter;
+        if (typeof processFm === "function") {
+          await processFm.call(this.app.fileManager, literatureFile, (fm) => {
+            fm["code"] = trimmed;
+          });
+          return;
+        }
+        const escaped = trimmed.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+        const raw = await this.app.vault.read(literatureFile);
+        const fmMatch = raw.match(/^---\r?\n([\s\S]*?)\r?\n---(\r?\n?[\s\S]*)$/);
+        if (fmMatch) {
+          const fmBody = fmMatch[1];
+          const rest = fmMatch[2];
+          const codeLineRe = /^code[ \t]*:.*$/m;
+          const nextFmBody = codeLineRe.test(fmBody) ? fmBody.replace(codeLineRe, () => `code: "${escaped}"`) : `${fmBody}
+code: "${escaped}"`;
+          await this.app.vault.modify(literatureFile, `---
+${nextFmBody}
+---${rest}`);
+        } else {
+          await this.app.vault.modify(
+            literatureFile,
+            `---
+code: "${escaped}"
+---
+
+${raw}`
+          );
+        }
+      }
+      getBuiltInDefaultContent(id) {
+        switch (id) {
+          case "zotero-template":
+            return DEFAULT_ZOTERO_TEMPLATE;
+          case "tpl-report1":
+            return DEFAULT_REPORT1_NOTE_TEMPLATE;
+          case "tpl-report2":
+            return DEFAULT_REPORT2_NOTE_TEMPLATE;
+          case "tpl-takeaway":
+            return DEFAULT_TAKEAWAY_NOTE_TEMPLATE;
+          case "tpl-core-note":
+            return DEFAULT_CORE_NOTE_TEMPLATE;
+          case "tpl-atomic-note":
+            return DEFAULT_ATOMIC_NOTE_TEMPLATE;
+          case "synthesize":
+            return DEFAULT_SYNTHESIZE_PROMPT;
+          case "report1":
+            return DEFAULT_REPORT1_PROMPT;
+          case "report2":
+            return DEFAULT_REPORT2_PROMPT;
+          default:
+            return null;
+        }
+      }
+      async ensureBuiltinTemplatesInVault() {
+        var _a, _b, _c, _d, _e, _f, _g, _h;
+        if (typeof this.app.vault.create !== "function") return 0;
+        const settings = this.getSettings();
+        const templatesFolder = normalizePath(
+          ((_b = (_a = settings.paperWorkspace) == null ? void 0 : _a.templatesFolder) == null ? void 0 : _b.trim()) || DEFAULT_PAPER_WORKSPACE.templatesFolder
+        ).replace(/\/+$/, "");
+        await this.ensureFolderExists(templatesFolder);
+        let createdCount = 0;
+        const rawZotPath = ((_d = (_c = settings.zoteroTemplate) == null ? void 0 : _c.vaultPath) == null ? void 0 : _d.trim()) || `${templatesFolder}/zotero-note-template.md`;
+        const zotPath = normalizePath(
+          /\.[^/\\]+$/.test(rawZotPath) ? rawZotPath : `${rawZotPath}.md`
+        );
+        if (settings.zoteroTemplate && !((_e = settings.zoteroTemplate.vaultPath) == null ? void 0 : _e.trim())) {
+          settings.zoteroTemplate.vaultPath = zotPath;
+        }
+        if (!this.getVaultFile(zotPath) && !this.app.vault.getAbstractFileByPath(zotPath)) {
+          await this.ensureParentFolder(zotPath);
+          const zotContent = ((_f = settings.zoteroTemplate) == null ? void 0 : _f.content) || DEFAULT_ZOTERO_TEMPLATE;
+          await this.app.vault.create(zotPath, zotContent);
+          createdCount += 1;
+        }
+        for (const entry of settings.prompts || []) {
+          const defaultFilename = entry.kind === "template" ? `${entry.id.replace(/^tpl-/, "")}-note-template.md` : `prompt-${entry.id}.md`;
+          const rawEntryPath = ((_g = entry.vaultPath) == null ? void 0 : _g.trim()) || `${templatesFolder}/${defaultFilename}`;
+          const entryPath = normalizePath(
+            rawEntryPath.toLowerCase().endsWith(".md") ? rawEntryPath : `${rawEntryPath}.md`
+          );
+          if (!((_h = entry.vaultPath) == null ? void 0 : _h.trim())) {
+            entry.vaultPath = entryPath;
+          }
+          if (!this.getVaultFile(entryPath) && !this.app.vault.getAbstractFileByPath(entryPath)) {
+            await this.ensureParentFolder(entryPath);
+            const initialContent = entry.content || this.getBuiltInDefaultContent(entry.id) || "";
+            await this.app.vault.create(entryPath, initialContent);
+            createdCount += 1;
+          }
+        }
+        return createdCount;
+      }
+      async moveTemplatesFolder(oldFolder, newFolder) {
+        var _a;
+        const oldNorm = normalizePath(oldFolder.trim()).replace(/\/+$/, "");
+        const newNorm = normalizePath(newFolder.trim()).replace(/\/+$/, "");
+        if (!oldNorm || !newNorm || oldNorm === newNorm) return 0;
+        await this.ensureFolderExists(newNorm);
+        const settings = this.getSettings();
+        const oldPrefix = `${oldNorm}/`;
+        let movedCount = 0;
+        const relocateVaultPath = async (currentRawPath) => {
+          var _a2, _b, _c;
+          const trimmed = currentRawPath.trim();
+          if (!trimmed) return null;
+          const currentNorm = normalizePath(trimmed);
+          if (!currentNorm.startsWith(oldPrefix)) return null;
+          const relSubpath = currentNorm.slice(oldPrefix.length);
+          if (!relSubpath) return null;
+          const destPath = normalizePath(`${newNorm}/${relSubpath}`);
+          await this.ensureParentFolder(destPath);
+          const srcFile = this.getVaultFile(currentNorm);
+          const destExisting = this.app.vault.getAbstractFileByPath(destPath);
+          if (srcFile && !destExisting) {
+            const renameFn = (_a2 = this.app.fileManager) == null ? void 0 : _a2.renameFile;
+            if (typeof renameFn === "function") {
+              await renameFn.call(this.app.fileManager, srcFile, destPath);
+            } else if (typeof this.app.vault.create === "function") {
+              const content = await this.app.vault.read(srcFile);
+              await this.app.vault.create(destPath, content);
+              await ((_c = (_b = this.app.vault).delete) == null ? void 0 : _c.call(_b, srcFile));
+            }
+          }
+          return destPath;
+        };
+        if ((_a = settings.zoteroTemplate) == null ? void 0 : _a.vaultPath) {
+          const nextZot = await relocateVaultPath(settings.zoteroTemplate.vaultPath);
+          if (nextZot) {
+            settings.zoteroTemplate.vaultPath = nextZot;
+            movedCount += 1;
+          }
+        }
+        for (const entry of settings.prompts || []) {
+          if (!entry.vaultPath) continue;
+          const nextPath = await relocateVaultPath(entry.vaultPath);
+          if (nextPath) {
+            entry.vaultPath = nextPath;
+            movedCount += 1;
+          }
+        }
+        return movedCount;
       }
       async getPromptContent(promptId) {
         var _a;
@@ -5284,7 +5042,12 @@ var init_paper_hub = __esm({
         return entry.content;
       }
       async savePromptToVault(entry, content) {
-        const rawPath = (entry.vaultPath || `002-Literature/100-Prompts/${entry.id}.md`).trim();
+        var _a, _b;
+        const folder = normalizePath(
+          ((_b = (_a = this.getSettings().paperWorkspace) == null ? void 0 : _a.templatesFolder) == null ? void 0 : _b.trim()) || DEFAULT_PAPER_WORKSPACE.templatesFolder
+        ).replace(/\/+$/, "");
+        const defaultFile = entry.kind === "template" ? `${entry.id.replace(/^tpl-/, "")}-note-template.md` : `prompt-${entry.id}.md`;
+        const rawPath = (entry.vaultPath || `${folder}/${defaultFile}`).trim();
         const targetPath = normalizePath(rawPath.endsWith(".md") ? rawPath : `${rawPath}.md`);
         await this.writeVaultFile(targetPath, content);
         return targetPath;
@@ -5398,11 +5161,12 @@ function scoreLibraryMatch(entry, query) {
   }
   return total;
 }
-var import_obsidian5, VaultLibraryService;
+var import_obsidian4, VaultLibraryService;
 var init_vault_library = __esm({
   "src/services/vault-library.ts"() {
     "use strict";
-    import_obsidian5 = require("obsidian");
+    import_obsidian4 = require("obsidian");
+    init_types();
     init_paths();
     init_series();
     init_paper_hub();
@@ -5419,6 +5183,7 @@ var init_vault_library = __esm({
         );
       }
       getExcludedFolderPrefixes(litPrefix) {
+        var _a;
         const s = this.getSettings();
         const ws = s.paperWorkspace;
         const candidates = [
@@ -5429,7 +5194,10 @@ var init_vault_library = __esm({
           folderPrefixFromPattern(ws.highlightNotesFolder),
           folderPrefixFromPattern(s.fleetingNoteFolder),
           folderPrefixFromPattern(ws.atomicNotesFolder),
+          folderPrefixFromPattern(ws.templatesFolder || "900-Templates"),
+          "002-Literature/100-Prompts/",
           folderPrefixFromPattern(s.cfpNoteDir),
+          ...((_a = s.zoteroTemplate) == null ? void 0 : _a.vaultPath) ? [folderPrefixFromPattern(s.zoteroTemplate.vaultPath)] : [],
           ...(s.prompts || []).map((p) => folderPrefixFromPattern(p.vaultPath))
         ];
         return Array.from(new Set(candidates.filter((p) => Boolean(p) && p !== litPrefix)));
@@ -5465,10 +5233,10 @@ var init_vault_library = __esm({
             const takeawayRawFile = this.app.vault.getAbstractFileByPath(paths.takeaway);
             const report1RawFile = this.app.vault.getAbstractFileByPath(paths.report1);
             const report2RawFile = this.app.vault.getAbstractFileByPath(paths.report2);
-            const coreFile = coreRawFile instanceof import_obsidian5.TFile ? coreRawFile : null;
-            const takeawayFile = takeawayRawFile instanceof import_obsidian5.TFile ? takeawayRawFile : null;
-            const hasReport1 = report1RawFile instanceof import_obsidian5.TFile;
-            const hasReport2 = report2RawFile instanceof import_obsidian5.TFile;
+            const coreFile = coreRawFile instanceof import_obsidian4.TFile ? coreRawFile : null;
+            const takeawayFile = takeawayRawFile instanceof import_obsidian4.TFile ? takeawayRawFile : null;
+            const hasReport1 = report1RawFile instanceof import_obsidian4.TFile;
+            const hasReport2 = report2RawFile instanceof import_obsidian4.TFile;
             const [coreContent, takeawayContent] = await Promise.all([
               coreFile ? this.app.vault.read(coreFile) : Promise.resolve(""),
               takeawayFile ? this.app.vault.read(takeawayFile) : Promise.resolve("")
@@ -5604,7 +5372,7 @@ var init_vault_library = __esm({
               rawLinkPath.toLowerCase().endsWith(".md") ? rawLinkPath : `${rawLinkPath}.md`
             );
             const directFile = this.app.vault.getAbstractFileByPath(normalizedLinkPath);
-            if (directFile instanceof import_obsidian5.TFile) {
+            if (directFile instanceof import_obsidian4.TFile) {
               return {
                 candidate,
                 matchedFile: directFile,
@@ -5690,7 +5458,7 @@ var init_vault_library = __esm({
         return { candidateMatches, citedPapers };
       }
       async connectCandidateToVault(params) {
-        var _a;
+        var _a, _b;
         const { literatureFile, citekey, candidate, mode, appendEvidence = true } = params;
         const litPathNoExt = literatureFile.path.replace(/\.md$/i, "");
         const sourceLink = `[[${litPathNoExt}|${citekey}]]`;
@@ -5739,7 +5507,7 @@ ${evidenceBlock}
           );
           const targetPath = normalizePath(folder ? `${folder}/${rawName}.md` : `${rawName}.md`);
           const existing = this.app.vault.getAbstractFileByPath(targetPath);
-          if (existing instanceof import_obsidian5.TFile) {
+          if (existing instanceof import_obsidian4.TFile) {
             resolvedTarget = existing;
             if (appendEvidence) {
               const currentText = await this.app.vault.read(resolvedTarget);
@@ -5755,29 +5523,693 @@ ${evidenceBlock}
             }
           } else {
             await this.paperHub.ensureParentFolder(targetPath);
-            const tagList = candidate.tags.map((t) => `  - ${t.replace(/^#/, "")}`);
-            const headerLines = [
-              "---",
-              "type: permanent",
-              "sources:",
-              `  - "${sourceLink}"`,
-              ...tagList.length > 0 ? ["tags:", ...tagList] : [],
-              "---",
-              "",
-              `# ${rawName}`,
-              "",
-              ...candidate.brief ? [candidate.brief, ""] : [],
-              ...appendEvidence ? [evidenceBlock, ""] : []
-            ];
-            resolvedTarget = await this.app.vault.create(targetPath, headerLines.join("\n"));
+            const litFm = (_a = this.app.metadataCache.getFileCache(literatureFile)) == null ? void 0 : _a.frontmatter;
+            const paperTitle = (litFm == null ? void 0 : litFm["title"]) !== void 0 && (litFm == null ? void 0 : litFm["title"]) !== null ? String(litFm["title"]).trim() : "";
+            const rawTemplate = await this.paperHub.getPromptContent("tpl-atomic-note") || DEFAULT_ATOMIC_NOTE_TEMPLATE;
+            let rendered = renderNoteTemplateString(rawTemplate, {
+              citekey,
+              title: paperTitle || citekey,
+              sourcePath: litPathNoExt,
+              atomicTitle: rawName
+            });
+            const cleanTags = Array.from(
+              new Set(
+                candidate.tags.map((t) => t.replace(/^#/, "").trim()).filter(Boolean)
+              )
+            );
+            if (cleanTags.length > 0) {
+              const fmMatch = rendered.match(/^---\r?\n([\s\S]*?)\r?\n---([\s\S]*)$/);
+              if (fmMatch) {
+                let fmPart = fmMatch[1];
+                const bodyPart = fmMatch[2];
+                const emptyTagsRe = /^tags:[ \t]*\[\s*\][ \t]*$/m;
+                const listTagsRe = /^tags:[ \t]*\r?\n((?:[ \t]*-[ \t]*[^\r\n]+\r?\n?)*)/m;
+                if (emptyTagsRe.test(fmPart)) {
+                  const tagBlock = `tags:
+${cleanTags.map((t) => `  - ${t}`).join("\n")}`;
+                  fmPart = fmPart.replace(emptyTagsRe, () => tagBlock);
+                } else {
+                  const listMatch = listTagsRe.exec(fmPart);
+                  if (listMatch) {
+                    const existingTags = new Set(
+                      listMatch[1].split(/\r?\n/).map((line) => line.replace(/^[ \t]*-[ \t]*/, "").trim()).filter(Boolean)
+                    );
+                    const toInsert = cleanTags.filter((t) => !existingTags.has(t)).map((t) => `  - ${t}`);
+                    if (toInsert.length > 0) {
+                      fmPart = fmPart.replace(
+                        /^tags:[ \t]*$/m,
+                        () => `tags:
+${toInsert.join("\n")}`
+                      );
+                    }
+                  } else {
+                    fmPart = `${fmPart}
+tags:
+${cleanTags.map((t) => `  - ${t}`).join("\n")}`;
+                  }
+                }
+                rendered = `---
+${fmPart}
+---${bodyPart}`;
+              }
+            }
+            const extraBlocks = [];
+            if (candidate.brief) extraBlocks.push(candidate.brief);
+            if (appendEvidence) extraBlocks.push(evidenceBlock);
+            const finalContent = extraBlocks.length > 0 ? `${rendered.trimEnd()}
+
+${extraBlocks.join("\n\n")}
+` : `${rendered.trimEnd()}
+`;
+            resolvedTarget = await this.app.vault.create(targetPath, finalContent);
           }
         }
         const state = await this.paperHub.getPaperState(literatureFile);
-        const currentLinks = (_a = state == null ? void 0 : state.coreNote.linkedNotes) != null ? _a : [];
+        const currentLinks = (_b = state == null ? void 0 : state.coreNote.linkedNotes) != null ? _b : [];
         const atomicWikiLink = `[[${fileBasename(resolvedTarget)}]]`;
         const nextLinks = currentLinks.includes(atomicWikiLink) ? currentLinks : [...currentLinks, atomicWikiLink];
         await this.paperHub.saveCoreNote(citekey, { linkedNotes: nextLinks }, literatureFile);
         return resolvedTarget;
+      }
+    };
+  }
+});
+
+// src/ui/connector-modal.ts
+function getBasename(file) {
+  if (file.basename) return file.basename;
+  return (file.name || file.path.split("/").pop() || "").replace(/\.md$/i, "");
+}
+async function renderMarkdownContent(app, markdown, container, sourcePath, component) {
+  const extContainer = container;
+  if (typeof extContainer.addClass === "function") {
+    extContainer.addClass("markdown-rendered");
+  } else {
+    container.classList.add("markdown-rendered");
+  }
+  if (typeof extContainer.setText !== "function") {
+    extContainer.setText = (text) => {
+      container.textContent = text;
+    };
+  }
+  await import_obsidian5.MarkdownRenderer.render(app, markdown, container, sourcePath, component);
+  container.addEventListener("click", (ev) => {
+    var _a, _b;
+    const target = ev.target;
+    const linkEl = (_a = target == null ? void 0 : target.closest) == null ? void 0 : _a.call(target, "a.internal-link");
+    if (!linkEl) return;
+    ev.preventDefault();
+    ev.stopPropagation();
+    const linkTarget = linkEl.getAttribute("data-href") || linkEl.getAttribute("href") || "";
+    if (linkTarget && ((_b = app.workspace) == null ? void 0 : _b.openLinkText)) {
+      void app.workspace.openLinkText(linkTarget, sourcePath);
+    }
+  });
+}
+var import_obsidian5, VaultMarkdownSuggestModal, ConnectorModal;
+var init_connector_modal = __esm({
+  "src/ui/connector-modal.ts"() {
+    "use strict";
+    import_obsidian5 = require("obsidian");
+    init_paths();
+    VaultMarkdownSuggestModal = class extends import_obsidian5.FuzzySuggestModal {
+      constructor(app, onChoose, filterFn, placeholder = "Choose a note in Vault...") {
+        var _a;
+        super(app);
+        this.onChoose = onChoose;
+        this.filterFn = filterFn;
+        (_a = this.setPlaceholder) == null ? void 0 : _a.call(this, placeholder);
+      }
+      getItems() {
+        const files = this.app.vault.getMarkdownFiles();
+        return this.filterFn ? files.filter(this.filterFn) : files;
+      }
+      getItemText(file) {
+        return `${getBasename(file)} \u2014 ${file.path}`;
+      }
+      onChooseItem(file) {
+        void this.onChoose(file);
+      }
+    };
+    ConnectorModal = class extends import_obsidian5.Modal {
+      constructor(app, plugin, literatureFile, onUpdated) {
+        super(app);
+        this.plugin = plugin;
+        this.literatureFile = literatureFile;
+        this.onUpdated = onUpdated;
+        this.state = null;
+        this.matchResult = { candidateMatches: [], citedPapers: [] };
+        this.selectedIndex = 0;
+        this.appendEvidence = true;
+        this.mdComponent = new import_obsidian5.Component();
+      }
+      async onOpen() {
+        var _a;
+        this.mdComponent.load();
+        (_a = this.modalEl) == null ? void 0 : _a.addClass("zotero-connector-modal-shell");
+        this.contentEl.addClass("zotero-connector-modal");
+        await this.refreshState();
+      }
+      onClose() {
+        this.mdComponent.unload();
+        this.contentEl.empty();
+      }
+      async refreshState() {
+        this.state = await this.plugin.paperHub.getPaperState(this.literatureFile);
+        if (!this.state) {
+          this.renderNoCitekey();
+          return;
+        }
+        const report1Raw = this.state.report1File ? await this.app.vault.read(this.state.report1File) : "";
+        const reportTexts = [this.state.takeawayRaw, this.state.report2Raw, report1Raw].filter(
+          Boolean
+        );
+        this.matchResult = this.plugin.vaultLibrary.matchCandidatesAgainstVault(
+          this.state.takeawayCandidates,
+          reportTexts,
+          this.state.citekey
+        );
+        if (this.selectedIndex >= this.matchResult.candidateMatches.length) {
+          this.selectedIndex = 0;
+        }
+        await this.renderContent();
+      }
+      renderNoCitekey() {
+        const { contentEl } = this;
+        contentEl.empty();
+        contentEl.createEl("h3", { text: "Vault Knowledge Connector" });
+        contentEl.createDiv({
+          cls: "zotero-connector-empty",
+          text: "No citation key found in this note frontmatter."
+        });
+      }
+      isNoteLinked(basenameOrLink) {
+        var _a;
+        if (!this.state) return false;
+        const clean = (_a = basenameOrLink.replace(/^\[\[|\]\]$/g, "").split("|")[0].split("/").pop()) == null ? void 0 : _a.replace(/\.md$/i, "").trim().toLowerCase();
+        if (!clean) return false;
+        return this.state.coreNote.linkedNotes.some((item) => {
+          var _a2;
+          const inner = item.replace(/^\[\[|\]\]$/g, "").trim();
+          const [rawTarget, rawAlias] = inner.split("|");
+          const targetBase = (_a2 = rawTarget == null ? void 0 : rawTarget.split("/").pop()) == null ? void 0 : _a2.replace(/\.md$/i, "").trim().toLowerCase();
+          const aliasBase = rawAlias == null ? void 0 : rawAlias.replace(/\.md$/i, "").trim().toLowerCase();
+          return targetBase === clean || aliasBase === clean;
+        });
+      }
+      async renderContent() {
+        var _a;
+        this.mdComponent.unload();
+        this.mdComponent = new import_obsidian5.Component();
+        this.mdComponent.load();
+        const { contentEl } = this;
+        contentEl.empty();
+        const state = this.state;
+        if (!state) return;
+        const header = contentEl.createDiv({ cls: "zotero-connector-header" });
+        const titleWrap = header.createDiv({ cls: "zotero-connector-title-wrap" });
+        const iconEl = titleWrap.createSpan({ cls: "zotero-connector-title-icon" });
+        (0, import_obsidian5.setIcon)(iconEl, "link-2");
+        titleWrap.createEl("h3", {
+          text: `Connect Paper to Vault \xB7 ${state.citekey}`,
+          cls: "zotero-connector-title"
+        });
+        const { candidateMatches, citedPapers } = this.matchResult;
+        if (candidateMatches.length === 0 && citedPapers.length === 0) {
+          this.renderEmptyState(contentEl, state);
+          return;
+        }
+        const columns = contentEl.createDiv({ cls: "zotero-connector-columns" });
+        const leftPane = columns.createDiv({ cls: "zotero-connector-left" });
+        const rightPane = columns.createDiv({ cls: "zotero-connector-right" });
+        this.renderLeftPane(leftPane, state, candidateMatches, citedPapers);
+        await this.renderRightPane(rightPane, state, (_a = candidateMatches[this.selectedIndex]) != null ? _a : null);
+      }
+      renderEmptyState(container, state) {
+        const box = container.createDiv({ cls: "zotero-connector-empty" });
+        box.createEl("h4", { text: "No Takeaway Candidates Yet" });
+        box.createEl("p", {
+          text: "Create and open the Takeaway.md file in Obsidian to paste synthesized Markdown directly, or trigger a synthesis webhook.",
+          cls: "zotero-text-muted"
+        });
+        const actions = box.createDiv({ cls: "zotero-connector-empty-actions" });
+        const createOpenBtn = actions.createEl("button", {
+          cls: "mod-cta zotero-connector-btn",
+          text: "+ Create & Open Takeaway.md",
+          attr: { type: "button" }
+        });
+        createOpenBtn.onclick = async () => {
+          var _a;
+          try {
+            const created = await this.plugin.paperHub.createOrOpenReportFile(
+              state.citekey,
+              "takeaway",
+              this.literatureFile
+            );
+            await this.app.workspace.getLeaf(false).openFile(created);
+            await this.notifyUpdated();
+            this.close();
+          } catch (err) {
+            console.error("[ConnectorModal] Failed to create/open Takeaway.md", err);
+            new import_obsidian5.Notice(`Failed to open Takeaway.md: ${(_a = err == null ? void 0 : err.message) != null ? _a : String(err)}`);
+          }
+        };
+        const copyPromptBtn = actions.createEl("button", {
+          cls: "zotero-connector-btn",
+          text: "Copy Synthesize Prompt",
+          attr: { type: "button" }
+        });
+        copyPromptBtn.onclick = async () => {
+          var _a, _b;
+          try {
+            const prompt = await this.plugin.paperHub.getPromptContent("synthesize");
+            if ((_a = navigator.clipboard) == null ? void 0 : _a.writeText) {
+              await navigator.clipboard.writeText(prompt);
+              new import_obsidian5.Notice("Copied synthesize prompt to clipboard.");
+            }
+          } catch (err) {
+            console.error("[ConnectorModal] Failed to copy prompt", err);
+            new import_obsidian5.Notice(`Failed to copy prompt: ${(_b = err == null ? void 0 : err.message) != null ? _b : String(err)}`);
+          }
+        };
+        const visibleHooks = (this.plugin.settings.webhooks || []).filter((h) => !h.hidden);
+        for (const hook of visibleHooks) {
+          const hookBtn = actions.createEl("button", {
+            cls: "zotero-connector-btn",
+            text: `Trigger: ${hook.name}`,
+            attr: { type: "button" }
+          });
+          hookBtn.onclick = async () => {
+            var _a;
+            try {
+              await this.plugin.webhookService.triggerWebhook(
+                hook,
+                this.literatureFile,
+                void 0,
+                this.plugin.settings.webhookDebugMode
+              );
+            } catch (err) {
+              console.error("[ConnectorModal] Webhook trigger failed", err);
+              new import_obsidian5.Notice(`Webhook failed: ${(_a = err == null ? void 0 : err.message) != null ? _a : String(err)}`);
+            }
+          };
+        }
+      }
+      renderLeftPane(leftPane, state, candidateMatches, citedPapers) {
+        leftPane.createDiv({
+          cls: "zotero-connector-section-label",
+          text: `Candidate Atomic Zettels (${candidateMatches.length})`
+        });
+        if (candidateMatches.length === 0) {
+          leftPane.createDiv({
+            cls: "zotero-connector-subtle",
+            text: "No ### Candidate blocks found in Takeaway."
+          });
+        } else {
+          const candList = leftPane.createDiv({ cls: "zotero-connector-list" });
+          candidateMatches.forEach((match, idx) => {
+            const item = candList.createDiv({
+              cls: `zotero-connector-item ${idx === this.selectedIndex ? "is-selected" : ""}`
+            });
+            item.onclick = () => {
+              this.selectedIndex = idx;
+              void this.renderContent();
+            };
+            const topRow = item.createDiv({ cls: "zotero-connector-item-top" });
+            const leftMeta = topRow.createDiv({ cls: "zotero-connector-item-meta" });
+            leftMeta.createSpan({
+              cls: "zotero-connector-item-index",
+              text: `#${match.candidate.index}`
+            });
+            if (match.candidate.typeLabel) {
+              leftMeta.createSpan({
+                cls: "zotero-connector-type-chip",
+                text: match.candidate.typeLabel
+              });
+            }
+            const linked = match.matchedFile && this.isNoteLinked(getBasename(match.matchedFile)) || this.isNoteLinked(match.candidate.linkTitle);
+            const badgeText = linked ? "Linked" : match.matchedFile ? "Matched" : "Proposed";
+            const badgeCls = linked ? "is-linked" : match.matchedFile ? "is-matched" : "is-proposed";
+            topRow.createSpan({
+              cls: `zotero-connector-badge ${badgeCls}`,
+              text: badgeText
+            });
+            item.createDiv({
+              cls: "zotero-connector-item-title",
+              text: match.candidate.linkTitle
+            });
+            const subText = match.candidate.brief || match.candidate.storyline;
+            if (subText) {
+              item.createDiv({
+                cls: "zotero-connector-item-sub",
+                text: subText
+              });
+            }
+          });
+        }
+        leftPane.createDiv({
+          cls: "zotero-connector-section-label zotero-connector-section-spaced",
+          text: `Cited Vault Papers (${citedPapers.length})`
+        });
+        if (citedPapers.length === 0) {
+          leftPane.createDiv({
+            cls: "zotero-connector-subtle",
+            text: "No cited papers matched existing Literature notes."
+          });
+        } else {
+          const citedList = leftPane.createDiv({ cls: "zotero-connector-cited-list" });
+          for (const cited of citedPapers) {
+            const row = citedList.createDiv({ cls: "zotero-connector-cited-row" });
+            const info = row.createDiv({ cls: "zotero-connector-cited-info" });
+            const titleLink = info.createEl("a", {
+              cls: "zotero-connector-cited-title",
+              text: cited.title,
+              href: "#"
+            });
+            titleLink.onclick = (ev) => {
+              ev.preventDefault();
+              void this.app.workspace.getLeaf(false).openFile(cited.file);
+              this.close();
+            };
+            const metaParts = [cited.citekey, cited.year, `via ${cited.matchedBy}`].filter(
+              Boolean
+            );
+            info.createDiv({
+              cls: "zotero-connector-item-sub",
+              text: metaParts.join(" \xB7 ")
+            });
+            const base = getBasename(cited.file);
+            const alreadyLinked = this.isNoteLinked(base);
+            const btn = row.createEl("button", {
+              cls: `zotero-connector-mini-btn ${alreadyLinked ? "is-linked" : ""}`,
+              text: alreadyLinked ? "Linked" : "Link",
+              attr: { type: "button" }
+            });
+            btn.disabled = alreadyLinked;
+            btn.onclick = async () => {
+              var _a;
+              try {
+                const wiki = `[[${base}]]`;
+                const next = state.coreNote.linkedNotes.includes(wiki) ? state.coreNote.linkedNotes : [...state.coreNote.linkedNotes, wiki];
+                await this.plugin.paperHub.saveCoreNote(
+                  state.citekey,
+                  { linkedNotes: next },
+                  this.literatureFile
+                );
+                new import_obsidian5.Notice(`Linked ${wiki} to Core Note.`);
+                await this.notifyUpdated();
+                await this.refreshState();
+              } catch (err) {
+                console.error("[ConnectorModal] Failed to link cited paper", err);
+                new import_obsidian5.Notice(`Failed to link paper: ${(_a = err == null ? void 0 : err.message) != null ? _a : String(err)}`);
+              }
+            };
+          }
+        }
+      }
+      async renderRightPane(rightPane, state, selected) {
+        if (!selected) {
+          rightPane.createDiv({
+            cls: "zotero-connector-subtle",
+            text: "Select a Candidate Atomic Zettel on the left to review and link it."
+          });
+          return;
+        }
+        const { candidate, matchedFile, matchType } = selected;
+        const head = rightPane.createDiv({ cls: "zotero-connector-detail-head" });
+        head.createEl("h4", {
+          cls: "zotero-connector-detail-title",
+          text: candidate.linkTitle
+        });
+        const metaChips = [
+          { label: "Type", value: candidate.typeLabel || "" },
+          { label: "Source", value: candidate.source || "" },
+          { label: "Storyline", value: candidate.storyline },
+          { label: "Answers", value: candidate.answers || "" },
+          { label: "Link Status", value: candidate.linkStatus }
+        ].filter((m) => Boolean(m.value));
+        if (metaChips.length > 0) {
+          const chipsRow = head.createDiv({ cls: "zotero-connector-meta-chips" });
+          for (const item of metaChips) {
+            chipsRow.createSpan({
+              cls: "zotero-connector-meta-chip",
+              text: `${item.label}: ${item.value}`
+            });
+          }
+        }
+        const fields = rightPane.createDiv({ cls: "zotero-connector-fields" });
+        const renderTasks = [];
+        const addMarkdownField = (label, value) => {
+          if (!value) return;
+          const row = fields.createDiv({ cls: "zotero-connector-field-row" });
+          row.createSpan({ cls: "zotero-connector-field-key", text: label });
+          const valEl = row.createDiv({
+            cls: "zotero-connector-field-val zotero-connector-md-val"
+          });
+          renderTasks.push(
+            renderMarkdownContent(
+              this.app,
+              value,
+              valEl,
+              this.literatureFile.path,
+              this.mdComponent
+            )
+          );
+        };
+        addMarkdownField("Brief", candidate.brief);
+        addMarkdownField("Evidence", candidate.evidence);
+        addMarkdownField("Validation", candidate.validation);
+        addMarkdownField("Related Papers", candidate.relatedPapers);
+        if (candidate.tags.length > 0) {
+          const row = fields.createDiv({ cls: "zotero-connector-field-row" });
+          row.createSpan({ cls: "zotero-connector-field-key", text: "Tags" });
+          row.createSpan({
+            cls: "zotero-connector-field-val zotero-connector-tags-val",
+            text: candidate.tags.map((t) => `#${t}`).join("  ")
+          });
+        }
+        if (matchedFile) {
+          const previewWrap = rightPane.createDiv({ cls: "zotero-connector-preview-card" });
+          const previewHead = previewWrap.createDiv({ cls: "zotero-connector-preview-head" });
+          const isLinked = this.isNoteLinked(getBasename(matchedFile)) || this.isNoteLinked(candidate.linkTitle);
+          previewHead.createSpan({
+            text: `${isLinked ? "Linked" : "Matched"} (${matchType === "exact" ? "Exact Title" : "Concept Overlap"}): ${matchedFile.path}`
+          });
+          const openExisting = previewHead.createEl("a", {
+            text: "Open in Obsidian",
+            href: "#",
+            cls: "zotero-connector-open-link"
+          });
+          openExisting.onclick = (ev) => {
+            ev.preventDefault();
+            void this.app.workspace.getLeaf(false).openFile(matchedFile);
+            this.close();
+          };
+          const previewBody = previewWrap.createDiv({
+            cls: "zotero-connector-preview-rendered"
+          });
+          renderTasks.push(
+            this.app.vault.read(matchedFile).then(
+              (existingContent) => renderMarkdownContent(
+                this.app,
+                existingContent,
+                previewBody,
+                matchedFile.path,
+                this.mdComponent
+              )
+            )
+          );
+        }
+        await Promise.all(renderTasks);
+        const sanitizedName = (candidate.linkTitle || `A - Concept - ${state.citekey}`).replace(/\.md$/i, "").replace(/[\\/:*?"<>|]/g, "-").trim();
+        const atomicFolder = normalizePath(
+          this.plugin.settings.paperWorkspace.atomicNotesFolder || "003-Permanent"
+        );
+        const targetDisplayPath = atomicFolder ? `${atomicFolder}/${sanitizedName}.md` : `${sanitizedName}.md`;
+        if (!matchedFile) {
+          rightPane.createDiv({
+            cls: "zotero-connector-target-hint",
+            text: `Target: ${targetDisplayPath}`
+          });
+        }
+        const appendRow = rightPane.createEl("label", { cls: "zotero-connector-checkbox-row" });
+        const checkbox = appendRow.createEl("input", {
+          attr: { type: "checkbox" }
+        });
+        checkbox.checked = this.appendEvidence;
+        checkbox.onchange = () => {
+          this.appendEvidence = checkbox.checked;
+        };
+        appendRow.createSpan({
+          text: `Append "Evidence from [[${state.citekey}]]" section to target note`
+        });
+        const actions = rightPane.createDiv({ cls: "zotero-connector-actions" });
+        if (matchedFile) {
+          const matchedBase = getBasename(matchedFile);
+          const linkMatchedBtn = actions.createEl("button", {
+            cls: "mod-cta zotero-connector-btn",
+            text: "Link a note",
+            attr: {
+              type: "button",
+              title: `Link and append evidence to ${matchedBase}`,
+              "aria-label": `Link and append evidence to ${matchedBase}`
+            }
+          });
+          linkMatchedBtn.onclick = async () => {
+            var _a;
+            try {
+              const target = await this.plugin.vaultLibrary.connectCandidateToVault({
+                literatureFile: this.literatureFile,
+                citekey: state.citekey,
+                candidate,
+                mode: "reuse",
+                targetFile: matchedFile,
+                appendEvidence: this.appendEvidence
+              });
+              new import_obsidian5.Notice(`Linked note: ${getBasename(target)}`);
+              await this.notifyUpdated();
+              await this.refreshState();
+            } catch (err) {
+              console.error("[ConnectorModal] Failed to link existing note", err);
+              new import_obsidian5.Notice(
+                `Failed to link note: ${(_a = err == null ? void 0 : err.message) != null ? _a : String(err)}`
+              );
+            }
+          };
+          const rebindBtn = actions.createEl("button", {
+            cls: "zotero-connector-btn",
+            text: "Choose another note...",
+            attr: { type: "button" }
+          });
+          rebindBtn.onclick = () => {
+            new VaultMarkdownSuggestModal(
+              this.app,
+              async (chosenFile) => {
+                var _a;
+                try {
+                  const target = await this.plugin.vaultLibrary.connectCandidateToVault({
+                    literatureFile: this.literatureFile,
+                    citekey: state.citekey,
+                    candidate,
+                    mode: "reuse",
+                    targetFile: chosenFile,
+                    appendEvidence: this.appendEvidence,
+                    rewriteTakeaway: true
+                  });
+                  new import_obsidian5.Notice(`Linked to note: ${getBasename(target)}`);
+                  await this.notifyUpdated();
+                  await this.refreshState();
+                } catch (err) {
+                  console.error("[ConnectorModal] Failed to rebind vault note", err);
+                  new import_obsidian5.Notice(
+                    `Failed to link note: ${(_a = err == null ? void 0 : err.message) != null ? _a : String(err)}`
+                  );
+                }
+              },
+              (f) => f.path !== this.literatureFile.path,
+              "Choose an existing Atomic or Vault note..."
+            ).open();
+          };
+          const createAnywayBtn = actions.createEl("button", {
+            cls: "zotero-connector-btn",
+            text: "Create a note",
+            attr: {
+              type: "button",
+              title: `Create new note at ${targetDisplayPath}`
+            }
+          });
+          createAnywayBtn.onclick = async () => {
+            var _a;
+            try {
+              const target = await this.plugin.vaultLibrary.connectCandidateToVault({
+                literatureFile: this.literatureFile,
+                citekey: state.citekey,
+                candidate,
+                mode: "create",
+                appendEvidence: this.appendEvidence
+              });
+              new import_obsidian5.Notice(`Created and linked note: ${getBasename(target)}`);
+              await this.notifyUpdated();
+              await this.refreshState();
+            } catch (err) {
+              console.error("[ConnectorModal] Failed to create atomic note", err);
+              new import_obsidian5.Notice(
+                `Failed to create note: ${(_a = err == null ? void 0 : err.message) != null ? _a : String(err)}`
+              );
+            }
+          };
+        } else {
+          const createBtn = actions.createEl("button", {
+            cls: "mod-cta zotero-connector-btn",
+            text: "Create a note",
+            attr: {
+              type: "button",
+              title: `Create ${targetDisplayPath}`
+            }
+          });
+          createBtn.onclick = async () => {
+            var _a;
+            try {
+              const target = await this.plugin.vaultLibrary.connectCandidateToVault({
+                literatureFile: this.literatureFile,
+                citekey: state.citekey,
+                candidate,
+                mode: "create",
+                appendEvidence: this.appendEvidence
+              });
+              new import_obsidian5.Notice(`Created and linked note: ${getBasename(target)}`);
+              await this.notifyUpdated();
+              await this.refreshState();
+            } catch (err) {
+              console.error("[ConnectorModal] Failed to create atomic note", err);
+              new import_obsidian5.Notice(
+                `Failed to create note: ${(_a = err == null ? void 0 : err.message) != null ? _a : String(err)}`
+              );
+            }
+          };
+          const chooseExistingBtn = actions.createEl("button", {
+            cls: "zotero-connector-btn",
+            text: "Link a note",
+            attr: {
+              type: "button",
+              title: "Choose an existing Vault note instead of creating a new one"
+            }
+          });
+          chooseExistingBtn.onclick = () => {
+            new VaultMarkdownSuggestModal(
+              this.app,
+              async (chosenFile) => {
+                var _a;
+                try {
+                  const target = await this.plugin.vaultLibrary.connectCandidateToVault({
+                    literatureFile: this.literatureFile,
+                    citekey: state.citekey,
+                    candidate,
+                    mode: "reuse",
+                    targetFile: chosenFile,
+                    appendEvidence: this.appendEvidence,
+                    rewriteTakeaway: true
+                  });
+                  new import_obsidian5.Notice(`Linked note: ${getBasename(target)}`);
+                  await this.notifyUpdated();
+                  await this.refreshState();
+                } catch (err) {
+                  console.error("[ConnectorModal] Failed to link chosen note", err);
+                  new import_obsidian5.Notice(
+                    `Failed to link note: ${(_a = err == null ? void 0 : err.message) != null ? _a : String(err)}`
+                  );
+                }
+              },
+              (f) => f.path !== this.literatureFile.path,
+              "Choose an existing Atomic or Vault note..."
+            ).open();
+          };
+        }
+      }
+      async notifyUpdated() {
+        if (this.onUpdated) {
+          await this.onUpdated();
+        }
       }
     };
   }
@@ -5865,7 +6297,7 @@ function updateDigestRibbon(plugin) {
   ribbonByPlugin.delete(plugin);
   if (!import_obsidian6.Platform.isDesktopApp || !getDigestServices(plugin).settings().showInRibbon)
     return;
-  const el = plugin.addRibbonIcon("inbox", "Open Paper Digest", () => {
+  const el = plugin.addRibbonIcon("inbox", "Open Paper House", () => {
     void openDigest(plugin);
   });
   ribbonByPlugin.set(plugin, el);
@@ -5875,12 +6307,12 @@ function registerDigest(plugin) {
   plugin.registerView(VIEW_TYPE_DIGEST, (leaf) => new PaperDigestView(leaf, plugin));
   plugin.addCommand({
     id: "open-paper-digest",
-    name: "Open Paper Digest",
+    name: "Open Paper House",
     callback: () => void openDigest(plugin)
   });
   plugin.addCommand({
     id: "open-paper-library",
-    name: "Open Paper Library (Vault Search)",
+    name: "Open Paper House (Library)",
     callback: () => void openPaperLibrary(plugin)
   });
   updateDigestRibbon(plugin);
@@ -5942,7 +6374,6 @@ var init_digest_view = __esm({
         this.libraryQuickFilter = "all";
         this.libraryVenueFilter = "";
         this.selectedLibraryKey = "";
-        this.libraryEditingCore = false;
         this.libraryListScroll = 0;
         this.libraryDetailScroll = 0;
         this.vaultListenersRegistered = false;
@@ -5955,7 +6386,7 @@ var init_digest_view = __esm({
         return VIEW_TYPE_DIGEST;
       }
       getDisplayText() {
-        return this.hubTab === "library" ? "Paper Library" : "Paper Digest";
+        return "Paper House";
       }
       getIcon() {
         return "inbox";
@@ -5986,7 +6417,7 @@ var init_digest_view = __esm({
         if (this.vaultListenersRegistered) return;
         this.vaultListenersRegistered = true;
         const refreshIfLibraryActive = () => {
-          if (this.hubTab !== "library" || this.libraryEditingCore) return;
+          if (this.hubTab !== "library") return;
           void this.reloadLibrary().then(() => this.renderLibraryResultsOnly());
         };
         if (typeof ((_a = this.app.vault) == null ? void 0 : _a.on) === "function") {
@@ -6043,23 +6474,21 @@ var init_digest_view = __esm({
         }
         await this.reload(false);
       }
-      /** Opens the Hub directly on the Vault Paper Library tab, optionally pre-filtered by venue. */
+      /** Opens Paper House directly on the Vault Paper Library tab, optionally pre-filtered by venue. */
       async openLibrary(venueFilter) {
         this.ensureVaultListeners();
         this.hubTab = "library";
         if (venueFilter !== void 0) {
           this.libraryVenueFilter = venueFilter.trim();
         }
-        this.libraryEditingCore = false;
         await this.reloadLibrary();
         this.render();
       }
-      /** Switches between Library and Digest tabs. */
+      /** Switches between Digest and Library tabs. */
       async switchHubTab(tab) {
         this.ensureVaultListeners();
         if (this.hubTab === tab) return;
         this.hubTab = tab;
-        this.libraryEditingCore = false;
         if (tab === "library") {
           await this.reloadLibrary();
           this.render();
@@ -6099,7 +6528,6 @@ var init_digest_view = __esm({
           Math.max(0, idx + step)
         );
         this.selectedLibraryKey = this.libraryEntries[nextIdx].citekey;
-        this.libraryEditingCore = false;
         this.renderLibraryResultsOnly();
       }
       openSelectedLibraryNote() {
@@ -6384,8 +6812,9 @@ var init_digest_view = __esm({
           else if (this.mode !== "invalid") this.move(-1);
         });
         bind("Enter", () => {
-          if (this.hubTab === "library") this.openSelectedLibraryNote();
-          else if (this.mode === "accept") void this.confirmAccept();
+          if (this.hubTab === "digest" && this.mode === "accept") {
+            void this.confirmAccept();
+          }
         });
         bind("Escape", () => {
           if (this.hubTab === "library") {
@@ -6465,18 +6894,18 @@ var init_digest_view = __esm({
       renderHeader(root) {
         const header = root.createDiv({ cls: "zotero-digest-header" });
         const switcher = header.createDiv({ cls: "zotero-hub-segmented" });
-        const libBtn = switcher.createEl("button", {
-          cls: "zotero-hub-seg-btn",
-          text: "Library"
-        });
-        libBtn.toggleClass("is-active", this.hubTab === "library");
-        libBtn.onclick = () => void this.switchHubTab("library");
         const digestBtn = switcher.createEl("button", {
           cls: "zotero-hub-seg-btn",
           text: "Digest"
         });
         digestBtn.toggleClass("is-active", this.hubTab === "digest");
         digestBtn.onclick = () => void this.switchHubTab("digest");
+        const libBtn = switcher.createEl("button", {
+          cls: "zotero-hub-seg-btn",
+          text: "Library"
+        });
+        libBtn.toggleClass("is-active", this.hubTab === "library");
+        libBtn.onclick = () => void this.switchHubTab("library");
         if (this.hubTab === "library") {
           const right2 = header.createDiv({ cls: "zotero-digest-header-right" });
           right2.createSpan({
@@ -6665,7 +7094,6 @@ var init_digest_view = __esm({
             }
             row.onclick = () => {
               this.selectedLibraryKey = entry.citekey;
-              this.libraryEditingCore = false;
               this.libraryDetailScroll = 0;
               this.renderLibraryResultsOnly();
             };
@@ -6765,7 +7193,7 @@ var init_digest_view = __esm({
         const actionsBar = headerCard.createDiv({ cls: "zotero-library-actions" });
         const openBtn = actionsBar.createEl("button", {
           cls: "mod-cta",
-          text: "Open Note (Enter)",
+          text: "Open Note",
           attr: { type: "button" }
         });
         openBtn.onclick = () => this.openSelectedLibraryNote();
@@ -6810,77 +7238,20 @@ var init_digest_view = __esm({
         const coreHead = coreCard.createDiv({ cls: "zotero-library-section-head" });
         coreHead.createSpan({ cls: "zotero-digest-panel-title", text: "Core Note" });
         const coreHeadActions = coreHead.createDiv({ cls: "zotero-library-section-actions" });
-        if (!this.libraryEditingCore) {
-          const editBtn = coreHeadActions.createEl("button", {
+        if (entry.hasCoreNote) {
+          const openCoreBtn = coreHeadActions.createEl("button", {
             cls: "zotero-library-inline-btn",
-            text: entry.coreNoteBody ? "Edit" : "+ Write Core Note",
-            attr: { type: "button" }
+            text: "Open",
+            attr: { type: "button", title: "Open Core Note in Obsidian editor" }
           });
-          editBtn.onclick = () => {
-            this.libraryEditingCore = true;
-            this.renderLibraryResultsOnly();
-          };
-        }
-        const openMdBtn = coreHeadActions.createEl("button", {
-          cls: "zotero-library-inline-btn",
-          text: "Open .md",
-          attr: { type: "button", title: "Open Core Note in Obsidian editor" }
-        });
-        openMdBtn.onclick = async () => {
-          const coreFile = await this.getPaperHub().createOrOpenReportFile(
-            entry.citekey,
-            "coreNote",
-            entry.file
-          );
-          await this.app.workspace.getLeaf(false).openFile(coreFile);
-        };
-        if (this.libraryEditingCore) {
-          const editor = coreCard.createEl("textarea", {
-            cls: "zotero-core-note-editor",
-            attr: {
-              rows: "5",
-              placeholder: "Write core claim & personal takeaways..."
-            }
-          });
-          editor.value = entry.coreNoteBody;
-          const editActions = coreCard.createDiv({ cls: "zotero-library-edit-actions" });
-          const cancelBtn = editActions.createEl("button", {
-            text: "Cancel",
-            attr: { type: "button" }
-          });
-          cancelBtn.onclick = () => {
-            this.libraryEditingCore = false;
-            this.renderLibraryResultsOnly();
-          };
-          const saveBtn = editActions.createEl("button", {
-            cls: "mod-cta",
-            text: "Save Core Note",
-            attr: { type: "button" }
-          });
-          const commitSave = async () => {
-            await this.getPaperHub().saveCoreNote(
+          openCoreBtn.onclick = async () => {
+            const coreFile = await this.getPaperHub().createOrOpenReportFile(
               entry.citekey,
-              { body: editor.value.trim() },
+              "coreNote",
               entry.file
             );
-            this.libraryEditingCore = false;
-            new import_obsidian6.Notice("Saved Core Note.");
-            await this.reloadLibrary();
-            this.renderLibraryResultsOnly();
+            await this.app.workspace.getLeaf(false).openFile(coreFile);
           };
-          saveBtn.onclick = () => void commitSave();
-          editor.onkeydown = (ev) => {
-            if ((ev.metaKey || ev.ctrlKey) && ev.key === "Enter") {
-              ev.preventDefault();
-              void commitSave();
-            } else if (ev.key === "Escape") {
-              ev.preventDefault();
-              this.libraryEditingCore = false;
-              this.renderLibraryResultsOnly();
-            }
-          };
-          setTimeout(() => editor.focus(), 0);
-        } else if (entry.coreNoteBody) {
           const bodyBox = coreCard.createDiv({ cls: "zotero-library-core-text" });
           void renderMarkdownContent(
             this.app,
@@ -6889,21 +7260,29 @@ var init_digest_view = __esm({
             entry.file.path,
             this
           );
-          bodyBox.onclick = (ev) => {
-            var _a;
-            if ((_a = ev.target) == null ? void 0 : _a.closest("a")) return;
-            this.libraryEditingCore = true;
-            this.renderLibraryResultsOnly();
-          };
         } else {
-          const bodyBox = coreCard.createDiv({
-            cls: "zotero-core-note-placeholder",
-            text: 'Click "+ Write Core Note" to capture your core takeaway.'
+          const writeCoreBtn = coreHeadActions.createEl("button", {
+            cls: "mod-cta zotero-library-inline-btn",
+            text: "Write Core Note",
+            attr: {
+              type: "button",
+              title: "Create and open Core Note in Obsidian editor"
+            }
           });
-          bodyBox.onclick = () => {
-            this.libraryEditingCore = true;
+          writeCoreBtn.onclick = async () => {
+            const coreFile = await this.getPaperHub().createOrOpenReportFile(
+              entry.citekey,
+              "coreNote",
+              entry.file
+            );
+            await this.app.workspace.getLeaf(false).openFile(coreFile);
+            await this.reloadLibrary();
             this.renderLibraryResultsOnly();
           };
+          coreCard.createDiv({
+            cls: "zotero-digest-meta zotero-library-core-empty",
+            text: "No Core Note yet."
+          });
         }
         if (entry.tldr || entry.contributions || entry.novelty || entry.limitation) {
           const profileCard = detail.createDiv({
@@ -8389,7 +8768,6 @@ var ZoteroService = class {
 
 // src/settings.ts
 init_zotero_connector();
-init_connector_modal();
 init_paths();
 function addSettingIconAction(parent, icon, tooltip, onClick) {
   if (typeof import_obsidian9.ExtraButtonComponent === "function") {
@@ -8457,7 +8835,6 @@ var ConfirmActionModal = class extends import_obsidian9.Modal {
     this.onConfirm = onConfirm;
   }
   onOpen() {
-    var _a;
     const { contentEl } = this;
     contentEl.empty();
     contentEl.createEl("h3", { text: this.titleText });
@@ -8466,12 +8843,101 @@ var ConfirmActionModal = class extends import_obsidian9.Modal {
       cls: "setting-item-description"
     });
     const footer = contentEl.createDiv({ cls: "zotero-modal-footer" });
-    new import_obsidian9.ButtonComponent(footer).setButtonText("Cancel").onClick(() => this.close());
-    const confirmBtn = new import_obsidian9.ButtonComponent(footer).setButtonText(this.confirmLabel).onClick(async () => {
+    const cancelBtn = footer.createEl("button", {
+      text: "Cancel",
+      attr: { type: "button" }
+    });
+    cancelBtn.onclick = () => this.close();
+    const confirmBtn = footer.createEl("button", {
+      cls: "mod-warning",
+      text: this.confirmLabel,
+      attr: { type: "button" }
+    });
+    confirmBtn.onclick = async () => {
       await this.onConfirm();
       this.close();
+    };
+  }
+  onClose() {
+    this.contentEl.empty();
+  }
+};
+function slugifyPromptId(raw) {
+  return raw.trim().toLowerCase().replace(/[^a-z0-9_-]+/g, "_").replace(/^_+|_+$/g, "");
+}
+var AddPromptModal = class extends import_obsidian9.Modal {
+  constructor(app, existingIds, onSubmit) {
+    super(app);
+    this.existingIds = existingIds;
+    this.onSubmit = onSubmit;
+    this.idTouched = false;
+  }
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.addClass("zotero-webhook-input-modal");
+    contentEl.createEl("h3", {
+      text: "Add Custom Prompt",
+      cls: "zotero-webhook-input-title"
     });
-    (_a = confirmBtn.setWarning) == null ? void 0 : _a.call(confirmBtn);
+    const form = contentEl.createDiv({ cls: "zotero-webhook-input-form" });
+    const nameRow = form.createDiv({ cls: "zotero-webhook-input-row" });
+    nameRow.createEl("label", {
+      text: "Prompt name",
+      cls: "zotero-webhook-input-label"
+    });
+    const nameInput = nameRow.createEl("input", {
+      cls: "zotero-webhook-input-field",
+      attr: {
+        type: "text",
+        placeholder: "e.g. Related Work Review"
+      }
+    });
+    const idRow = form.createDiv({ cls: "zotero-webhook-input-row" });
+    idRow.createEl("label", {
+      text: "Prompt ID ({{prompt.<id>}})",
+      cls: "zotero-webhook-input-label"
+    });
+    const idInput = idRow.createEl("input", {
+      cls: "zotero-webhook-input-field",
+      attr: {
+        type: "text",
+        placeholder: "e.g. related_work_review"
+      }
+    });
+    nameInput.oninput = () => {
+      if (!this.idTouched) {
+        idInput.value = slugifyPromptId(nameInput.value);
+      }
+    };
+    idInput.oninput = () => {
+      this.idTouched = true;
+    };
+    const footer = contentEl.createDiv({ cls: "zotero-webhook-input-footer" });
+    const cancelBtn = footer.createEl("button", {
+      text: "Cancel",
+      attr: { type: "button" }
+    });
+    cancelBtn.onclick = () => this.close();
+    const createBtn = footer.createEl("button", {
+      cls: "mod-cta",
+      text: "Create Prompt",
+      attr: { type: "button" }
+    });
+    createBtn.onclick = async () => {
+      const cleanName = nameInput.value.trim();
+      const cleanId = slugifyPromptId(idInput.value || cleanName);
+      if (!cleanName || !cleanId) {
+        new import_obsidian9.Notice("Please enter a valid prompt name and ID.");
+        return;
+      }
+      if (this.existingIds.has(cleanId)) {
+        new import_obsidian9.Notice(`Prompt ID "${cleanId}" already exists.`);
+        return;
+      }
+      await this.onSubmit({ id: cleanId, name: cleanName });
+      this.close();
+    };
   }
   onClose() {
     this.contentEl.empty();
@@ -8481,24 +8947,17 @@ var ZoteroSettingTab = class extends import_obsidian9.PluginSettingTab {
   constructor(app, plugin) {
     super(app, plugin);
     this.activeTab = "general";
-    this.activePromptKey = "zotero-template";
-    this.promptPreviewMode = false;
-    this.previewComponent = null;
     this.plugin = plugin;
   }
   display() {
-    if (this.previewComponent) {
-      this.previewComponent.unload();
-      this.previewComponent = null;
-    }
     const { containerEl } = this;
     containerEl.empty();
     containerEl.addClass("zotero-settings-wrapper");
     const tabsEl = containerEl.createDiv({ cls: "zotero-settings-tabs" });
     this.renderTabItem(tabsEl, "general", "General");
-    this.renderTabItem(tabsEl, "zotero", "Zotero & Highlights");
-    this.renderTabItem(tabsEl, "prompts", "Templates & Prompts");
-    this.renderTabItem(tabsEl, "webhook", "Modular Webhooks");
+    this.renderTabItem(tabsEl, "zotero", "Highlights");
+    this.renderTabItem(tabsEl, "prompts", "Templates");
+    this.renderTabItem(tabsEl, "webhook", "Webhooks");
     this.renderTabItem(tabsEl, "cfp", "CFP");
     this.renderTabItem(tabsEl, "digest", "Digest");
     const bodyEl = containerEl.createDiv({ cls: "zotero-setting-container" });
@@ -8534,68 +8993,97 @@ var ZoteroSettingTab = class extends import_obsidian9.PluginSettingTab {
       cls: "zotero-card-title"
     });
     layoutCard.createDiv({
-      text: "Vault-relative path patterns for each paper resource. Use {{citekey}} for automatic citation-key substitution.",
+      text: "Configure button labels and Vault-relative path patterns for each paper resource. Use {{citekey}} for automatic citation-key substitution.",
       cls: "setting-item-description zotero-desc-tight"
     });
     const syncRefs = {
       highlightNotes: null,
       fleetingFolder: null
     };
-    const addPathRow = (name, desc, key, defaultVal, afterSave, onInitRef) => {
+    const addPathRow = (name, desc, key, defaultVal, options) => {
+      const labelRef = { current: null };
       const rowRef = { current: null };
       const setting = new import_obsidian9.Setting(layoutCard).setName(name).setDesc(desc);
+      if ((options == null ? void 0 : options.labelKey) && options.defaultLabel) {
+        const lKey = options.labelKey;
+        const defLabel = options.defaultLabel;
+        setting.addText((labelInput) => {
+          var _a;
+          labelRef.current = labelInput;
+          (_a = labelInput.setPlaceholder) == null ? void 0 : _a.call(labelInput, defLabel);
+          labelInput.setValue(ws[lKey] || defLabel).onChange(async (val) => {
+            ws[lKey] = val.trim() || defLabel;
+            await this.plugin.saveSettings();
+          });
+          labelInput.inputEl.addClass("zotero-workspace-label-input");
+          labelInput.inputEl.setAttribute("aria-label", `${name} button label`);
+          labelInput.inputEl.setAttribute("title", "Button label");
+        });
+      }
       setting.addText((text) => {
         var _a;
         rowRef.current = text;
-        if (onInitRef) onInitRef(text);
+        if (options == null ? void 0 : options.onInitRef) options.onInitRef(text);
         (_a = text.setPlaceholder) == null ? void 0 : _a.call(text, defaultVal);
         text.setValue(ws[key]).onChange(async (val) => {
           ws[key] = val.trim();
-          if (afterSave) afterSave(ws[key]);
+          if (options == null ? void 0 : options.afterSave) options.afterSave(ws[key]);
           await this.plugin.saveSettings();
         });
         text.inputEl.addClass("zotero-workspace-path-input");
       });
-      addSettingIconAction(
-        setting.controlEl,
-        "rotate-ccw",
-        `Reset to default (${defaultVal})`,
-        async () => {
-          var _a;
-          ws[key] = defaultVal;
-          if (afterSave) afterSave(defaultVal);
-          (_a = rowRef.current) == null ? void 0 : _a.setValue(defaultVal);
-          await this.plugin.saveSettings();
+      const resetTooltip = (options == null ? void 0 : options.labelKey) && options.defaultLabel ? `Reset to default (${options.defaultLabel} \xB7 ${defaultVal})` : `Reset to default (${defaultVal})`;
+      addSettingIconAction(setting.controlEl, "rotate-ccw", resetTooltip, async () => {
+        var _a, _b;
+        if ((options == null ? void 0 : options.labelKey) && options.defaultLabel) {
+          ws[options.labelKey] = options.defaultLabel;
+          (_a = labelRef.current) == null ? void 0 : _a.setValue(options.defaultLabel);
         }
-      );
+        ws[key] = defaultVal;
+        if (options == null ? void 0 : options.afterSave) options.afterSave(defaultVal);
+        (_b = rowRef.current) == null ? void 0 : _b.setValue(defaultVal);
+        await this.plugin.saveSettings();
+      });
     };
     addPathRow(
-      "Zotero Note (Paper Manager)",
+      "Zotero Note",
       "Primary literature note imported from Zotero.",
       "literatureNotePath",
       DEFAULT_PAPER_WORKSPACE.literatureNotePath
     );
     addPathRow(
-      "Report 1 (Deep Research)",
-      "Internal manuscript deep-dive report.",
-      "report1Path",
-      DEFAULT_PAPER_WORKSPACE.report1Path
-    );
-    addPathRow(
-      "Report 2 (External Landscape)",
-      "External research landscape & code discovery report.",
-      "report2Path",
-      DEFAULT_PAPER_WORKSPACE.report2Path
-    );
-    addPathRow(
-      "Takeaway (Synthesized)",
-      "Synthesized Zettelkasten Incubator takeaway note.",
+      "Takeaway",
+      "Button label and Vault path pattern for synthesized takeaway notes.",
       "takeawayPath",
-      DEFAULT_PAPER_WORKSPACE.takeawayPath
+      DEFAULT_PAPER_WORKSPACE.takeawayPath,
+      {
+        labelKey: "takeawayLabel",
+        defaultLabel: DEFAULT_PAPER_WORKSPACE.takeawayLabel
+      }
     );
     addPathRow(
-      "Core Note (Paper Note)",
-      "Concise personal core claim, projects, and linked Zettels.",
+      "Report 1",
+      "Button label and Vault path pattern for internal deep-research reports.",
+      "report1Path",
+      DEFAULT_PAPER_WORKSPACE.report1Path,
+      {
+        labelKey: "report1Label",
+        defaultLabel: DEFAULT_PAPER_WORKSPACE.report1Label
+      }
+    );
+    addPathRow(
+      "Report 2",
+      "Button label and Vault path pattern for external landscape & code discovery reports.",
+      "report2Path",
+      DEFAULT_PAPER_WORKSPACE.report2Path,
+      {
+        labelKey: "report2Label",
+        defaultLabel: DEFAULT_PAPER_WORKSPACE.report2Label
+      }
+    );
+    addPathRow(
+      "Core Note",
+      "Personal core claim, projects, and linked atomic notes.",
       "coreNotePath",
       DEFAULT_PAPER_WORKSPACE.coreNotePath
     );
@@ -8604,13 +9092,15 @@ var ZoteroSettingTab = class extends import_obsidian9.PluginSettingTab {
       "Folder where exported PDF highlight / fleeting notes are saved.",
       "highlightNotesFolder",
       DEFAULT_PAPER_WORKSPACE.highlightNotesFolder,
-      (val) => {
-        var _a;
-        this.plugin.settings.fleetingNoteFolder = val;
-        (_a = syncRefs.fleetingFolder) == null ? void 0 : _a.setValue(val);
-      },
-      (ref) => {
-        syncRefs.highlightNotes = ref;
+      {
+        afterSave: (val) => {
+          var _a;
+          this.plugin.settings.fleetingNoteFolder = val;
+          (_a = syncRefs.fleetingFolder) == null ? void 0 : _a.setValue(val);
+        },
+        onInitRef: (ref) => {
+          syncRefs.highlightNotes = ref;
+        }
       }
     );
     addPathRow(
@@ -8780,358 +9270,463 @@ var ZoteroSettingTab = class extends import_obsidian9.PluginSettingTab {
     );
   }
   // -------------------------------------------------------------------------
-  // TAB 3: TEMPLATES & PROMPTS
+  // TAB 3: TEMPLATES & PROMPTS (FILE-BASED MANAGEMENT)
   // -------------------------------------------------------------------------
-  renderPromptsSettings(container) {
-    const selectorRow = container.createDiv({ cls: "zotero-prompt-pills" });
-    const zoteroPill = selectorRow.createEl("button", {
-      cls: `zotero-prompt-pill ${this.activePromptKey === "zotero-template" ? "is-active" : ""}`,
-      text: "Zotero Template",
-      attr: { type: "button" }
-    });
-    zoteroPill.onclick = () => {
-      this.activePromptKey = "zotero-template";
-      this.display();
-    };
-    for (const prompt of this.plugin.settings.prompts) {
-      const pill = selectorRow.createEl("button", {
-        cls: `zotero-prompt-pill ${this.activePromptKey === prompt.id ? "is-active" : ""}`,
-        text: prompt.name,
-        attr: { type: "button" }
-      });
-      pill.onclick = () => {
-        this.activePromptKey = prompt.id;
-        this.display();
-      };
-    }
-    const addPromptBtn = selectorRow.createEl("button", {
-      cls: "zotero-prompt-pill is-add",
-      text: "+ New Prompt",
-      attr: { type: "button" }
-    });
-    addPromptBtn.onclick = async () => {
-      const idx = this.plugin.settings.prompts.length + 1;
-      const id = `custom_${Date.now().toString(36)}`;
-      const entry = {
-        id,
-        name: `Custom Prompt ${idx}`,
-        vaultPath: `002-Literature/100-Prompts/${id}.md`,
-        content: "# Custom Prompt\n\nWrite your prompt instructions here.\n",
-        builtIn: false
-      };
-      this.plugin.settings.prompts.push(entry);
-      this.activePromptKey = id;
-      await this.plugin.saveSettings();
-      this.display();
-    };
-    if (this.activePromptKey === "zotero-template") {
-      this.renderZoteroTemplateEditor(container);
-      return;
-    }
-    const selectedPrompt = this.plugin.settings.prompts.find(
-      (p) => p.id === this.activePromptKey
+  async openVaultMarkdownInEditor(rawPath, fallbackContent) {
+    var _a, _b;
+    const trimmed = rawPath.trim();
+    const normalized = normalizePath(
+      /\.[^/\\]+$/.test(trimmed) ? trimmed : `${trimmed}.md`
     );
-    if (!selectedPrompt) {
-      this.activePromptKey = "zotero-template";
-      this.renderZoteroTemplateEditor(container);
-      return;
+    await this.plugin.paperHub.ensureParentFolder(normalized);
+    const existing = this.app.vault.getAbstractFileByPath(normalized);
+    let fileToOpen;
+    if (existing instanceof import_obsidian9.TFile) {
+      fileToOpen = existing;
+    } else if (typeof this.app.vault.create === "function") {
+      fileToOpen = await this.app.vault.create(normalized, fallbackContent);
+    } else {
+      new import_obsidian9.Notice(`File not found in Vault: ${normalized}`);
+      return normalized;
     }
-    this.renderPromptEntryEditor(container, selectedPrompt);
+    await this.app.workspace.getLeaf(false).openFile(fileToOpen);
+    (_b = (_a = this.app.setting) == null ? void 0 : _a.close) == null ? void 0 : _b.call(_a);
+    return normalized;
   }
-  renderZoteroTemplateEditor(container) {
+  renderPromptsSettings(container) {
+    var _a, _b, _c, _d;
+    const ws = this.plugin.settings.paperWorkspace;
     const connector = new ZoteroConnectorService(this.app, this.plugin.settings);
     const tplConfig = this.plugin.settings.zoteroTemplate;
-    const card = container.createDiv({ cls: "zotero-setting-card" });
-    card.createEl("h3", {
-      text: "Zotero Integration Note Template (Nunjucks)",
+    const currentFolder = normalizePath(
+      ((_a = ws.templatesFolder) == null ? void 0 : _a.trim()) || DEFAULT_PAPER_WORKSPACE.templatesFolder
+    ).replace(/\/+$/, "");
+    let draftFolder = currentFolder;
+    const addActionBtn = (parent, label, onClick, isCta = false) => {
+      const btn = parent.createEl("button", {
+        cls: isCta ? "mod-cta" : void 0,
+        text: label,
+        attr: { type: "button" }
+      });
+      btn.onclick = () => {
+        void onClick();
+      };
+      return btn;
+    };
+    const folderCard = container.createDiv({ cls: "zotero-setting-card" });
+    folderCard.createEl("h3", {
+      text: "Templates & Prompts Folder",
       cls: "zotero-card-title"
     });
-    card.createDiv({
-      text: "Syncs with obsidian-zotero-desktop-connector export template. Use Detect to locate your active template file in the vault.",
+    folderCard.createDiv({
+      text: "Unified Vault folder where customizable note templates and prompts live as standard Markdown files.",
       cls: "setting-item-description zotero-desc-tight"
     });
-    const pathRow = card.createDiv({ cls: "zotero-template-path-row" });
-    const pathInput = new import_obsidian9.TextComponent(pathRow);
-    pathInput.setPlaceholder("e.g. 000-Templates/Zotero Literature.md").setValue(tplConfig.vaultPath || "").onChange(async (val) => {
-      tplConfig.vaultPath = val.trim();
-      await this.plugin.saveSettings();
+    const folderRow = folderCard.createDiv({ cls: "zotero-template-folder-row" });
+    const folderInput = folderRow.createEl("input", {
+      cls: "zotero-workspace-path-input zotero-flex-1",
+      attr: {
+        type: "text",
+        placeholder: DEFAULT_PAPER_WORKSPACE.templatesFolder
+      }
     });
-    pathInput.inputEl.addClass("zotero-input-wide");
-    new import_obsidian9.ButtonComponent(pathRow).setButtonText("Detect").onClick(async () => {
+    folderInput.value = currentFolder;
+    folderInput.oninput = () => {
+      draftFolder = folderInput.value.trim();
+    };
+    addActionBtn(
+      folderRow,
+      "Move Folder",
+      async () => {
+        var _a2;
+        const rawVal = folderInput.value.trim() || draftFolder;
+        const nextFolder = normalizePath(
+          rawVal || DEFAULT_PAPER_WORKSPACE.templatesFolder
+        ).replace(/\/+$/, "");
+        if (!nextFolder) {
+          new import_obsidian9.Notice("Please enter a valid Vault folder path.");
+          return;
+        }
+        const oldFolder = normalizePath(
+          ((_a2 = ws.templatesFolder) == null ? void 0 : _a2.trim()) || DEFAULT_PAPER_WORKSPACE.templatesFolder
+        ).replace(/\/+$/, "");
+        const moved = await this.plugin.paperHub.moveTemplatesFolder(
+          oldFolder,
+          nextFolder
+        );
+        ws.templatesFolder = nextFolder;
+        await this.plugin.saveSettings();
+        new import_obsidian9.Notice(
+          moved > 0 ? `Moved ${moved} template/prompt file${moved === 1 ? "" : "s"} to ${nextFolder}.` : `Templates folder set to ${nextFolder}.`
+        );
+        this.display();
+      },
+      true
+    );
+    addActionBtn(folderRow, "Sync Missing Defaults", async () => {
+      const created = await this.plugin.paperHub.ensureBuiltinTemplatesInVault();
+      await this.plugin.saveSettings();
+      new import_obsidian9.Notice(
+        created > 0 ? `Created ${created} missing default file${created === 1 ? "" : "s"} in Vault.` : "All built-in templates and prompts already exist in Vault."
+      );
+      this.display();
+    });
+    const templatesCard = container.createDiv({ cls: "zotero-setting-card" });
+    templatesCard.createEl("h3", {
+      text: "Note Templates",
+      cls: "zotero-card-title"
+    });
+    templatesCard.createDiv({
+      text: "Standard YAML frontmatter and note templates materialized in your Vault. Click Open to edit directly in Obsidian.",
+      cls: "setting-item-description zotero-desc-tight"
+    });
+    const tplList = templatesCard.createDiv({ cls: "zotero-template-file-list" });
+    const zotDefaultPath = currentFolder ? `${currentFolder}/zotero-note-template.md` : "zotero-note-template.md";
+    const resolvedZotPath = normalizePath(((_b = tplConfig.vaultPath) == null ? void 0 : _b.trim()) || zotDefaultPath);
+    const zotRow = tplList.createDiv({ cls: "zotero-template-file-row" });
+    const zotInfo = zotRow.createDiv({ cls: "zotero-template-file-info" });
+    zotInfo.createDiv({
+      cls: "zotero-template-file-name",
+      text: "Zotero Note Template"
+    });
+    zotInfo.createDiv({
+      cls: "zotero-template-file-path",
+      text: resolvedZotPath
+    });
+    const zotActions = zotRow.createDiv({ cls: "zotero-template-file-actions" });
+    addActionBtn(zotActions, "Detect", async () => {
       const detected = connector.detectTemplatePath();
       if (!detected) {
         new import_obsidian9.Notice(
-          "Could not auto-detect template path from Zotero Desktop Connector."
+          "Could not auto-detect template path from Zotero Integration."
         );
         return;
       }
       tplConfig.vaultPath = detected;
       await this.plugin.saveSettings();
-      new import_obsidian9.Notice(`Detected template: ${detected}`);
+      new import_obsidian9.Notice(`Detected Zotero template: ${detected}`);
       this.display();
     });
-    new import_obsidian9.ButtonComponent(pathRow).setButtonText("Load from File").onClick(async () => {
-      const loaded = await connector.loadTemplateContent(tplConfig.vaultPath);
-      if (!loaded.fromVault) {
-        new import_obsidian9.Notice("Template file not found in vault; keeping current editor text.");
-        return;
-      }
-      if (loaded.path) tplConfig.vaultPath = loaded.path;
+    addActionBtn(
+      zotActions,
+      "Open",
+      async () => {
+        var _a2;
+        const openedPath = await this.openVaultMarkdownInEditor(
+          resolvedZotPath,
+          tplConfig.content || DEFAULT_ZOTERO_TEMPLATE
+        );
+        if (!((_a2 = tplConfig.vaultPath) == null ? void 0 : _a2.trim())) {
+          tplConfig.vaultPath = openedPath;
+          await this.plugin.saveSettings();
+        }
+      },
+      true
+    );
+    addActionBtn(zotActions, "Snapshot", async () => {
+      const loaded = await connector.loadTemplateContent(resolvedZotPath);
       tplConfig.content = loaded.content;
+      tplConfig.snapshot = loaded.content;
       await this.plugin.saveSettings();
-      new import_obsidian9.Notice(`Loaded template from ${loaded.path}`);
-      this.display();
-    });
-    new import_obsidian9.ButtonComponent(pathRow).setButtonText("Save to Vault File").setCta().onClick(async () => {
-      var _a;
-      const targetPath = ((_a = tplConfig.vaultPath) == null ? void 0 : _a.trim()) || connector.detectTemplatePath();
-      if (!targetPath) {
-        new import_obsidian9.Notice("Set a Vault template path first.");
-        return;
-      }
-      const savedPath = await connector.saveTemplateToVault(
-        targetPath,
-        tplConfig.content
-      );
-      tplConfig.vaultPath = savedPath;
-      await this.plugin.saveSettings();
-      new import_obsidian9.Notice(`Saved template to ${savedPath}`);
-      this.display();
-    });
-    const actionsBar = card.createDiv({ cls: "zotero-template-actions-bar" });
-    new import_obsidian9.ButtonComponent(actionsBar).setButtonText("Copy").onClick(async () => {
-      var _a;
-      if ((_a = navigator.clipboard) == null ? void 0 : _a.writeText) {
-        await navigator.clipboard.writeText(tplConfig.content);
-        new import_obsidian9.Notice("Copied Zotero template to clipboard.");
-      }
-    });
-    new import_obsidian9.ButtonComponent(actionsBar).setButtonText("Save Snapshot").onClick(async () => {
-      tplConfig.snapshot = tplConfig.content;
-      await this.plugin.saveSettings();
-      new import_obsidian9.Notice("Saved Zotero template snapshot.");
+      new import_obsidian9.Notice("Saved snapshot for Zotero Note Template.");
       this.display();
     });
     if (tplConfig.snapshot) {
-      new import_obsidian9.ButtonComponent(actionsBar).setButtonText("Restore Snapshot").onClick(() => {
+      addActionBtn(zotActions, "Restore", () => {
         new ConfirmActionModal(
           this.app,
-          "Restore Template Snapshot?",
-          "Replace the current Zotero template content with your saved snapshot?",
-          "Restore Snapshot",
+          "Restore Zotero Note Template Snapshot?",
+          `Overwrite ${resolvedZotPath} with your saved snapshot?`,
+          "Restore",
           async () => {
-            tplConfig.content = tplConfig.snapshot || tplConfig.content;
+            const snap = tplConfig.snapshot || DEFAULT_ZOTERO_TEMPLATE;
+            const savedPath = await connector.saveTemplateToVault(
+              resolvedZotPath,
+              snap
+            );
+            tplConfig.vaultPath = savedPath;
+            tplConfig.content = snap;
             await this.plugin.saveSettings();
-            new import_obsidian9.Notice("Restored snapshot.");
+            new import_obsidian9.Notice("Restored Zotero Note Template snapshot.");
             this.display();
           }
         ).open();
       });
     }
-    new import_obsidian9.ButtonComponent(actionsBar).setButtonText("Reset to Default").onClick(() => {
+    addActionBtn(zotActions, "Reset", () => {
       new ConfirmActionModal(
         this.app,
-        "Reset Zotero Template to Default?",
-        "This replaces the template with the canonical Zotero Integration template (and updates the Vault file if a path is configured).",
-        "Reset to Default",
+        "Reset Zotero Note Template?",
+        `Reset ${resolvedZotPath} to the factory default Nunjucks template?`,
+        "Reset",
         async () => {
-          var _a;
+          const savedPath = await connector.saveTemplateToVault(
+            resolvedZotPath,
+            DEFAULT_ZOTERO_TEMPLATE
+          );
+          tplConfig.vaultPath = savedPath;
           tplConfig.content = DEFAULT_ZOTERO_TEMPLATE;
-          if ((_a = tplConfig.vaultPath) == null ? void 0 : _a.trim()) {
-            await connector.saveTemplateToVault(
-              tplConfig.vaultPath,
-              DEFAULT_ZOTERO_TEMPLATE
-            );
-          }
           await this.plugin.saveSettings();
-          new import_obsidian9.Notice("Reset Zotero template to default.");
+          new import_obsidian9.Notice("Reset Zotero Note Template to default.");
           this.display();
         }
       ).open();
     });
-    const editorWrap = card.createDiv({ cls: "zotero-template-editor-wrap" });
-    mountCodeMirror(
-      editorWrap,
-      tplConfig.content || DEFAULT_ZOTERO_TEMPLATE,
-      "markdown",
-      async (val) => {
-        tplConfig.content = val;
-        await this.plugin.saveSettings();
-      },
-      { height: "380px", wrap: true }
+    const noteTemplates = this.plugin.settings.prompts.filter(
+      (entry) => entry.kind === "template"
     );
-  }
-  renderPromptEntryEditor(container, entry) {
-    const card = container.createDiv({ cls: "zotero-setting-card" });
-    const topMeta = card.createDiv({ cls: "zotero-prompt-meta-bar" });
-    topMeta.createEl("h3", { text: entry.name, cls: "zotero-card-title zotero-no-margin" });
-    const chipsWrap = topMeta.createDiv({ cls: "zotero-placeholder-chips" });
-    for (const token of [`{{prompt.${entry.id}}}`, `{{path.prompt.${entry.id}}}`]) {
-      const chip = chipsWrap.createEl("button", {
-        cls: "zotero-placeholder-chip",
-        text: token,
-        attr: { type: "button", title: "Click to copy placeholder" }
-      });
-      chip.onclick = async () => {
-        var _a;
-        if ((_a = navigator.clipboard) == null ? void 0 : _a.writeText) {
-          await navigator.clipboard.writeText(token);
-          new import_obsidian9.Notice(`Copied ${token}`);
-        }
-      };
-    }
-    const fieldsGrid = card.createDiv({ cls: "zotero-prompt-fields-grid" });
-    new import_obsidian9.Setting(fieldsGrid).setName("Prompt Name").addText(
-      (text) => text.setValue(entry.name).onChange(async (val) => {
-        entry.name = val.trim() || entry.id;
-        await this.plugin.saveSettings();
-      })
-    );
-    new import_obsidian9.Setting(fieldsGrid).setName("Vault .md Path").setDesc("Synced prompt Markdown file in your vault.").addText((text) => {
-      text.setPlaceholder(`002-Literature/100-Prompts/${entry.id}.md`).setValue(entry.vaultPath).onChange(async (val) => {
-        entry.vaultPath = val.trim();
-        await this.plugin.saveSettings();
-      });
-      text.inputEl.addClass("zotero-workspace-path-input");
-    });
-    const actionsBar = card.createDiv({ cls: "zotero-template-actions-bar" });
-    new import_obsidian9.ButtonComponent(actionsBar).setButtonText("Save to Vault File").setCta().onClick(async () => {
-      const savedPath = await this.plugin.paperHub.savePromptToVault(
-        entry,
-        entry.content
-      );
-      entry.vaultPath = savedPath;
-      await this.plugin.saveSettings();
-      new import_obsidian9.Notice(`Saved prompt to ${savedPath}`);
-      this.display();
-    });
-    new import_obsidian9.ButtonComponent(actionsBar).setButtonText("Load from File").onClick(async () => {
-      const loaded = await this.plugin.paperHub.getPromptContent(entry.id);
-      entry.content = loaded;
-      await this.plugin.saveSettings();
-      new import_obsidian9.Notice(`Loaded prompt content for ${entry.name}`);
-      this.display();
-    });
-    new import_obsidian9.ButtonComponent(actionsBar).setButtonText("Copy Prompt").onClick(async () => {
-      var _a;
-      if ((_a = navigator.clipboard) == null ? void 0 : _a.writeText) {
-        await navigator.clipboard.writeText(entry.content);
-        new import_obsidian9.Notice(`Copied ${entry.name} prompt.`);
-      }
-    });
-    new import_obsidian9.ButtonComponent(actionsBar).setButtonText("Save Snapshot").onClick(async () => {
-      entry.snapshot = entry.content;
-      await this.plugin.saveSettings();
-      new import_obsidian9.Notice("Saved prompt snapshot.");
-      this.display();
-    });
-    if (entry.snapshot) {
-      new import_obsidian9.ButtonComponent(actionsBar).setButtonText("Restore Snapshot").onClick(() => {
-        new ConfirmActionModal(
-          this.app,
-          "Restore Prompt Snapshot?",
-          `Replace "${entry.name}" with your saved snapshot?`,
-          "Restore Snapshot",
-          async () => {
-            entry.content = entry.snapshot || entry.content;
+    for (const entry of noteTemplates) {
+      const fallbackPath = `${currentFolder}/${entry.id.replace(/^tpl-/, "")}-note-template.md`;
+      const entryPath = normalizePath(((_c = entry.vaultPath) == null ? void 0 : _c.trim()) || fallbackPath);
+      const row = tplList.createDiv({ cls: "zotero-template-file-row" });
+      const info = row.createDiv({ cls: "zotero-template-file-info" });
+      info.createDiv({ cls: "zotero-template-file-name", text: entry.name });
+      info.createDiv({ cls: "zotero-template-file-path", text: entryPath });
+      const actions = row.createDiv({ cls: "zotero-template-file-actions" });
+      addActionBtn(
+        actions,
+        "Open",
+        async () => {
+          const openedPath = await this.openVaultMarkdownInEditor(
+            entryPath,
+            entry.content
+          );
+          if (entry.vaultPath !== openedPath) {
+            entry.vaultPath = openedPath;
             await this.plugin.saveSettings();
-            new import_obsidian9.Notice("Restored prompt snapshot.");
-            this.display();
           }
-        ).open();
+        },
+        true
+      );
+      addActionBtn(actions, "Snapshot", async () => {
+        const live = await this.plugin.paperHub.getPromptContent(entry.id);
+        entry.content = live;
+        entry.snapshot = live;
+        await this.plugin.saveSettings();
+        new import_obsidian9.Notice(`Saved snapshot for ${entry.name}.`);
+        this.display();
       });
-    }
-    if (entry.builtIn) {
-      new import_obsidian9.ButtonComponent(actionsBar).setButtonText("Reset to Default").onClick(() => {
-        const builtInDefault = DEFAULT_PROMPTS.find((d) => d.id === entry.id);
+      if (entry.snapshot) {
+        addActionBtn(actions, "Restore", () => {
+          new ConfirmActionModal(
+            this.app,
+            `Restore "${entry.name}" Snapshot?`,
+            `Overwrite ${entryPath} with your saved snapshot?`,
+            "Restore",
+            async () => {
+              const snap = entry.snapshot || entry.content;
+              entry.vaultPath = entryPath;
+              const savedPath = await this.plugin.paperHub.savePromptToVault(
+                entry,
+                snap
+              );
+              entry.vaultPath = savedPath;
+              entry.content = snap;
+              await this.plugin.saveSettings();
+              new import_obsidian9.Notice(`Restored snapshot for ${entry.name}.`);
+              this.display();
+            }
+          ).open();
+        });
+      }
+      addActionBtn(actions, "Reset", () => {
+        const builtInDefault = this.plugin.paperHub.getBuiltInDefaultContent(entry.id);
         if (!builtInDefault) return;
         new ConfirmActionModal(
           this.app,
-          `Reset "${entry.name}" to Default?`,
-          "Overwrite current prompt text with the built-in canonical prompt?",
-          "Reset to Default",
+          `Reset "${entry.name}"?`,
+          `Reset ${entryPath} to the factory default template?`,
+          "Reset",
           async () => {
-            var _a;
-            entry.content = builtInDefault.content;
-            if ((_a = entry.vaultPath) == null ? void 0 : _a.trim()) {
-              const f = this.app.vault.getAbstractFileByPath(
-                normalizePath(entry.vaultPath.trim())
-              );
-              if (f) {
-                await this.plugin.paperHub.savePromptToVault(
-                  entry,
-                  entry.content
-                );
-              }
-            }
+            entry.vaultPath = entryPath;
+            const savedPath = await this.plugin.paperHub.savePromptToVault(
+              entry,
+              builtInDefault
+            );
+            entry.vaultPath = savedPath;
+            entry.content = builtInDefault;
             await this.plugin.saveSettings();
             new import_obsidian9.Notice(`Reset ${entry.name} to default.`);
             this.display();
           }
         ).open();
       });
-    } else {
-      new import_obsidian9.ButtonComponent(actionsBar).setButtonText("Delete").onClick(() => {
-        new ConfirmActionModal(
-          this.app,
-          `Delete "${entry.name}"?`,
-          "Remove this custom prompt from plugin settings? (Any existing vault .md file will not be deleted.)",
-          "Delete Prompt",
-          async () => {
-            this.plugin.settings.prompts = this.plugin.settings.prompts.filter(
-              (p) => p.id !== entry.id
-            );
-            this.activePromptKey = "zotero-template";
-            await this.plugin.saveSettings();
-            this.display();
-          }
-        ).open();
-      });
     }
-    const modeSwitch = actionsBar.createDiv({ cls: "zotero-prompt-mode-switch" });
-    const editModeBtn = modeSwitch.createEl("button", {
-      cls: `zotero-prompt-mode-btn ${!this.promptPreviewMode ? "is-active" : ""}`,
-      text: "Edit Source",
-      attr: { type: "button" }
+    const promptsCard = container.createDiv({ cls: "zotero-setting-card" });
+    const promptsHeader = promptsCard.createDiv({
+      cls: "zotero-template-card-header"
     });
-    editModeBtn.onclick = () => {
-      if (!this.promptPreviewMode) return;
-      this.promptPreviewMode = false;
-      this.display();
-    };
-    const previewModeBtn = modeSwitch.createEl("button", {
-      cls: `zotero-prompt-mode-btn ${this.promptPreviewMode ? "is-active" : ""}`,
-      text: "Preview Markdown",
-      attr: { type: "button" }
+    promptsHeader.createEl("h3", {
+      text: "Prompts",
+      cls: "zotero-card-title zotero-no-margin"
     });
-    previewModeBtn.onclick = () => {
-      if (this.promptPreviewMode) return;
-      this.promptPreviewMode = true;
-      this.display();
-    };
-    const editorWrap = card.createDiv({ cls: "zotero-template-editor-wrap" });
-    if (this.promptPreviewMode) {
-      const previewBox = editorWrap.createDiv({ cls: "zotero-prompt-markdown-preview" });
-      this.previewComponent = new import_obsidian9.Component();
-      this.previewComponent.load();
-      void renderMarkdownContent(
-        this.app,
-        entry.content,
-        previewBox,
-        entry.vaultPath || "",
-        this.previewComponent
-      );
-    } else {
-      mountCodeMirror(
-        editorWrap,
-        entry.content,
-        "markdown",
-        async (val) => {
-          entry.content = val;
+    addActionBtn(
+      promptsHeader,
+      "+ Add Prompt",
+      () => {
+        const existingIds = new Set(
+          this.plugin.settings.prompts.map((p) => p.id)
+        );
+        new AddPromptModal(this.app, existingIds, async ({ id, name }) => {
+          const targetPath = normalizePath(
+            `${currentFolder}/prompt-${id}.md`
+          );
+          const initialContent = `# ${name}
+
+Write your prompt instructions here.
+`;
+          const newEntry = {
+            id,
+            name,
+            kind: "prompt",
+            vaultPath: targetPath,
+            content: initialContent,
+            builtIn: false
+          };
+          if (typeof this.app.vault.create === "function") {
+            newEntry.vaultPath = await this.plugin.paperHub.savePromptToVault(
+              newEntry,
+              initialContent
+            );
+          }
+          this.plugin.settings.prompts.push(newEntry);
           await this.plugin.saveSettings();
+          new import_obsidian9.Notice(`Created prompt "${name}".`);
+          this.display();
+        }).open();
+      },
+      true
+    );
+    promptsCard.createDiv({
+      text: "LLM synthesis and research prompts. Click a {{prompt.<id>}} chip to copy its webhook placeholder.",
+      cls: "setting-item-description zotero-desc-tight"
+    });
+    const promptList = promptsCard.createDiv({ cls: "zotero-template-file-list" });
+    const promptEntries = this.plugin.settings.prompts.filter(
+      (entry) => {
+        var _a2;
+        return ((_a2 = entry.kind) != null ? _a2 : "prompt") === "prompt";
+      }
+    );
+    for (const entry of promptEntries) {
+      const fallbackPath = `${currentFolder}/prompt-${entry.id}.md`;
+      const entryPath = normalizePath(((_d = entry.vaultPath) == null ? void 0 : _d.trim()) || fallbackPath);
+      const row = promptList.createDiv({ cls: "zotero-template-file-row" });
+      const info = row.createDiv({ cls: "zotero-template-file-info" });
+      const titleLine = info.createDiv({ cls: "zotero-template-file-title-line" });
+      titleLine.createSpan({ cls: "zotero-template-file-name", text: entry.name });
+      const placeholderToken = `{{prompt.${entry.id}}}`;
+      const chip = titleLine.createEl("button", {
+        cls: "zotero-placeholder-chip",
+        text: placeholderToken,
+        attr: { type: "button", title: "Click to copy placeholder" }
+      });
+      chip.onclick = async () => {
+        var _a2;
+        if ((_a2 = navigator.clipboard) == null ? void 0 : _a2.writeText) {
+          await navigator.clipboard.writeText(placeholderToken);
+          new import_obsidian9.Notice(`Copied ${placeholderToken}`);
+        }
+      };
+      info.createDiv({ cls: "zotero-template-file-path", text: entryPath });
+      const actions = row.createDiv({ cls: "zotero-template-file-actions" });
+      addActionBtn(
+        actions,
+        "Open",
+        async () => {
+          const openedPath = await this.openVaultMarkdownInEditor(
+            entryPath,
+            entry.content
+          );
+          if (entry.vaultPath !== openedPath) {
+            entry.vaultPath = openedPath;
+            await this.plugin.saveSettings();
+          }
         },
-        { height: "380px", wrap: true }
+        true
       );
+      addActionBtn(actions, "Copy", async () => {
+        var _a2;
+        const live = await this.plugin.paperHub.getPromptContent(entry.id);
+        if ((_a2 = navigator.clipboard) == null ? void 0 : _a2.writeText) {
+          await navigator.clipboard.writeText(live);
+          new import_obsidian9.Notice(`Copied "${entry.name}" prompt to clipboard.`);
+        }
+      });
+      addActionBtn(actions, "Snapshot", async () => {
+        const live = await this.plugin.paperHub.getPromptContent(entry.id);
+        entry.content = live;
+        entry.snapshot = live;
+        await this.plugin.saveSettings();
+        new import_obsidian9.Notice(`Saved snapshot for ${entry.name}.`);
+        this.display();
+      });
+      if (entry.snapshot) {
+        addActionBtn(actions, "Restore", () => {
+          new ConfirmActionModal(
+            this.app,
+            `Restore "${entry.name}" Snapshot?`,
+            `Overwrite ${entryPath} with your saved snapshot?`,
+            "Restore",
+            async () => {
+              const snap = entry.snapshot || entry.content;
+              entry.vaultPath = entryPath;
+              const savedPath = await this.plugin.paperHub.savePromptToVault(
+                entry,
+                snap
+              );
+              entry.vaultPath = savedPath;
+              entry.content = snap;
+              await this.plugin.saveSettings();
+              new import_obsidian9.Notice(`Restored snapshot for ${entry.name}.`);
+              this.display();
+            }
+          ).open();
+        });
+      }
+      if (entry.builtIn) {
+        addActionBtn(actions, "Reset", () => {
+          const builtInDefault = this.plugin.paperHub.getBuiltInDefaultContent(
+            entry.id
+          );
+          if (!builtInDefault) return;
+          new ConfirmActionModal(
+            this.app,
+            `Reset "${entry.name}"?`,
+            `Reset ${entryPath} to the built-in default prompt?`,
+            "Reset",
+            async () => {
+              entry.vaultPath = entryPath;
+              const savedPath = await this.plugin.paperHub.savePromptToVault(
+                entry,
+                builtInDefault
+              );
+              entry.vaultPath = savedPath;
+              entry.content = builtInDefault;
+              await this.plugin.saveSettings();
+              new import_obsidian9.Notice(`Reset ${entry.name} to default.`);
+              this.display();
+            }
+          ).open();
+        });
+      } else {
+        addActionBtn(actions, "Delete", () => {
+          new ConfirmActionModal(
+            this.app,
+            `Delete "${entry.name}"?`,
+            "Remove this custom prompt from plugin settings? (Any existing .md file in your Vault is preserved.)",
+            "Delete",
+            async () => {
+              this.plugin.settings.prompts = this.plugin.settings.prompts.filter(
+                (p) => p.id !== entry.id
+              );
+              await this.plugin.saveSettings();
+              new import_obsidian9.Notice(`Deleted prompt "${entry.name}".`);
+              this.display();
+            }
+          ).open();
+        });
+      }
     }
   }
   // -------------------------------------------------------------------------
@@ -9711,6 +10306,12 @@ var WebhookEditModal = class extends import_obsidian9.Modal {
     const chipContainer = chipSection.createDiv({
       cls: "zotero-placeholder-chips"
     });
+    const promptEntries = this.prompts.filter(
+      (p) => {
+        var _a2;
+        return ((_a2 = p.kind) != null ? _a2 : "prompt") === "prompt";
+      }
+    );
     const quickTokens = [
       "{{citekey}}",
       "{{path.zotero_note}}",
@@ -9718,8 +10319,8 @@ var WebhookEditModal = class extends import_obsidian9.Modal {
       "{{path.report2}}",
       "{{path.takeaway}}",
       "{{path.core_note}}",
-      ...this.prompts.map((p) => `{{prompt.${p.id}}}`),
-      ...this.prompts.map((p) => `{{path.prompt.${p.id}}}`),
+      ...promptEntries.map((p) => `{{prompt.${p.id}}}`),
+      ...promptEntries.map((p) => `{{path.prompt.${p.id}}}`),
       "{{filename}}",
       "{{content}}"
     ];
@@ -18388,6 +18989,84 @@ var AssistantWebhookInputModal = class extends import_obsidian14.Modal {
     this.contentEl.empty();
   }
 };
+var MAX_INLINE_VENUE_PAPERS = 3;
+var CodeUrlModal = class extends import_obsidian14.Modal {
+  constructor(app, initialUrl, onSave) {
+    super(app);
+    this.initialUrl = initialUrl;
+    this.onSave = onSave;
+  }
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.addClass("zotero-webhook-input-modal");
+    contentEl.createEl("h3", {
+      text: "Repository URL",
+      cls: "zotero-webhook-input-title"
+    });
+    contentEl.createDiv({
+      cls: "zotero-webhook-input-desc",
+      text: "Set or update the code repository URL in this literature note frontmatter."
+    });
+    const form = contentEl.createDiv({ cls: "zotero-webhook-input-form" });
+    const row = form.createDiv({ cls: "zotero-webhook-input-row" });
+    const inputEl = row.createEl("input", {
+      cls: "zotero-webhook-input-field",
+      attr: {
+        type: "text",
+        placeholder: "https://github.com/..."
+      }
+    });
+    inputEl.value = this.initialUrl;
+    const submitSave = async () => {
+      const raw = inputEl.value.trim();
+      if (!raw) {
+        await this.onSave("");
+        this.close();
+        return;
+      }
+      const candidate = !/^https?:\/\//i.test(raw) && !/^[a-z]+:/i.test(raw) && raw.includes(".") ? `https://${raw}` : raw;
+      if (!/^https?:\/\/\S+$/i.test(candidate)) {
+        new import_obsidian14.Notice("Please enter a valid http(s) repository URL.");
+        return;
+      }
+      await this.onSave(candidate);
+      this.close();
+    };
+    inputEl.onkeydown = (ev) => {
+      if (ev.key === "Enter") {
+        ev.preventDefault();
+        void submitSave();
+      }
+    };
+    const footer = contentEl.createDiv({ cls: "zotero-webhook-input-footer" });
+    const clearBtn = footer.createEl("button", {
+      text: "Clear",
+      attr: { type: "button" }
+    });
+    clearBtn.onclick = async () => {
+      await this.onSave("");
+      this.close();
+    };
+    const cancelBtn = footer.createEl("button", {
+      text: "Cancel",
+      attr: { type: "button" }
+    });
+    cancelBtn.onclick = () => this.close();
+    const saveBtn = footer.createEl("button", {
+      cls: "mod-cta",
+      text: "Save",
+      attr: { type: "button" }
+    });
+    saveBtn.onclick = () => {
+      void submitSave();
+    };
+    setTimeout(() => inputEl.focus(), 0);
+  }
+  onClose() {
+    this.contentEl.empty();
+  }
+};
 var AssistantView = class extends import_obsidian14.MarkdownRenderChild {
   constructor(containerEl, plugin) {
     super(containerEl);
@@ -18432,11 +19111,9 @@ var AssistantView = class extends import_obsidian14.MarkdownRenderChild {
     this.renderVenueAndCfpBar(container, file);
   }
   renderTopBar(container, file, state, imageMap, rerender) {
+    var _a, _b, _c;
     const topbar = container.createDiv({ cls: "zotero-assistant-topbar" });
     const toolbarRow = topbar.createDiv({ cls: "zotero-assistant-toolbar-row" });
-    const identity = toolbarRow.createDiv({ cls: "zotero-assistant-identity" });
-    identity.createSpan({ cls: "zotero-assistant-role-label", text: "Paper Manager" });
-    identity.createSpan({ cls: "zotero-assistant-citekey", text: state.citekey });
     const toolbar = toolbarRow.createDiv({ cls: "zotero-assistant-toolbar" });
     addIconAction(
       toolbar,
@@ -18457,7 +19134,7 @@ var AssistantView = class extends import_obsidian14.MarkdownRenderChild {
     addIconAction(
       toolbar,
       "link-2",
-      "Connect Paper to Vault",
+      "Connect paper to vault",
       () => {
         new ConnectorModal(this.plugin.app, this.plugin, file, rerender).open();
       },
@@ -18481,6 +19158,10 @@ var AssistantView = class extends import_obsidian14.MarkdownRenderChild {
         hookBtn.onclick = () => this.triggerWebhookFromToolbar(hook, file);
       }
     }
+    const ws = this.plugin.settings.paperWorkspace;
+    const takeawayLabel = ((_a = ws == null ? void 0 : ws.takeawayLabel) == null ? void 0 : _a.trim()) || "Takeaway";
+    const report1Label = ((_b = ws == null ? void 0 : ws.report1Label) == null ? void 0 : _b.trim()) || "Deep Report";
+    const report2Label = ((_c = ws == null ? void 0 : ws.report2Label) == null ? void 0 : _c.trim()) || "External Report";
     const filesRow = topbar.createDiv({ cls: "zotero-assistant-files-row" });
     const pills = filesRow.createDiv({ cls: "zotero-assistant-pills" });
     this.renderReportPill(
@@ -18488,7 +19169,7 @@ var AssistantView = class extends import_obsidian14.MarkdownRenderChild {
       file,
       state.citekey,
       "takeaway",
-      "Takeaway",
+      takeawayLabel,
       "sparkles",
       state.takeawayFile,
       "synthesize",
@@ -18501,7 +19182,7 @@ var AssistantView = class extends import_obsidian14.MarkdownRenderChild {
       file,
       state.citekey,
       "report1",
-      "Report 1",
+      report1Label,
       "file-search",
       state.report1File,
       "report1",
@@ -18514,7 +19195,7 @@ var AssistantView = class extends import_obsidian14.MarkdownRenderChild {
       file,
       state.citekey,
       "report2",
-      "Report 2",
+      report2Label,
       "globe",
       state.report2File,
       "report2",
@@ -18532,8 +19213,16 @@ var AssistantView = class extends import_obsidian14.MarkdownRenderChild {
       (0, import_obsidian14.setIcon)(iconSpan, "external-link");
       doiLink.createSpan({ text: state.doiUrl.includes("doi.org/") ? "DOI" : "URL" });
     }
+    const openCodeModal = (currentUrl) => {
+      new CodeUrlModal(this.plugin.app, currentUrl, async (nextUrl) => {
+        await this.plugin.paperHub.updateLiteratureCodeUrl(file, nextUrl);
+        new import_obsidian14.Notice(nextUrl ? "Saved repository URL." : "Cleared repository URL.");
+        await rerender();
+      }).open();
+    };
     if (state.codeUrl) {
-      const codeLink = pills.createEl("a", {
+      const codeGroup = pills.createDiv({ cls: "zotero-res-pill-group" });
+      const codeLink = codeGroup.createEl("a", {
         cls: "zotero-res-pill is-external is-code",
         href: state.codeUrl,
         attr: { target: "_blank", rel: "noopener noreferrer", title: state.codeUrl }
@@ -18541,6 +19230,23 @@ var AssistantView = class extends import_obsidian14.MarkdownRenderChild {
       const iconSpan = codeLink.createSpan({ cls: "zotero-res-pill-icon" });
       (0, import_obsidian14.setIcon)(iconSpan, "code-2");
       codeLink.createSpan({ text: "Code" });
+      addIconAction(
+        codeGroup,
+        "pencil",
+        "Edit Code URL",
+        () => openCodeModal(state.codeUrl || ""),
+        "zotero-res-pill-edit"
+      );
+    } else {
+      const addCodeBtn = pills.createEl("button", {
+        cls: "zotero-res-pill is-missing is-code-missing",
+        attr: {
+          type: "button",
+          title: "Set code repository URL"
+        }
+      });
+      addCodeBtn.createSpan({ text: "+ Code" });
+      addCodeBtn.onclick = () => openCodeModal("");
     }
   }
   renderReportPill(parent, literatureFile, citekey, kind, label, iconName, existingFile, promptId, isAccent, legacyExternalUrl, rerender) {
@@ -18643,16 +19349,16 @@ var AssistantView = class extends import_obsidian14.MarkdownRenderChild {
     const header = block.createDiv({ cls: "zotero-core-note-header" });
     const left = header.createDiv({ cls: "zotero-core-note-title-wrap" });
     left.createSpan({ cls: "zotero-core-note-title", text: "Core Note" });
-    left.createSpan({ cls: "zotero-core-note-path", text: state.paths.coreNote });
     const right = header.createDiv({ cls: "zotero-core-note-actions" });
     if (state.takeawaySummary.tldr) {
-      const pullBtn = right.createEl("button", {
-        cls: "zotero-core-note-action-btn",
-        text: "Pull TL;DR",
-        attr: { type: "button", title: "Insert Takeaway TL;DR into Core Note" }
-      });
-      pullBtn.onclick = async (ev) => {
-        ev.stopPropagation();
+      addIconAction(right, "sparkles", "Pull TL;DR from Takeaway", async () => {
+        if (!state.coreNoteFile) {
+          await this.plugin.paperHub.createOrOpenReportFile(
+            state.citekey,
+            "coreNote",
+            file
+          );
+        }
         const existing = state.coreNote.body.trim();
         const nextBody = existing ? `${existing}
 
@@ -18664,21 +19370,10 @@ var AssistantView = class extends import_obsidian14.MarkdownRenderChild {
         );
         new import_obsidian14.Notice("Pulled TL;DR into Core Note.");
         await rerender();
-      };
+      });
     }
-    const openInEditorBtn = right.createEl("button", {
-      cls: "zotero-core-note-action-btn zotero-core-note-open-btn",
-      attr: {
-        type: "button",
-        title: "Open Core Note in Obsidian Markdown editor"
-      }
-    });
-    const openIcon = openInEditorBtn.createSpan({ cls: "zotero-res-pill-icon" });
-    (0, import_obsidian14.setIcon)(openIcon, "arrow-up-right");
-    openInEditorBtn.createSpan({ text: "Open in Editor" });
-    openInEditorBtn.onclick = async (ev) => {
+    addIconAction(right, "arrow-up-right", "Open Core Note", async () => {
       var _a;
-      ev.stopPropagation();
       try {
         const coreFile = await this.plugin.paperHub.createOrOpenReportFile(
           state.citekey,
@@ -18692,7 +19387,7 @@ var AssistantView = class extends import_obsidian14.MarkdownRenderChild {
           `Failed to open Core Note: ${(_a = err == null ? void 0 : err.message) != null ? _a : String(err)}`
         );
       }
-    };
+    });
     const bodyWrap = block.createDiv({ cls: "zotero-core-note-body" });
     const displayEl = bodyWrap.createDiv({ cls: "zotero-core-note-display" });
     const currentBody = state.coreNote.body.trim();
@@ -18734,6 +19429,13 @@ var AssistantView = class extends import_obsidian14.MarkdownRenderChild {
         finished = true;
         const nextVal = textarea.value.trim();
         if (nextVal !== state.coreNote.body.trim()) {
+          if (!state.coreNoteFile) {
+            await this.plugin.paperHub.createOrOpenReportFile(
+              state.citekey,
+              "coreNote",
+              file
+            );
+          }
           await this.plugin.paperHub.saveCoreNote(
             state.citekey,
             { body: nextVal },
@@ -19038,7 +19740,7 @@ var AssistantView = class extends import_obsidian14.MarkdownRenderChild {
     }
     if (sameVenuePapers.length > 0) {
       const peersWrap = footer.createDiv({ cls: "zotero-venue-peers" });
-      for (const peer of sameVenuePapers.slice(0, 6)) {
+      for (const peer of sameVenuePapers.slice(0, MAX_INLINE_VENUE_PAPERS)) {
         const chip = peersWrap.createEl("a", {
           cls: "zotero-venue-peer-chip",
           text: peer.shortLabel,
@@ -19050,9 +19752,10 @@ var AssistantView = class extends import_obsidian14.MarkdownRenderChild {
           void this.plugin.app.workspace.getLeaf(false).openFile(peer.file);
         };
       }
+      const jumpText = sameVenuePapers.length > MAX_INLINE_VENUE_PAPERS ? `+${sameVenuePapers.length - MAX_INLINE_VENUE_PAPERS} in Library \u2192` : `Library (${sameVenuePapers.length}) \u2192`;
       const jumpBtn = peersWrap.createEl("button", {
         cls: "zotero-venue-library-btn",
-        text: `In Library (${sameVenuePapers.length}) \u2192`,
+        text: jumpText,
         attr: { type: "button" }
       });
       jumpBtn.onclick = () => {
@@ -19107,7 +19810,12 @@ var WebhookService = class {
         variables["{{path.report2}}"] = paths.report2;
         variables["{{path.takeaway}}"] = paths.takeaway;
         variables["{{path.core_note}}"] = paths.coreNote;
-        const promptEntries = settings.prompts || [];
+        const promptEntries = (settings.prompts || []).filter(
+          (p) => {
+            var _a2;
+            return ((_a2 = p.kind) != null ? _a2 : "prompt") === "prompt";
+          }
+        );
         const resolvedPrompts = await Promise.all(
           promptEntries.map(async (prompt) => {
             var _a2;
@@ -21171,12 +21879,14 @@ var CFPListView = class extends import_obsidian24.MarkdownRenderChild {
 };
 
 // src/main.ts
+init_paths();
 var ZoteroGKPlugin = class extends import_obsidian25.Plugin {
   constructor() {
     super(...arguments);
     this.webhookRibbonEl = null;
   }
   async onload() {
+    var _a, _b;
     await this.loadSettings();
     this.zotero = new ZoteroService(this.settings.zoteroPort);
     this.obsidian = new ObsidianService(this.app, this.settings);
@@ -21285,12 +21995,12 @@ var ZoteroGKPlugin = class extends import_obsidian25.Plugin {
       id: "cfp-refresh-this-series",
       name: "Refresh CFP for this series",
       checkCallback: (checking) => {
-        var _a, _b, _c, _d;
+        var _a2, _b2, _c, _d;
         const file = this.app.workspace.getActiveFile();
         if (!file) return false;
         const cache2 = this.app.metadataCache.getFileCache(file);
-        const isSeries = (_a = cache2 == null ? void 0 : cache2.frontmatter) == null ? void 0 : _a["cfp-series"];
-        const seriesUrl = (_d = (_c = (_b = cache2 == null ? void 0 : cache2.frontmatter) == null ? void 0 : _b["series-url"]) == null ? void 0 : _c.toString) == null ? void 0 : _d.call(_c);
+        const isSeries = (_a2 = cache2 == null ? void 0 : cache2.frontmatter) == null ? void 0 : _a2["cfp-series"];
+        const seriesUrl = (_d = (_c = (_b2 = cache2 == null ? void 0 : cache2.frontmatter) == null ? void 0 : _b2["series-url"]) == null ? void 0 : _c.toString) == null ? void 0 : _d.call(_c);
         if (!isSeries || !seriesUrl) return false;
         const baseName = file.basename.replace(/\s+Series$/, "");
         if (checking) return true;
@@ -21333,6 +22043,9 @@ var ZoteroGKPlugin = class extends import_obsidian25.Plugin {
         });
       }
     };
+    (_b = (_a = this.app.workspace).onLayoutReady) == null ? void 0 : _b.call(_a, () => {
+      void this.paperHub.ensureBuiltinTemplatesInVault().catch((e) => console.error("[Paper Hub] template init failed", e));
+    });
     Promise.resolve().then(() => (init_digest_view(), digest_view_exports)).then((digest) => digest.registerDigest(this)).catch((e) => console.error("[Paper Digest] registration failed", e));
   }
   onunload() {
@@ -21382,7 +22095,7 @@ var ZoteroGKPlugin = class extends import_obsidian25.Plugin {
     }
   }
   async loadSettings() {
-    var _a;
+    var _a, _b, _c, _d, _e, _f, _g;
     const data = await this.loadData();
     this.settings = Object.assign({}, DEFAULT_SETTINGS, data);
     this.settings.paperWorkspace = Object.assign(
@@ -21393,25 +22106,67 @@ var ZoteroGKPlugin = class extends import_obsidian25.Plugin {
     if (data && typeof data.fleetingNoteFolder === "string" && !((_a = data.paperWorkspace) == null ? void 0 : _a.highlightNotesFolder)) {
       this.settings.paperWorkspace.highlightNotesFolder = data.fleetingNoteFolder;
     }
+    if (!((_b = this.settings.paperWorkspace.templatesFolder) == null ? void 0 : _b.trim())) {
+      this.settings.paperWorkspace.templatesFolder = DEFAULT_PAPER_WORKSPACE.templatesFolder;
+    }
+    if (!((_c = this.settings.paperWorkspace.report1Label) == null ? void 0 : _c.trim())) {
+      this.settings.paperWorkspace.report1Label = DEFAULT_PAPER_WORKSPACE.report1Label;
+    }
+    if (!((_d = this.settings.paperWorkspace.report2Label) == null ? void 0 : _d.trim())) {
+      this.settings.paperWorkspace.report2Label = DEFAULT_PAPER_WORKSPACE.report2Label;
+    }
+    if (!((_e = this.settings.paperWorkspace.takeawayLabel) == null ? void 0 : _e.trim())) {
+      this.settings.paperWorkspace.takeawayLabel = DEFAULT_PAPER_WORKSPACE.takeawayLabel;
+    }
     delete this.settings.paperWorkspace["s3Prefix"];
+    const tplFolder = normalizePath(
+      this.settings.paperWorkspace.templatesFolder
+    ).replace(/\/+$/, "");
+    const defaultZotPath = tplFolder ? `${tplFolder}/zotero-note-template.md` : "zotero-note-template.md";
     this.settings.zoteroTemplate = Object.assign(
-      { vaultPath: "", content: DEFAULT_ZOTERO_TEMPLATE },
+      { vaultPath: defaultZotPath, content: DEFAULT_ZOTERO_TEMPLATE },
       data == null ? void 0 : data.zoteroTemplate
     );
+    if (!((_f = this.settings.zoteroTemplate.vaultPath) == null ? void 0 : _f.trim())) {
+      this.settings.zoteroTemplate.vaultPath = defaultZotPath;
+    }
     if (typeof this.settings.zoteroTemplate.content !== "string" || !this.settings.zoteroTemplate.content) {
       this.settings.zoteroTemplate.content = DEFAULT_ZOTERO_TEMPLATE;
     }
     if (!Array.isArray(data == null ? void 0 : data.prompts)) {
-      this.settings.prompts = DEFAULT_PROMPTS.map((p) => ({ ...p }));
+      this.settings.prompts = DEFAULT_PROMPTS.map((p) => {
+        const relFile = p.vaultPath.replace(/^900-Templates\//, "");
+        return {
+          ...p,
+          vaultPath: tplFolder ? `${tplFolder}/${relFile}` : relFile
+        };
+      });
     } else {
-      const existingPrompts = data.prompts.map((p) => ({
-        ...p
-      }));
-      const byId = new Set(existingPrompts.map((p) => p.id));
-      const missingBuiltIns = DEFAULT_PROMPTS.filter(
-        (bp) => !byId.has(bp.id)
-      ).map((bp) => ({ ...bp }));
-      this.settings.prompts = [...missingBuiltIns, ...existingPrompts];
+      const existingById = /* @__PURE__ */ new Map();
+      for (const p of data.prompts) {
+        existingById.set(p.id, { ...p });
+      }
+      const mergedPrompts = [];
+      for (const bp of DEFAULT_PROMPTS) {
+        const existing = existingById.get(bp.id);
+        if (existing) {
+          if (!existing.kind) existing.kind = (_g = bp.kind) != null ? _g : "prompt";
+          if (existing.builtIn === void 0) existing.builtIn = true;
+          mergedPrompts.push(existing);
+          existingById.delete(bp.id);
+        } else {
+          const relFile = bp.vaultPath.replace(/^900-Templates\//, "");
+          mergedPrompts.push({
+            ...bp,
+            vaultPath: tplFolder ? `${tplFolder}/${relFile}` : relFile
+          });
+        }
+      }
+      for (const custom of existingById.values()) {
+        if (!custom.kind) custom.kind = "prompt";
+        mergedPrompts.push(custom);
+      }
+      this.settings.prompts = mergedPrompts;
     }
     if (typeof this.settings.enableLegacyAssistantScript !== "boolean") {
       this.settings.enableLegacyAssistantScript = false;

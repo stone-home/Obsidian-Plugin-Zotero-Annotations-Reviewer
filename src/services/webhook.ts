@@ -64,7 +64,9 @@ export class WebhookService {
 				variables['{{path.takeaway}}'] = paths.takeaway;
 				variables['{{path.core_note}}'] = paths.coreNote;
 
-				const promptEntries = settings.prompts || [];
+				const promptEntries = (settings.prompts || []).filter(
+					(p) => (p.kind ?? 'prompt') === 'prompt'
+				);
 				const resolvedPrompts = await Promise.all(
 					promptEntries.map(async (prompt) => {
 						const vPath = prompt.vaultPath?.trim()

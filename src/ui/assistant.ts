@@ -182,6 +182,99 @@ class AssistantWebhookInputModal extends Modal {
 	}
 }
 
+const MAX_INLINE_VENUE_PAPERS = 3;
+
+class CodeUrlModal extends Modal {
+	constructor(
+		app: App,
+		private readonly initialUrl: string,
+		private readonly onSave: (url: string) => void | Promise<void>
+	) {
+		super(app);
+	}
+
+	onOpen(): void {
+		const { contentEl } = this;
+		contentEl.empty();
+		contentEl.addClass('zotero-webhook-input-modal');
+		contentEl.createEl('h3', {
+			text: 'Repository URL',
+			cls: 'zotero-webhook-input-title',
+		});
+		contentEl.createDiv({
+			cls: 'zotero-webhook-input-desc',
+			text: 'Set or update the code repository URL in this literature note frontmatter.',
+		});
+
+		const form = contentEl.createDiv({ cls: 'zotero-webhook-input-form' });
+		const row = form.createDiv({ cls: 'zotero-webhook-input-row' });
+		const inputEl = row.createEl('input', {
+			cls: 'zotero-webhook-input-field',
+			attr: {
+				type: 'text',
+				placeholder: 'https://github.com/...',
+			},
+		}) as HTMLInputElement;
+		inputEl.value = this.initialUrl;
+
+		const submitSave = async () => {
+			const raw = inputEl.value.trim();
+			if (!raw) {
+				await this.onSave('');
+				this.close();
+				return;
+			}
+			const candidate =
+				!/^https?:\/\//i.test(raw) && !/^[a-z]+:/i.test(raw) && raw.includes('.')
+					? `https://${raw}`
+					: raw;
+			if (!/^https?:\/\/\S+$/i.test(candidate)) {
+				new Notice('Please enter a valid http(s) repository URL.');
+				return;
+			}
+			await this.onSave(candidate);
+			this.close();
+		};
+
+		inputEl.onkeydown = (ev) => {
+			if (ev.key === 'Enter') {
+				ev.preventDefault();
+				void submitSave();
+			}
+		};
+
+		const footer = contentEl.createDiv({ cls: 'zotero-webhook-input-footer' });
+		const clearBtn = footer.createEl('button', {
+			text: 'Clear',
+			attr: { type: 'button' },
+		});
+		clearBtn.onclick = async () => {
+			await this.onSave('');
+			this.close();
+		};
+
+		const cancelBtn = footer.createEl('button', {
+			text: 'Cancel',
+			attr: { type: 'button' },
+		});
+		cancelBtn.onclick = () => this.close();
+
+		const saveBtn = footer.createEl('button', {
+			cls: 'mod-cta',
+			text: 'Save',
+			attr: { type: 'button' },
+		});
+		saveBtn.onclick = () => {
+			void submitSave();
+		};
+		setTimeout(() => inputEl.focus(), 0);
+	}
+
+	onClose(): void {
+		this.contentEl.empty();
+	}
+}
+
 export class AssistantView extends MarkdownRenderChild {
 	plugin: ZoteroGKPlugin;
 	private zoteroConnector: ZoteroConnectorService;
@@ -253,12 +346,8 @@ export class AssistantView extends MarkdownRenderChild {
 	): void {
 		const topbar = container.createDiv({ cls: 'zotero-assistant-topbar' });
 
-		// Row 1: Subtle citekey label + Action Toolbar & Webhooks
+		// Row 1: Left-Aligned Action Toolbar & Webhooks
 		const toolbarRow = topbar.createDiv({ cls: 'zotero-assistant-toolbar-row' });
-		const identity = toolbarRow.createDiv({ cls: 'zotero-assistant-identity' });
-		identity.createSpan({ cls: 'zotero-assistant-role-label', text: 'Paper Manager' });
-		identity.createSpan({ cls: 'zotero-assistant-citekey', text: state.citekey });
-
 		const toolbar = toolbarRow.createDiv({ cls: 'zotero-assistant-toolbar' });
 
 		addIconAction(toolbar, 'refresh-cw', 'Refresh metadata from Zotero', () =>
@@ -279,7 +368,7 @@ export class AssistantView extends MarkdownRenderChild {
 		addIconAction(
 			toolbar,
 			'link-2',
-			'Connect Paper to Vault',
+			'Connect paper to vault',
 			() => {
 				new ConnectorModal(this.plugin.app, this.plugin, file, rerender).open();
 			},
@@ -305,7 +394,12 @@ export class AssistantView extends MarkdownRenderChild {
 			}
 		}
 
-		// Row 2: Companion Files + External Links
+		// Row 2: Companion Files + External Links + Code Repository Pill
+		const ws = this.plugin.settings.paperWorkspace;
+		const takeawayLabel = ws?.takeawayLabel?.trim() || 'Takeaway';
+		const report1Label = ws?.report1Label?.trim() || 'Deep Report';
+		const report2Label = ws?.report2Label?.trim() || 'External Report';
+
 		const filesRow = topbar.createDiv({ cls: 'zotero-assistant-files-row' });
 		const pills = filesRow.createDiv({ cls: 'zotero-assistant-pills' });
 
@@ -314,7 +408,7 @@ export class AssistantView extends MarkdownRenderChild {
 			file,
 			state.citekey,
 			'takeaway',
-			'Takeaway',
+			takeawayLabel,
 			'sparkles',
 			state.takeawayFile,
 			'synthesize',
@@ -327,7 +421,7 @@ export class AssistantView extends MarkdownRenderChild {
 			file,
 			state.citekey,
 			'report1',
-			'Report 1',
+			report1Label,
 			'file-search',
 			state.report1File,
 			'report1',
@@ -340,7 +434,7 @@ export class AssistantView extends MarkdownRenderChild {
 			file,
 			state.citekey,
 			'report2',
-			'Report 2',
+			report2Label,
 			'globe',
 			state.report2File,
 			'report2',
@@ -360,8 +454,17 @@ export class AssistantView extends MarkdownRenderChild {
 			doiLink.createSpan({ text: state.doiUrl.includes('doi.org/') ? 'DOI' : 'URL' });
 		}
 
+		const openCodeModal = (currentUrl: string) => {
+			new CodeUrlModal(this.plugin.app, currentUrl, async (nextUrl) => {
+				await this.plugin.paperHub.updateLiteratureCodeUrl(file, nextUrl);
+				new Notice(nextUrl ? 'Saved repository URL.' : 'Cleared repository URL.');
+				await rerender();
+			}).open();
+		};
+
 		if (state.codeUrl) {
-			const codeLink = pills.createEl('a', {
+			const codeGroup = pills.createDiv({ cls: 'zotero-res-pill-group' });
+			const codeLink = codeGroup.createEl('a', {
 				cls: 'zotero-res-pill is-external is-code',
 				href: state.codeUrl,
 				attr: { target: '_blank', rel: 'noopener noreferrer', title: state.codeUrl },
@@ -369,6 +472,23 @@ export class AssistantView extends MarkdownRenderChild {
 			const iconSpan = codeLink.createSpan({ cls: 'zotero-res-pill-icon' });
 			setIcon(iconSpan, 'code-2');
 			codeLink.createSpan({ text: 'Code' });
+			addIconAction(
+				codeGroup,
+				'pencil',
+				'Edit Code URL',
+				() => openCodeModal(state.codeUrl || ''),
+				'zotero-res-pill-edit'
+			);
+		} else {
+			const addCodeBtn = pills.createEl('button', {
+				cls: 'zotero-res-pill is-missing is-code-missing',
+				attr: {
+					type: 'button',
+					title: 'Set code repository URL',
+				},
+			});
+			addCodeBtn.createSpan({ text: '+ Code' });
+			addCodeBtn.onclick = () => openCodeModal('');
 		}
 	}
 
@@ -488,17 +608,17 @@ export class AssistantView extends MarkdownRenderChild {
 		const header = block.createDiv({ cls: 'zotero-core-note-header' });
 		const left = header.createDiv({ cls: 'zotero-core-note-title-wrap' });
 		left.createSpan({ cls: 'zotero-core-note-title', text: 'Core Note' });
-		left.createSpan({ cls: 'zotero-core-note-path', text: state.paths.coreNote });
 
 		const right = header.createDiv({ cls: 'zotero-core-note-actions' });
 		if (state.takeawaySummary.tldr) {
-			const pullBtn = right.createEl('button', {
-				cls: 'zotero-core-note-action-btn',
-				text: 'Pull TL;DR',
-				attr: { type: 'button', title: 'Insert Takeaway TL;DR into Core Note' },
-			});
-			pullBtn.onclick = async (ev) => {
-				ev.stopPropagation();
+			addIconAction(right, 'sparkles', 'Pull TL;DR from Takeaway', async () => {
+				if (!state.coreNoteFile) {
+					await this.plugin.paperHub.createOrOpenReportFile(
+						state.citekey,
+						'coreNote',
+						file
+					);
+				}
 				const existing = state.coreNote.body.trim();
 				const nextBody = existing
 					? `${existing}\n\n> **TL;DR**: ${state.takeawaySummary.tldr}`
@@ -510,21 +630,10 @@ export class AssistantView extends MarkdownRenderChild {
 				);
 				new Notice('Pulled TL;DR into Core Note.');
 				await rerender();
-			};
+			});
 		}
 
-		const openInEditorBtn = right.createEl('button', {
-			cls: 'zotero-core-note-action-btn zotero-core-note-open-btn',
-			attr: {
-				type: 'button',
-				title: 'Open Core Note in Obsidian Markdown editor',
-			},
-		});
-		const openIcon = openInEditorBtn.createSpan({ cls: 'zotero-res-pill-icon' });
-		setIcon(openIcon, 'arrow-up-right');
-		openInEditorBtn.createSpan({ text: 'Open in Editor' });
-		openInEditorBtn.onclick = async (ev) => {
-			ev.stopPropagation();
+		addIconAction(right, 'arrow-up-right', 'Open Core Note', async () => {
 			try {
 				const coreFile = await this.plugin.paperHub.createOrOpenReportFile(
 					state.citekey,
@@ -538,7 +647,7 @@ export class AssistantView extends MarkdownRenderChild {
 					`Failed to open Core Note: ${(err as Error)?.message ?? String(err)}`
 				);
 			}
-		};
+		});
 
 		const bodyWrap = block.createDiv({ cls: 'zotero-core-note-body' });
 		const displayEl = bodyWrap.createDiv({ cls: 'zotero-core-note-display' });
@@ -587,6 +696,13 @@ export class AssistantView extends MarkdownRenderChild {
 				finished = true;
 				const nextVal = textarea.value.trim();
 				if (nextVal !== state.coreNote.body.trim()) {
+					if (!state.coreNoteFile) {
+						await this.plugin.paperHub.createOrOpenReportFile(
+							state.citekey,
+							'coreNote',
+							file
+						);
+					}
 					await this.plugin.paperHub.saveCoreNote(
 						state.citekey,
 						{ body: nextVal },
@@ -935,7 +1051,7 @@ export class AssistantView extends MarkdownRenderChild {
 
 		if (sameVenuePapers.length > 0) {
 			const peersWrap = footer.createDiv({ cls: 'zotero-venue-peers' });
-			for (const peer of sameVenuePapers.slice(0, 6)) {
+			for (const peer of sameVenuePapers.slice(0, MAX_INLINE_VENUE_PAPERS)) {
 				const chip = peersWrap.createEl('a', {
 					cls: 'zotero-venue-peer-chip',
 					text: peer.shortLabel,
@@ -948,9 +1064,13 @@ export class AssistantView extends MarkdownRenderChild {
 				};
 			}
 
+			const jumpText =
+				sameVenuePapers.length > MAX_INLINE_VENUE_PAPERS
+					? `+${sameVenuePapers.length - MAX_INLINE_VENUE_PAPERS} in Library →`
+					: `Library (${sameVenuePapers.length}) →`;
 			const jumpBtn = peersWrap.createEl('button', {
 				cls: 'zotero-venue-library-btn',
-				text: `In Library (${sameVenuePapers.length}) →`,
+				text: jumpText,
 				attr: { type: 'button' },
 			});
 			jumpBtn.onclick = () => {

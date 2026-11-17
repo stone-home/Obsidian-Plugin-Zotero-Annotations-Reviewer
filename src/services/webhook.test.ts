@@ -301,8 +301,17 @@ describe('WebhookService', () => {
 				},
 				prompts: [
 					{
+						id: 'tpl-report1',
+						name: 'Deep Report Template',
+						kind: 'template',
+						vaultPath: '900-Templates/report1-note-template.md',
+						content: '---\ntype: deep-report\n---',
+						builtIn: true,
+					},
+					{
 						id: 'synthesize',
 						name: 'Synthesize Takeaway',
+						kind: 'prompt',
 						vaultPath: '002-Literature/100-Prompts/synthesize.md',
 						content: 'Fallback synthesize prompt',
 						builtIn: true,
@@ -310,6 +319,7 @@ describe('WebhookService', () => {
 					{
 						id: 'report1',
 						name: 'Report 1',
+						kind: 'prompt',
 						vaultPath: '  \\002-Literature\\100-Prompts\\report1.md  ',
 						content: 'Line 1 with "quotes"\nLine 2 with LaTeX $\\frac{\\alpha}{\\beta}$',
 						builtIn: true,
@@ -467,6 +477,85 @@ describe('WebhookService', () => {
 
 			await settingsService.triggerWebhook(profile, mockFile, undefined, true);
 			expect(console.log).toHaveBeenCalledWith('Body:', '(none)');
+		});
+
+		it('injects {{prompt.<id>}} and {{path.prompt.<id>}} only for prompt entries (kind: "prompt" or omitted) and skips kind: "template" entries', async () => {
+			settings.prompts = [
+				...DEFAULT_SETTINGS.prompts.map((p) => ({ ...p })),
+				{
+					id: 'legacy_custom',
+					name: 'Legacy Custom Without Kind',
+					vaultPath: '900-Templates/prompt-legacy.md',
+					content: 'Legacy custom prompt text',
+				},
+			];
+
+			const litFile = makeVaultFile('002-Literature/lecun2015.md');
+			(app.metadataCache.getFileCache as jest.Mock).mockReturnValue({
+				frontmatter: { 'citation-key': 'lecun2015' },
+			});
+			(app.vault.getAbstractFileByPath as jest.Mock).mockReturnValue(null);
+			(requestUrl as jest.Mock).mockResolvedValue({ status: 200 });
+
+			const profile: WebhookProfile = {
+				id: 'prompt-filter-check',
+				name: 'Prompt Filter Check',
+				icon: 'filter',
+				url: 'https://n8n.example.com/webhook/filter',
+				method: 'POST',
+				contentType: 'json',
+				headers: [
+					{
+						key: 'X-Tpl-Header',
+						value: '{{prompt.tpl-report1}}',
+						type: 'text',
+					},
+					{
+						key: 'X-Legacy-Header',
+						value: '{{prompt.legacy_custom}}',
+						type: 'text',
+					},
+				],
+				bodyTemplate: JSON.stringify({
+					synthPath: '{{path.prompt.synthesize}}',
+					report2Path: '{{path.prompt.report2}}',
+					legacyPrompt: '{{prompt.legacy_custom}}',
+					legacyPath: '{{path.prompt.legacy_custom}}',
+					skippedTplContent: '{{prompt.tpl-report1}}',
+					skippedTplPath: '{{path.prompt.tpl-report1}}',
+					skippedTakeawayTpl: '{{prompt.tpl-takeaway}}',
+					skippedAtomicTplPath: '{{path.prompt.tpl-atomic-note}}',
+				}),
+				hidden: false,
+			};
+
+			await settingsService.triggerWebhook(profile, litFile);
+
+			// Template vault paths must not even be looked up when resolving webhook prompt variables
+			const queriedPaths = (app.vault.getAbstractFileByPath as jest.Mock).mock.calls.map(
+				(c: any[]) => c[0]
+			);
+			expect(queriedPaths).toEqual([
+				'900-Templates/prompt-synthesize.md',
+				'900-Templates/prompt-report1.md',
+				'900-Templates/prompt-report2.md',
+				'900-Templates/prompt-legacy.md',
+			]);
+			expect(queriedPaths).not.toContain('900-Templates/report1-note-template.md');
+
+			const req = (requestUrl as jest.Mock).mock.calls[0][0];
+			expect(req.headers['X-Tpl-Header']).toBe('{{prompt.tpl-report1}}');
+			expect(req.headers['X-Legacy-Header']).toBe('Legacy custom prompt text');
+
+			const parsed = JSON.parse(req.body);
+			expect(parsed.synthPath).toBe('900-Templates/prompt-synthesize.md');
+			expect(parsed.report2Path).toBe('900-Templates/prompt-report2.md');
+			expect(parsed.legacyPrompt).toBe('Legacy custom prompt text');
+			expect(parsed.legacyPath).toBe('900-Templates/prompt-legacy.md');
+			expect(parsed.skippedTplContent).toBe('{{prompt.tpl-report1}}');
+			expect(parsed.skippedTplPath).toBe('{{path.prompt.tpl-report1}}');
+			expect(parsed.skippedTakeawayTpl).toBe('{{prompt.tpl-takeaway}}');
+			expect(parsed.skippedAtomicTplPath).toBe('{{path.prompt.tpl-atomic-note}}');
 		});
 	});
 });

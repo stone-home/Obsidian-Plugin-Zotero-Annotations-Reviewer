@@ -325,10 +325,10 @@ export class ConnectorModal extends Modal {
 					this.isNoteLinked(match.candidate.linkTitle);
 
 				const badgeText = linked
-					? '✓ 已关联'
+					? 'Linked'
 					: match.matchedFile
-						? '● 库内已有'
-						: '+ 待新建';
+						? 'Matched'
+						: 'Proposed';
 				const badgeCls = linked
 					? 'is-linked'
 					: match.matchedFile
@@ -497,7 +497,7 @@ export class ConnectorModal extends Modal {
 				this.isNoteLinked(getBasename(matchedFile)) ||
 				this.isNoteLinked(candidate.linkTitle);
 			previewHead.createSpan({
-				text: `${isLinked ? '✓ 已关联' : '● 库内已有'} (${
+				text: `${isLinked ? 'Linked' : 'Matched'} (${
 					matchType === 'exact' ? 'Exact Title' : 'Concept Overlap'
 				}): ${matchedFile.path}`,
 			});
@@ -537,14 +537,14 @@ export class ConnectorModal extends Modal {
 		const atomicFolder = normalizePath(
 			this.plugin.settings.paperWorkspace.atomicNotesFolder || '003-Permanent'
 		);
-		const targetPathHint = atomicFolder
+		const targetDisplayPath = atomicFolder
 			? `${atomicFolder}/${sanitizedName}.md`
 			: `${sanitizedName}.md`;
 
 		if (!matchedFile) {
 			rightPane.createDiv({
 				cls: 'zotero-connector-target-hint',
-				text: `将创建于: ${targetPathHint}`,
+				text: `Target: ${targetDisplayPath}`,
 			});
 		}
 
@@ -557,19 +557,23 @@ export class ConnectorModal extends Modal {
 			this.appendEvidence = checkbox.checked;
 		};
 		appendRow.createSpan({
-			text: `Append "Evidence from [[${state.citekey}]]" section to the target Atomic Note`,
+			text: `Append "Evidence from [[${state.citekey}]]" section to target note`,
 		});
 
 		const actions = rightPane.createDiv({ cls: 'zotero-connector-actions' });
 
 		if (matchedFile) {
-			const matchedBasename = getBasename(matchedFile);
-			const connectExistingBtn = actions.createEl('button', {
+			const matchedBase = getBasename(matchedFile);
+			const linkMatchedBtn = actions.createEl('button', {
 				cls: 'mod-cta zotero-connector-btn',
-				text: `关联并追加证据 → [[${matchedBasename}]]`,
-				attr: { type: 'button' },
+				text: 'Link a note',
+				attr: {
+					type: 'button',
+					title: `Link and append evidence to ${matchedBase}`,
+					'aria-label': `Link and append evidence to ${matchedBase}`,
+				},
 			});
-			connectExistingBtn.onclick = async () => {
+			linkMatchedBtn.onclick = async () => {
 				try {
 					const target = await this.plugin.vaultLibrary.connectCandidateToVault({
 						literatureFile: this.literatureFile,
@@ -579,20 +583,20 @@ export class ConnectorModal extends Modal {
 						targetFile: matchedFile,
 						appendEvidence: this.appendEvidence,
 					});
-					new Notice(`Connected to existing note: ${getBasename(target)}`);
+					new Notice(`Linked note: ${getBasename(target)}`);
 					await this.notifyUpdated();
 					await this.refreshState();
 				} catch (err) {
-					console.error('[ConnectorModal] Failed to connect existing note', err);
+					console.error('[ConnectorModal] Failed to link existing note', err);
 					new Notice(
-						`Failed to connect note: ${(err as Error)?.message ?? String(err)}`
+						`Failed to link note: ${(err as Error)?.message ?? String(err)}`
 					);
 				}
 			};
 
 			const rebindBtn = actions.createEl('button', {
 				cls: 'zotero-connector-btn',
-				text: '换绑库内其他已有笔记…',
+				text: 'Choose another note...',
 				attr: { type: 'button' },
 			});
 			rebindBtn.onclick = () => {
@@ -609,23 +613,56 @@ export class ConnectorModal extends Modal {
 								appendEvidence: this.appendEvidence,
 								rewriteTakeaway: true,
 							});
-							new Notice(`已换绑并关联: ${getBasename(target)}`);
+							new Notice(`Linked to note: ${getBasename(target)}`);
 							await this.notifyUpdated();
 							await this.refreshState();
 						} catch (err) {
 							console.error('[ConnectorModal] Failed to rebind vault note', err);
-							new Notice(`换绑失败: ${(err as Error)?.message ?? String(err)}`);
+							new Notice(
+								`Failed to link note: ${(err as Error)?.message ?? String(err)}`
+							);
 						}
 					},
 					(f) => f.path !== this.literatureFile.path,
 					'Choose an existing Atomic or Vault note...'
 				).open();
 			};
+
+			const createAnywayBtn = actions.createEl('button', {
+				cls: 'zotero-connector-btn',
+				text: 'Create a note',
+				attr: {
+					type: 'button',
+					title: `Create new note at ${targetDisplayPath}`,
+				},
+			});
+			createAnywayBtn.onclick = async () => {
+				try {
+					const target = await this.plugin.vaultLibrary.connectCandidateToVault({
+						literatureFile: this.literatureFile,
+						citekey: state.citekey,
+						candidate,
+						mode: 'create',
+						appendEvidence: this.appendEvidence,
+					});
+					new Notice(`Created and linked note: ${getBasename(target)}`);
+					await this.notifyUpdated();
+					await this.refreshState();
+				} catch (err) {
+					console.error('[ConnectorModal] Failed to create atomic note', err);
+					new Notice(
+						`Failed to create note: ${(err as Error)?.message ?? String(err)}`
+					);
+				}
+			};
 		} else {
 			const createBtn = actions.createEl('button', {
 				cls: 'mod-cta zotero-connector-btn',
-				text: `新建原子笔记：${sanitizedName}.md`,
-				attr: { type: 'button' },
+				text: 'Create a note',
+				attr: {
+					type: 'button',
+					title: `Create ${targetDisplayPath}`,
+				},
 			});
 			createBtn.onclick = async () => {
 				try {
@@ -636,21 +673,24 @@ export class ConnectorModal extends Modal {
 						mode: 'create',
 						appendEvidence: this.appendEvidence,
 					});
-					new Notice(`Created & linked Atomic Note: ${getBasename(target)}`);
+					new Notice(`Created and linked note: ${getBasename(target)}`);
 					await this.notifyUpdated();
 					await this.refreshState();
 				} catch (err) {
 					console.error('[ConnectorModal] Failed to create atomic note', err);
 					new Notice(
-						`Failed to create Atomic Note: ${(err as Error)?.message ?? String(err)}`
+						`Failed to create note: ${(err as Error)?.message ?? String(err)}`
 					);
 				}
 			};
 
 			const chooseExistingBtn = actions.createEl('button', {
 				cls: 'zotero-connector-btn',
-				text: '不新建，改连库内已有笔记…',
-				attr: { type: 'button' },
+				text: 'Link a note',
+				attr: {
+					type: 'button',
+					title: 'Choose an existing Vault note instead of creating a new one',
+				},
 			});
 			chooseExistingBtn.onclick = () => {
 				new VaultMarkdownSuggestModal(
@@ -666,13 +706,13 @@ export class ConnectorModal extends Modal {
 								appendEvidence: this.appendEvidence,
 								rewriteTakeaway: true,
 							});
-							new Notice(`已关联到已有笔记: ${getBasename(target)}`);
+							new Notice(`Linked note: ${getBasename(target)}`);
 							await this.notifyUpdated();
 							await this.refreshState();
 						} catch (err) {
 							console.error('[ConnectorModal] Failed to link chosen note', err);
 							new Notice(
-								`改连已有笔记失败: ${(err as Error)?.message ?? String(err)}`
+								`Failed to link note: ${(err as Error)?.message ?? String(err)}`
 							);
 						}
 					},

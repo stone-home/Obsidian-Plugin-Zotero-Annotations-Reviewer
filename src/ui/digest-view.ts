@@ -155,7 +155,6 @@ export class PaperDigestView extends ItemView {
 	private libraryQuickFilter: LibraryQuickFilter = 'all';
 	private libraryVenueFilter = '';
 	private selectedLibraryKey = '';
-	private libraryEditingCore = false;
 	private libraryListScroll = 0;
 	private libraryDetailScroll = 0;
 	private vaultListenersRegistered = false;
@@ -173,7 +172,7 @@ export class PaperDigestView extends ItemView {
 	}
 
 	getDisplayText(): string {
-		return this.hubTab === 'library' ? 'Paper Library' : 'Paper Digest';
+		return 'Paper House';
 	}
 
 	getIcon(): string {
@@ -207,7 +206,7 @@ export class PaperDigestView extends ItemView {
 		this.vaultListenersRegistered = true;
 
 		const refreshIfLibraryActive = () => {
-			if (this.hubTab !== 'library' || this.libraryEditingCore) return;
+			if (this.hubTab !== 'library') return;
 			void this.reloadLibrary().then(() => this.renderLibraryResultsOnly());
 		};
 
@@ -268,24 +267,22 @@ export class PaperDigestView extends ItemView {
 		await this.reload(false);
 	}
 
-	/** Opens the Hub directly on the Vault Paper Library tab, optionally pre-filtered by venue. */
+	/** Opens Paper House directly on the Vault Paper Library tab, optionally pre-filtered by venue. */
 	async openLibrary(venueFilter?: string): Promise<void> {
 		this.ensureVaultListeners();
 		this.hubTab = 'library';
 		if (venueFilter !== undefined) {
 			this.libraryVenueFilter = venueFilter.trim();
 		}
-		this.libraryEditingCore = false;
 		await this.reloadLibrary();
 		this.render();
 	}
 
-	/** Switches between Library and Digest tabs. */
+	/** Switches between Digest and Library tabs. */
 	async switchHubTab(tab: HubTab): Promise<void> {
 		this.ensureVaultListeners();
 		if (this.hubTab === tab) return;
 		this.hubTab = tab;
-		this.libraryEditingCore = false;
 		if (tab === 'library') {
 			await this.reloadLibrary();
 			this.render();
@@ -328,7 +325,6 @@ export class PaperDigestView extends ItemView {
 			Math.max(0, idx + step)
 		);
 		this.selectedLibraryKey = this.libraryEntries[nextIdx].citekey;
-		this.libraryEditingCore = false;
 		this.renderLibraryResultsOnly();
 	}
 
@@ -653,8 +649,9 @@ export class PaperDigestView extends ItemView {
 			else if (this.mode !== 'invalid') this.move(-1);
 		});
 		bind('Enter', () => {
-			if (this.hubTab === 'library') this.openSelectedLibraryNote();
-			else if (this.mode === 'accept') void this.confirmAccept();
+			if (this.hubTab === 'digest' && this.mode === 'accept') {
+				void this.confirmAccept();
+			}
 		});
 		bind('Escape', () => {
 			if (this.hubTab === 'library') {
@@ -740,21 +737,21 @@ export class PaperDigestView extends ItemView {
 	private renderHeader(root: HTMLElement): void {
 		const header = root.createDiv({ cls: 'zotero-digest-header' });
 
-		// Segmented Hub Switcher [ Library | Digest ]
+		// Segmented Hub Switcher [ Digest | Library ]
 		const switcher = header.createDiv({ cls: 'zotero-hub-segmented' });
-		const libBtn = switcher.createEl('button', {
-			cls: 'zotero-hub-seg-btn',
-			text: 'Library',
-		});
-		libBtn.toggleClass('is-active', this.hubTab === 'library');
-		libBtn.onclick = () => void this.switchHubTab('library');
-
 		const digestBtn = switcher.createEl('button', {
 			cls: 'zotero-hub-seg-btn',
 			text: 'Digest',
 		});
 		digestBtn.toggleClass('is-active', this.hubTab === 'digest');
 		digestBtn.onclick = () => void this.switchHubTab('digest');
+
+		const libBtn = switcher.createEl('button', {
+			cls: 'zotero-hub-seg-btn',
+			text: 'Library',
+		});
+		libBtn.toggleClass('is-active', this.hubTab === 'library');
+		libBtn.onclick = () => void this.switchHubTab('library');
 
 		if (this.hubTab === 'library') {
 			const right = header.createDiv({ cls: 'zotero-digest-header-right' });
@@ -969,7 +966,6 @@ export class PaperDigestView extends ItemView {
 				}
 				row.onclick = () => {
 					this.selectedLibraryKey = entry.citekey;
-					this.libraryEditingCore = false;
 					this.libraryDetailScroll = 0;
 					this.renderLibraryResultsOnly();
 				};
@@ -1083,7 +1079,7 @@ export class PaperDigestView extends ItemView {
 		const actionsBar = headerCard.createDiv({ cls: 'zotero-library-actions' });
 		const openBtn = actionsBar.createEl('button', {
 			cls: 'mod-cta',
-			text: 'Open Note (Enter)',
+			text: 'Open Note',
 			attr: { type: 'button' },
 		});
 		openBtn.onclick = () => this.openSelectedLibraryNote();
@@ -1128,85 +1124,27 @@ export class PaperDigestView extends ItemView {
 			}).open();
 		};
 
-		// Core Note Section (Inline Edit & Save)
+		// Core Note Section (Mutually Exclusive Action Button, No Inline Textarea)
 		const coreCard = detail.createDiv({ cls: 'zotero-digest-card zotero-library-core-card' });
 		const coreHead = coreCard.createDiv({ cls: 'zotero-library-section-head' });
 		coreHead.createSpan({ cls: 'zotero-digest-panel-title', text: 'Core Note' });
 		const coreHeadActions = coreHead.createDiv({ cls: 'zotero-library-section-actions' });
-		if (!this.libraryEditingCore) {
-			const editBtn = coreHeadActions.createEl('button', {
+
+		if (entry.hasCoreNote) {
+			const openCoreBtn = coreHeadActions.createEl('button', {
 				cls: 'zotero-library-inline-btn',
-				text: entry.coreNoteBody ? 'Edit' : '+ Write Core Note',
-				attr: { type: 'button' },
+				text: 'Open',
+				attr: { type: 'button', title: 'Open Core Note in Obsidian editor' },
 			});
-			editBtn.onclick = () => {
-				this.libraryEditingCore = true;
-				this.renderLibraryResultsOnly();
-			};
-		}
-		const openMdBtn = coreHeadActions.createEl('button', {
-			cls: 'zotero-library-inline-btn',
-			text: 'Open .md',
-			attr: { type: 'button', title: 'Open Core Note in Obsidian editor' },
-		});
-		openMdBtn.onclick = async () => {
-			const coreFile = await this.getPaperHub().createOrOpenReportFile(
-				entry.citekey,
-				'coreNote',
-				entry.file
-			);
-			await this.app.workspace.getLeaf(false).openFile(coreFile);
-		};
-
-		if (this.libraryEditingCore) {
-			const editor = coreCard.createEl('textarea', {
-				cls: 'zotero-core-note-editor',
-				attr: {
-					rows: '5',
-					placeholder: 'Write core claim & personal takeaways...',
-				},
-			}) as HTMLTextAreaElement;
-			editor.value = entry.coreNoteBody;
-
-			const editActions = coreCard.createDiv({ cls: 'zotero-library-edit-actions' });
-			const cancelBtn = editActions.createEl('button', {
-				text: 'Cancel',
-				attr: { type: 'button' },
-			});
-			cancelBtn.onclick = () => {
-				this.libraryEditingCore = false;
-				this.renderLibraryResultsOnly();
-			};
-
-			const saveBtn = editActions.createEl('button', {
-				cls: 'mod-cta',
-				text: 'Save Core Note',
-				attr: { type: 'button' },
-			});
-			const commitSave = async () => {
-				await this.getPaperHub().saveCoreNote(
+			openCoreBtn.onclick = async () => {
+				const coreFile = await this.getPaperHub().createOrOpenReportFile(
 					entry.citekey,
-					{ body: editor.value.trim() },
+					'coreNote',
 					entry.file
 				);
-				this.libraryEditingCore = false;
-				new Notice('Saved Core Note.');
-				await this.reloadLibrary();
-				this.renderLibraryResultsOnly();
+				await this.app.workspace.getLeaf(false).openFile(coreFile);
 			};
-			saveBtn.onclick = () => void commitSave();
-			editor.onkeydown = (ev) => {
-				if ((ev.metaKey || ev.ctrlKey) && ev.key === 'Enter') {
-					ev.preventDefault();
-					void commitSave();
-				} else if (ev.key === 'Escape') {
-					ev.preventDefault();
-					this.libraryEditingCore = false;
-					this.renderLibraryResultsOnly();
-				}
-			};
-			setTimeout(() => editor.focus(), 0);
-		} else if (entry.coreNoteBody) {
+
 			const bodyBox = coreCard.createDiv({ cls: 'zotero-library-core-text' });
 			void renderMarkdownContent(
 				this.app,
@@ -1215,20 +1153,30 @@ export class PaperDigestView extends ItemView {
 				entry.file.path,
 				this
 			);
-			bodyBox.onclick = (ev) => {
-				if ((ev.target as HTMLElement | null)?.closest('a')) return;
-				this.libraryEditingCore = true;
-				this.renderLibraryResultsOnly();
-			};
 		} else {
-			const bodyBox = coreCard.createDiv({
-				cls: 'zotero-core-note-placeholder',
-				text: 'Click "+ Write Core Note" to capture your core takeaway.',
+			const writeCoreBtn = coreHeadActions.createEl('button', {
+				cls: 'mod-cta zotero-library-inline-btn',
+				text: 'Write Core Note',
+				attr: {
+					type: 'button',
+					title: 'Create and open Core Note in Obsidian editor',
+				},
 			});
-			bodyBox.onclick = () => {
-				this.libraryEditingCore = true;
+			writeCoreBtn.onclick = async () => {
+				const coreFile = await this.getPaperHub().createOrOpenReportFile(
+					entry.citekey,
+					'coreNote',
+					entry.file
+				);
+				await this.app.workspace.getLeaf(false).openFile(coreFile);
+				await this.reloadLibrary();
 				this.renderLibraryResultsOnly();
 			};
+
+			coreCard.createDiv({
+				cls: 'zotero-digest-meta zotero-library-core-empty',
+				text: 'No Core Note yet.',
+			});
 		}
 
 		// Takeaway Research Profile
@@ -1616,20 +1564,20 @@ export async function openPaperLibrary(
 	}
 }
 
-/** Adds or removes the Paper Digest ribbon icon to match the setting. */
+/** Adds or removes the Paper House ribbon icon to match the setting. */
 export function updateDigestRibbon(plugin: ZoteroGKPlugin): void {
 	ribbonByPlugin.get(plugin)?.remove();
 	ribbonByPlugin.delete(plugin);
 	if (!Platform.isDesktopApp || !getDigestServices(plugin).settings().showInRibbon)
 		return;
-	const el = plugin.addRibbonIcon('inbox', 'Open Paper Digest', () => {
+	const el = plugin.addRibbonIcon('inbox', 'Open Paper House', () => {
 		void openDigest(plugin);
 	});
 	ribbonByPlugin.set(plugin, el);
 }
 
 /**
- * Registers the Paper Digest & Library view, commands and ribbon icon. Desktop only:
+ * Registers the Paper House (Digest & Library) view, commands and ribbon icon. Desktop only:
  * the window is a popout and talks to the local Zotero.
  */
 export function registerDigest(plugin: ZoteroGKPlugin): void {
@@ -1637,12 +1585,12 @@ export function registerDigest(plugin: ZoteroGKPlugin): void {
 	plugin.registerView(VIEW_TYPE_DIGEST, (leaf) => new PaperDigestView(leaf, plugin));
 	plugin.addCommand({
 		id: 'open-paper-digest',
-		name: 'Open Paper Digest',
+		name: 'Open Paper House',
 		callback: () => void openDigest(plugin),
 	});
 	plugin.addCommand({
 		id: 'open-paper-library',
-		name: 'Open Paper Library (Vault Search)',
+		name: 'Open Paper House (Library)',
 		callback: () => void openPaperLibrary(plugin),
 	});
 	updateDigestRibbon(plugin);

@@ -31,6 +31,7 @@ import { ProjectSelectorView } from './ui/project-selector';
 import { CFPManualModal } from './ui/cfp-manual-modal';
 import { CFPListModal } from './ui/cfp-list-modal';
 import { CFPListView } from './ui/cfp-list-view';
+import { normalizePath } from './utils/paths';
 
 export default class ZoteroGKPlugin extends Plugin {
 	settings!: MyPluginSettings;
@@ -226,7 +227,14 @@ export default class ZoteroGKPlugin extends Plugin {
 			},
 		};
 
-		// Paper Digest & Library are loaded lazily so that a failure there cannot stop the plugin loading.
+		// Materialize missing built-in note templates and prompts once Vault layout is ready
+		this.app.workspace.onLayoutReady?.(() => {
+			void this.paperHub
+				.ensureBuiltinTemplatesInVault()
+				.catch((e) => console.error('[Paper Hub] template init failed', e));
+		});
+
+		// Paper House (Digest & Library) is loaded lazily so that a failure there cannot stop the plugin loading.
 		import('./ui/digest-view')
 			.then((digest) => digest.registerDigest(this))
 			.catch((e) => console.error('[Paper Digest] registration failed', e));
@@ -301,29 +309,79 @@ export default class ZoteroGKPlugin extends Plugin {
 		) {
 			this.settings.paperWorkspace.highlightNotesFolder = data.fleetingNoteFolder;
 		}
+		if (!this.settings.paperWorkspace.templatesFolder?.trim()) {
+			this.settings.paperWorkspace.templatesFolder =
+				DEFAULT_PAPER_WORKSPACE.templatesFolder;
+		}
+		if (!this.settings.paperWorkspace.report1Label?.trim()) {
+			this.settings.paperWorkspace.report1Label = DEFAULT_PAPER_WORKSPACE.report1Label;
+		}
+		if (!this.settings.paperWorkspace.report2Label?.trim()) {
+			this.settings.paperWorkspace.report2Label = DEFAULT_PAPER_WORKSPACE.report2Label;
+		}
+		if (!this.settings.paperWorkspace.takeawayLabel?.trim()) {
+			this.settings.paperWorkspace.takeawayLabel =
+				DEFAULT_PAPER_WORKSPACE.takeawayLabel;
+		}
 		delete (this.settings.paperWorkspace as unknown as Record<string, unknown>)['s3Prefix'];
+
+		const tplFolder = normalizePath(
+			this.settings.paperWorkspace.templatesFolder
+		).replace(/\/+$/, '');
+		const defaultZotPath = tplFolder
+			? `${tplFolder}/zotero-note-template.md`
+			: 'zotero-note-template.md';
 
 		// Merge Zotero Template config safely
 		this.settings.zoteroTemplate = Object.assign(
-			{ vaultPath: '', content: DEFAULT_ZOTERO_TEMPLATE },
+			{ vaultPath: defaultZotPath, content: DEFAULT_ZOTERO_TEMPLATE },
 			data?.zoteroTemplate
 		);
-		if (typeof this.settings.zoteroTemplate.content !== 'string' || !this.settings.zoteroTemplate.content) {
+		if (!this.settings.zoteroTemplate.vaultPath?.trim()) {
+			this.settings.zoteroTemplate.vaultPath = defaultZotPath;
+		}
+		if (
+			typeof this.settings.zoteroTemplate.content !== 'string' ||
+			!this.settings.zoteroTemplate.content
+		) {
 			this.settings.zoteroTemplate.content = DEFAULT_ZOTERO_TEMPLATE;
 		}
 
-		// Merge Prompts safely while preserving built-ins on upgrade
+		// Merge Templates & Prompts safely while preserving built-ins and user customizations on upgrade
 		if (!Array.isArray(data?.prompts)) {
-			this.settings.prompts = DEFAULT_PROMPTS.map((p) => ({ ...p }));
+			this.settings.prompts = DEFAULT_PROMPTS.map((p) => {
+				const relFile = p.vaultPath.replace(/^900-Templates\//, '');
+				return {
+					...p,
+					vaultPath: tplFolder ? `${tplFolder}/${relFile}` : relFile,
+				};
+			});
 		} else {
-			const existingPrompts: PromptTemplateEntry[] = data.prompts.map((p) => ({
-				...p,
-			}));
-			const byId = new Set(existingPrompts.map((p) => p.id));
-			const missingBuiltIns = DEFAULT_PROMPTS.filter(
-				(bp) => !byId.has(bp.id)
-			).map((bp) => ({ ...bp }));
-			this.settings.prompts = [...missingBuiltIns, ...existingPrompts];
+			const existingById = new Map<string, PromptTemplateEntry>();
+			for (const p of data.prompts) {
+				existingById.set(p.id, { ...p });
+			}
+			const mergedPrompts: PromptTemplateEntry[] = [];
+			for (const bp of DEFAULT_PROMPTS) {
+				const existing = existingById.get(bp.id);
+				if (existing) {
+					if (!existing.kind) existing.kind = bp.kind ?? 'prompt';
+					if (existing.builtIn === undefined) existing.builtIn = true;
+					mergedPrompts.push(existing);
+					existingById.delete(bp.id);
+				} else {
+					const relFile = bp.vaultPath.replace(/^900-Templates\//, '');
+					mergedPrompts.push({
+						...bp,
+						vaultPath: tplFolder ? `${tplFolder}/${relFile}` : relFile,
+					});
+				}
+			}
+			for (const custom of existingById.values()) {
+				if (!custom.kind) custom.kind = 'prompt';
+				mergedPrompts.push(custom);
+			}
+			this.settings.prompts = mergedPrompts;
 		}
 
 		if (typeof this.settings.enableLegacyAssistantScript !== 'boolean') {

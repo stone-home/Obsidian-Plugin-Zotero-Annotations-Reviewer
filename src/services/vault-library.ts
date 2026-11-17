@@ -1,11 +1,12 @@
 import { App, TFile } from 'obsidian';
-import { MyPluginSettings } from '../types';
+import { DEFAULT_ATOMIC_NOTE_TEMPLATE, MyPluginSettings } from '../types';
 import { normalizePath } from '../utils/paths';
 import { pureSeriesFromAcronym } from '../utils/series';
 import {
 	extractTakeawaySummary,
 	PaperHubService,
 	parseCoreNoteContent,
+	renderNoteTemplateString,
 	resolvePaperPaths,
 	TakeawayCandidate,
 } from './paper-hub';
@@ -211,7 +212,12 @@ export class VaultLibraryService {
 			folderPrefixFromPattern(ws.highlightNotesFolder),
 			folderPrefixFromPattern(s.fleetingNoteFolder),
 			folderPrefixFromPattern(ws.atomicNotesFolder),
+			folderPrefixFromPattern(ws.templatesFolder || '900-Templates'),
+			'002-Literature/100-Prompts/',
 			folderPrefixFromPattern(s.cfpNoteDir),
+			...(s.zoteroTemplate?.vaultPath
+				? [folderPrefixFromPattern(s.zoteroTemplate.vaultPath)]
+				: []),
 			...(s.prompts || []).map((p) => folderPrefixFromPattern(p.vaultPath)),
 		];
 		return Array.from(new Set(candidates.filter((p) => Boolean(p) && p !== litPrefix)));
@@ -620,21 +626,75 @@ export class VaultLibraryService {
 				}
 			} else {
 				await this.paperHub.ensureParentFolder(targetPath);
-				const tagList = candidate.tags.map((t) => `  - ${t.replace(/^#/, '')}`);
-				const headerLines = [
-					'---',
-					'type: permanent',
-					'sources:',
-					`  - "${sourceLink}"`,
-					...(tagList.length > 0 ? ['tags:', ...tagList] : []),
-					'---',
-					'',
-					`# ${rawName}`,
-					'',
-					...(candidate.brief ? [candidate.brief, ''] : []),
-					...(appendEvidence ? [evidenceBlock, ''] : []),
-				];
-				resolvedTarget = await this.app.vault.create(targetPath, headerLines.join('\n'));
+				const litFm = this.app.metadataCache.getFileCache(literatureFile)?.frontmatter;
+				const paperTitle =
+					litFm?.['title'] !== undefined && litFm?.['title'] !== null
+						? String(litFm['title']).trim()
+						: '';
+				const rawTemplate =
+					(await this.paperHub.getPromptContent('tpl-atomic-note')) ||
+					DEFAULT_ATOMIC_NOTE_TEMPLATE;
+				let rendered = renderNoteTemplateString(rawTemplate, {
+					citekey,
+					title: paperTitle || citekey,
+					sourcePath: litPathNoExt,
+					atomicTitle: rawName,
+				});
+
+				const cleanTags = Array.from(
+					new Set(
+						candidate.tags
+							.map((t) => t.replace(/^#/, '').trim())
+							.filter(Boolean)
+					)
+				);
+				if (cleanTags.length > 0) {
+					const fmMatch = rendered.match(/^---\r?\n([\s\S]*?)\r?\n---([\s\S]*)$/);
+					if (fmMatch) {
+						let fmPart = fmMatch[1];
+						const bodyPart = fmMatch[2];
+						const emptyTagsRe = /^tags:[ \t]*\[\s*\][ \t]*$/m;
+						const listTagsRe = /^tags:[ \t]*\r?\n((?:[ \t]*-[ \t]*[^\r\n]+\r?\n?)*)/m;
+
+						if (emptyTagsRe.test(fmPart)) {
+							const tagBlock = `tags:\n${cleanTags.map((t) => `  - ${t}`).join('\n')}`;
+							fmPart = fmPart.replace(emptyTagsRe, () => tagBlock);
+						} else {
+							const listMatch = listTagsRe.exec(fmPart);
+							if (listMatch) {
+								const existingTags = new Set(
+									listMatch[1]
+										.split(/\r?\n/)
+										.map((line) => line.replace(/^[ \t]*-[ \t]*/, '').trim())
+										.filter(Boolean)
+								);
+								const toInsert = cleanTags
+									.filter((t) => !existingTags.has(t))
+									.map((t) => `  - ${t}`);
+								if (toInsert.length > 0) {
+									fmPart = fmPart.replace(
+										/^tags:[ \t]*$/m,
+										() => `tags:\n${toInsert.join('\n')}`
+									);
+								}
+							} else {
+								fmPart = `${fmPart}\ntags:\n${cleanTags
+									.map((t) => `  - ${t}`)
+									.join('\n')}`;
+							}
+						}
+						rendered = `---\n${fmPart}\n---${bodyPart}`;
+					}
+				}
+
+				const extraBlocks: string[] = [];
+				if (candidate.brief) extraBlocks.push(candidate.brief);
+				if (appendEvidence) extraBlocks.push(evidenceBlock);
+				const finalContent =
+					extraBlocks.length > 0
+						? `${rendered.trimEnd()}\n\n${extraBlocks.join('\n\n')}\n`
+						: `${rendered.trimEnd()}\n`;
+				resolvedTarget = await this.app.vault.create(targetPath, finalContent);
 			}
 		}
 
