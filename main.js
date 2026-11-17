@@ -6049,10 +6049,12 @@ var init_connector_modal = __esm({
             text: candidate.tags.map((t) => `#${t}`).join("  ")
           });
         }
+        const isLinked = Boolean(
+          matchedFile && this.isNoteLinked(getBasename(matchedFile)) || this.isNoteLinked(candidate.linkTitle)
+        );
         if (matchedFile) {
           const previewWrap = rightPane.createDiv({ cls: "zotero-connector-preview-card" });
           const previewHead = previewWrap.createDiv({ cls: "zotero-connector-preview-head" });
-          const isLinked = this.isNoteLinked(getBasename(matchedFile)) || this.isNoteLinked(candidate.linkTitle);
           previewHead.createSpan({
             text: `${isLinked ? "Linked" : "Matched"} (${matchType === "exact" ? "Exact Title" : "Concept Overlap"}): ${matchedFile.path}`
           });
@@ -6087,7 +6089,7 @@ var init_connector_modal = __esm({
           this.plugin.settings.paperWorkspace.atomicNotesFolder || "003-Permanent"
         );
         const targetDisplayPath = atomicFolder ? `${atomicFolder}/${sanitizedName}.md` : `${sanitizedName}.md`;
-        if (!matchedFile) {
+        if (!matchedFile && !isLinked) {
           rightPane.createDiv({
             cls: "zotero-connector-target-hint",
             text: `Target: ${targetDisplayPath}`
@@ -6105,7 +6107,48 @@ var init_connector_modal = __esm({
           text: `Append "Evidence from [[${state.citekey}]]" section to target note`
         });
         const actions = rightPane.createDiv({ cls: "zotero-connector-actions" });
-        if (matchedFile) {
+        const openVaultNotePicker = (replaced, noticeLabel) => {
+          new VaultMarkdownSuggestModal(
+            this.app,
+            async (chosenFile) => {
+              var _a;
+              try {
+                const target = await this.plugin.vaultLibrary.connectCandidateToVault({
+                  literatureFile: this.literatureFile,
+                  citekey: state.citekey,
+                  candidate,
+                  mode: "reuse",
+                  targetFile: chosenFile,
+                  replacedFile: replaced,
+                  appendEvidence: this.appendEvidence,
+                  rewriteTakeaway: true
+                });
+                new import_obsidian5.Notice(`${noticeLabel}: ${getBasename(target)}`);
+                await this.notifyUpdated();
+                await this.refreshState();
+              } catch (err) {
+                console.error("[ConnectorModal] Failed to link chosen vault note", err);
+                new import_obsidian5.Notice(
+                  `Failed to link note: ${(_a = err == null ? void 0 : err.message) != null ? _a : String(err)}`
+                );
+              }
+            },
+            (f) => f.path !== this.literatureFile.path,
+            "Choose an existing Atomic or Vault note..."
+          ).open();
+        };
+        if (isLinked) {
+          const relinkBtn = actions.createEl("button", {
+            cls: "zotero-connector-btn",
+            text: "Relink a note",
+            attr: {
+              type: "button",
+              title: "Replace the currently linked note with another Vault note",
+              "aria-label": "Replace the currently linked note with another Vault note"
+            }
+          });
+          relinkBtn.onclick = () => openVaultNotePicker(matchedFile, "Relinked to note");
+        } else if (matchedFile) {
           const matchedBase = getBasename(matchedFile);
           const linkMatchedBtn = actions.createEl("button", {
             cls: "mod-cta zotero-connector-btn",
@@ -6138,77 +6181,24 @@ var init_connector_modal = __esm({
               );
             }
           };
-          const rebindBtn = actions.createEl("button", {
+          const relinkMatchedBtn = actions.createEl("button", {
             cls: "zotero-connector-btn",
-            text: "Choose another note...",
-            attr: { type: "button" }
-          });
-          rebindBtn.onclick = () => {
-            new VaultMarkdownSuggestModal(
-              this.app,
-              async (chosenFile) => {
-                var _a;
-                try {
-                  const target = await this.plugin.vaultLibrary.connectCandidateToVault({
-                    literatureFile: this.literatureFile,
-                    citekey: state.citekey,
-                    candidate,
-                    mode: "reuse",
-                    targetFile: chosenFile,
-                    replacedFile: matchedFile,
-                    appendEvidence: this.appendEvidence,
-                    rewriteTakeaway: true
-                  });
-                  new import_obsidian5.Notice(`Linked to note: ${getBasename(target)}`);
-                  await this.notifyUpdated();
-                  await this.refreshState();
-                } catch (err) {
-                  console.error("[ConnectorModal] Failed to rebind vault note", err);
-                  new import_obsidian5.Notice(
-                    `Failed to link note: ${(_a = err == null ? void 0 : err.message) != null ? _a : String(err)}`
-                  );
-                }
-              },
-              (f) => f.path !== this.literatureFile.path,
-              "Choose an existing Atomic or Vault note..."
-            ).open();
-          };
-          const createAnywayBtn = actions.createEl("button", {
-            cls: "zotero-connector-btn",
-            text: "Create a note",
+            text: "Relink a note",
             attr: {
               type: "button",
-              title: `Create new note at ${targetDisplayPath}`
+              title: "Choose a different existing Vault note",
+              "aria-label": "Choose a different existing Vault note"
             }
           });
-          createAnywayBtn.onclick = async () => {
-            var _a;
-            try {
-              const target = await this.plugin.vaultLibrary.connectCandidateToVault({
-                literatureFile: this.literatureFile,
-                citekey: state.citekey,
-                candidate,
-                mode: "create",
-                replacedFile: matchedFile,
-                appendEvidence: this.appendEvidence
-              });
-              new import_obsidian5.Notice(`Created and linked note: ${getBasename(target)}`);
-              await this.notifyUpdated();
-              await this.refreshState();
-            } catch (err) {
-              console.error("[ConnectorModal] Failed to create atomic note", err);
-              new import_obsidian5.Notice(
-                `Failed to create note: ${(_a = err == null ? void 0 : err.message) != null ? _a : String(err)}`
-              );
-            }
-          };
+          relinkMatchedBtn.onclick = () => openVaultNotePicker(matchedFile, "Relinked to note");
         } else {
           const createBtn = actions.createEl("button", {
             cls: "mod-cta zotero-connector-btn",
             text: "Create a note",
             attr: {
               type: "button",
-              title: `Create ${targetDisplayPath}`
+              title: `Create ${targetDisplayPath}`,
+              "aria-label": `Create ${targetDisplayPath}`
             }
           });
           createBtn.onclick = async () => {
@@ -6219,7 +6209,7 @@ var init_connector_modal = __esm({
                 citekey: state.citekey,
                 candidate,
                 mode: "create",
-                replacedFile: matchedFile,
+                replacedFile: null,
                 appendEvidence: this.appendEvidence
               });
               new import_obsidian5.Notice(`Created and linked note: ${getBasename(target)}`);
@@ -6237,39 +6227,11 @@ var init_connector_modal = __esm({
             text: "Link a note",
             attr: {
               type: "button",
-              title: "Choose an existing Vault note instead of creating a new one"
+              title: "Choose an existing Vault note instead of creating a new one",
+              "aria-label": "Choose an existing Vault note instead of creating a new one"
             }
           });
-          chooseExistingBtn.onclick = () => {
-            new VaultMarkdownSuggestModal(
-              this.app,
-              async (chosenFile) => {
-                var _a;
-                try {
-                  const target = await this.plugin.vaultLibrary.connectCandidateToVault({
-                    literatureFile: this.literatureFile,
-                    citekey: state.citekey,
-                    candidate,
-                    mode: "reuse",
-                    targetFile: chosenFile,
-                    replacedFile: matchedFile,
-                    appendEvidence: this.appendEvidence,
-                    rewriteTakeaway: true
-                  });
-                  new import_obsidian5.Notice(`Linked note: ${getBasename(target)}`);
-                  await this.notifyUpdated();
-                  await this.refreshState();
-                } catch (err) {
-                  console.error("[ConnectorModal] Failed to link chosen note", err);
-                  new import_obsidian5.Notice(
-                    `Failed to link note: ${(_a = err == null ? void 0 : err.message) != null ? _a : String(err)}`
-                  );
-                }
-              },
-              (f) => f.path !== this.literatureFile.path,
-              "Choose an existing Atomic or Vault note..."
-            ).open();
-          };
+          chooseExistingBtn.onclick = () => openVaultNotePicker(null, "Linked note");
         }
       }
       async notifyUpdated() {

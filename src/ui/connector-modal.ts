@@ -490,12 +490,14 @@ export class ConnectorModal extends Modal {
 			});
 		}
 
+		const isLinked = Boolean(
+			(matchedFile && this.isNoteLinked(getBasename(matchedFile))) ||
+				this.isNoteLinked(candidate.linkTitle)
+		);
+
 		if (matchedFile) {
 			const previewWrap = rightPane.createDiv({ cls: 'zotero-connector-preview-card' });
 			const previewHead = previewWrap.createDiv({ cls: 'zotero-connector-preview-head' });
-			const isLinked =
-				this.isNoteLinked(getBasename(matchedFile)) ||
-				this.isNoteLinked(candidate.linkTitle);
 			previewHead.createSpan({
 				text: `${isLinked ? 'Linked' : 'Matched'} (${
 					matchType === 'exact' ? 'Exact Title' : 'Concept Overlap'
@@ -541,7 +543,7 @@ export class ConnectorModal extends Modal {
 			? `${atomicFolder}/${sanitizedName}.md`
 			: `${sanitizedName}.md`;
 
-		if (!matchedFile) {
+		if (!matchedFile && !isLinked) {
 			rightPane.createDiv({
 				cls: 'zotero-connector-target-hint',
 				text: `Target: ${targetDisplayPath}`,
@@ -562,7 +564,48 @@ export class ConnectorModal extends Modal {
 
 		const actions = rightPane.createDiv({ cls: 'zotero-connector-actions' });
 
-		if (matchedFile) {
+		const openVaultNotePicker = (replaced: TFile | null, noticeLabel: string) => {
+			new VaultMarkdownSuggestModal(
+				this.app,
+				async (chosenFile) => {
+					try {
+						const target = await this.plugin.vaultLibrary.connectCandidateToVault({
+							literatureFile: this.literatureFile,
+							citekey: state.citekey,
+							candidate,
+							mode: 'reuse',
+							targetFile: chosenFile,
+							replacedFile: replaced,
+							appendEvidence: this.appendEvidence,
+							rewriteTakeaway: true,
+						});
+						new Notice(`${noticeLabel}: ${getBasename(target)}`);
+						await this.notifyUpdated();
+						await this.refreshState();
+					} catch (err) {
+						console.error('[ConnectorModal] Failed to link chosen vault note', err);
+						new Notice(
+							`Failed to link note: ${(err as Error)?.message ?? String(err)}`
+						);
+					}
+				},
+				(f) => f.path !== this.literatureFile.path,
+				'Choose an existing Atomic or Vault note...'
+			).open();
+		};
+
+		if (isLinked) {
+			const relinkBtn = actions.createEl('button', {
+				cls: 'zotero-connector-btn',
+				text: 'Relink a note',
+				attr: {
+					type: 'button',
+					title: 'Replace the currently linked note with another Vault note',
+					'aria-label': 'Replace the currently linked note with another Vault note',
+				},
+			});
+			relinkBtn.onclick = () => openVaultNotePicker(matchedFile, 'Relinked to note');
+		} else if (matchedFile) {
 			const matchedBase = getBasename(matchedFile);
 			const linkMatchedBtn = actions.createEl('button', {
 				cls: 'mod-cta zotero-connector-btn',
@@ -595,69 +638,16 @@ export class ConnectorModal extends Modal {
 				}
 			};
 
-			const rebindBtn = actions.createEl('button', {
+			const relinkMatchedBtn = actions.createEl('button', {
 				cls: 'zotero-connector-btn',
-				text: 'Choose another note...',
-				attr: { type: 'button' },
-			});
-			rebindBtn.onclick = () => {
-				new VaultMarkdownSuggestModal(
-					this.app,
-					async (chosenFile) => {
-						try {
-							const target = await this.plugin.vaultLibrary.connectCandidateToVault({
-								literatureFile: this.literatureFile,
-								citekey: state.citekey,
-								candidate,
-								mode: 'reuse',
-								targetFile: chosenFile,
-								replacedFile: matchedFile,
-								appendEvidence: this.appendEvidence,
-								rewriteTakeaway: true,
-							});
-							new Notice(`Linked to note: ${getBasename(target)}`);
-							await this.notifyUpdated();
-							await this.refreshState();
-						} catch (err) {
-							console.error('[ConnectorModal] Failed to rebind vault note', err);
-							new Notice(
-								`Failed to link note: ${(err as Error)?.message ?? String(err)}`
-							);
-						}
-					},
-					(f) => f.path !== this.literatureFile.path,
-					'Choose an existing Atomic or Vault note...'
-				).open();
-			};
-
-			const createAnywayBtn = actions.createEl('button', {
-				cls: 'zotero-connector-btn',
-				text: 'Create a note',
+				text: 'Relink a note',
 				attr: {
 					type: 'button',
-					title: `Create new note at ${targetDisplayPath}`,
+					title: 'Choose a different existing Vault note',
+					'aria-label': 'Choose a different existing Vault note',
 				},
 			});
-			createAnywayBtn.onclick = async () => {
-				try {
-					const target = await this.plugin.vaultLibrary.connectCandidateToVault({
-						literatureFile: this.literatureFile,
-						citekey: state.citekey,
-						candidate,
-						mode: 'create',
-						replacedFile: matchedFile,
-						appendEvidence: this.appendEvidence,
-					});
-					new Notice(`Created and linked note: ${getBasename(target)}`);
-					await this.notifyUpdated();
-					await this.refreshState();
-				} catch (err) {
-					console.error('[ConnectorModal] Failed to create atomic note', err);
-					new Notice(
-						`Failed to create note: ${(err as Error)?.message ?? String(err)}`
-					);
-				}
-			};
+			relinkMatchedBtn.onclick = () => openVaultNotePicker(matchedFile, 'Relinked to note');
 		} else {
 			const createBtn = actions.createEl('button', {
 				cls: 'mod-cta zotero-connector-btn',
@@ -665,6 +655,7 @@ export class ConnectorModal extends Modal {
 				attr: {
 					type: 'button',
 					title: `Create ${targetDisplayPath}`,
+					'aria-label': `Create ${targetDisplayPath}`,
 				},
 			});
 			createBtn.onclick = async () => {
@@ -674,7 +665,7 @@ export class ConnectorModal extends Modal {
 						citekey: state.citekey,
 						candidate,
 						mode: 'create',
-						replacedFile: matchedFile,
+						replacedFile: null,
 						appendEvidence: this.appendEvidence,
 					});
 					new Notice(`Created and linked note: ${getBasename(target)}`);
@@ -694,37 +685,10 @@ export class ConnectorModal extends Modal {
 				attr: {
 					type: 'button',
 					title: 'Choose an existing Vault note instead of creating a new one',
+					'aria-label': 'Choose an existing Vault note instead of creating a new one',
 				},
 			});
-			chooseExistingBtn.onclick = () => {
-				new VaultMarkdownSuggestModal(
-					this.app,
-					async (chosenFile) => {
-						try {
-							const target = await this.plugin.vaultLibrary.connectCandidateToVault({
-								literatureFile: this.literatureFile,
-								citekey: state.citekey,
-								candidate,
-								mode: 'reuse',
-								targetFile: chosenFile,
-								replacedFile: matchedFile,
-								appendEvidence: this.appendEvidence,
-								rewriteTakeaway: true,
-							});
-							new Notice(`Linked note: ${getBasename(target)}`);
-							await this.notifyUpdated();
-							await this.refreshState();
-						} catch (err) {
-							console.error('[ConnectorModal] Failed to link chosen note', err);
-							new Notice(
-								`Failed to link note: ${(err as Error)?.message ?? String(err)}`
-							);
-						}
-					},
-					(f) => f.path !== this.literatureFile.path,
-					'Choose an existing Atomic or Vault note...'
-				).open();
-			};
+			chooseExistingBtn.onclick = () => openVaultNotePicker(null, 'Linked note');
 		}
 	}
 
