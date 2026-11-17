@@ -565,6 +565,7 @@ export class ConnectorModal extends Modal {
 		const actions = rightPane.createDiv({ cls: 'zotero-connector-actions' });
 
 		const openVaultNotePicker = (replaced: TFile | null, noticeLabel: string) => {
+			const atomicBase = (normalizePath(this.plugin.settings.paperWorkspace?.atomicNotesFolder?.trim() || '003-Permanent').replace(/\/+$/, '') || '003-Permanent') + '/';
 			new VaultMarkdownSuggestModal(
 				this.app,
 				async (chosenFile) => {
@@ -589,8 +590,8 @@ export class ConnectorModal extends Modal {
 						);
 					}
 				},
-				(f) => f.path !== this.literatureFile.path,
-				'Choose an existing Atomic or Vault note...'
+				(f) => f.path.toLowerCase().endsWith('.md') && normalizePath(f.path).startsWith(atomicBase),
+				'Choose an Atomic note...'
 			).open();
 		};
 

@@ -6108,10 +6108,12 @@ var init_connector_modal = __esm({
         });
         const actions = rightPane.createDiv({ cls: "zotero-connector-actions" });
         const openVaultNotePicker = (replaced, noticeLabel) => {
+          var _a, _b;
+          const atomicBase = (normalizePath(((_b = (_a = this.plugin.settings.paperWorkspace) == null ? void 0 : _a.atomicNotesFolder) == null ? void 0 : _b.trim()) || "003-Permanent").replace(/\/+$/, "") || "003-Permanent") + "/";
           new VaultMarkdownSuggestModal(
             this.app,
             async (chosenFile) => {
-              var _a;
+              var _a2;
               try {
                 const target = await this.plugin.vaultLibrary.connectCandidateToVault({
                   literatureFile: this.literatureFile,
@@ -6129,12 +6131,12 @@ var init_connector_modal = __esm({
               } catch (err) {
                 console.error("[ConnectorModal] Failed to link chosen vault note", err);
                 new import_obsidian5.Notice(
-                  `Failed to link note: ${(_a = err == null ? void 0 : err.message) != null ? _a : String(err)}`
+                  `Failed to link note: ${(_a2 = err == null ? void 0 : err.message) != null ? _a2 : String(err)}`
                 );
               }
             },
-            (f) => f.path !== this.literatureFile.path,
-            "Choose an existing Atomic or Vault note..."
+            (f) => f.path.toLowerCase().endsWith(".md") && normalizePath(f.path).startsWith(atomicBase),
+            "Choose an Atomic note..."
           ).open();
         };
         if (isLinked) {
@@ -19576,7 +19578,9 @@ var AssistantView = class extends import_obsidian14.MarkdownRenderChild {
         await rerender();
       };
     }
-    addIconAction(linkedChips, "plus", "Link an Atomic or Literature note", () => {
+    addIconAction(linkedChips, "plus", "Link an Atomic note", () => {
+      var _a, _b;
+      const atomicBase = (normalizePath(((_b = (_a = this.plugin.settings.paperWorkspace) == null ? void 0 : _a.atomicNotesFolder) == null ? void 0 : _b.trim()) || "003-Permanent").replace(/\/+$/, "") || "003-Permanent") + "/";
       new VaultMarkdownSuggestModal(
         this.plugin.app,
         async (chosen) => {
@@ -19591,8 +19595,8 @@ var AssistantView = class extends import_obsidian14.MarkdownRenderChild {
             await rerender();
           }
         },
-        (f) => f.path !== file.path,
-        "Link an Atomic or Literature note..."
+        (f) => f.path.toLowerCase().endsWith(".md") && normalizePath(f.path).startsWith(atomicBase),
+        "Link an Atomic note..."
       ).open();
     });
   }

@@ -833,7 +833,8 @@ export class AssistantView extends MarkdownRenderChild {
 			};
 		}
 
-		addIconAction(linkedChips, 'plus', 'Link an Atomic or Literature note', () => {
+		addIconAction(linkedChips, 'plus', 'Link an Atomic note', () => {
+			const atomicBase = (normalizePath(this.plugin.settings.paperWorkspace?.atomicNotesFolder?.trim() || '003-Permanent').replace(/\/+$/, '') || '003-Permanent') + '/';
 			new VaultMarkdownSuggestModal(
 				this.plugin.app,
 				async (chosen) => {
@@ -848,8 +849,8 @@ export class AssistantView extends MarkdownRenderChild {
 						await rerender();
 					}
 				},
-				(f) => f.path !== file.path,
-				'Link an Atomic or Literature note...'
+				(f) => f.path.toLowerCase().endsWith('.md') && normalizePath(f.path).startsWith(atomicBase),
+				'Link an Atomic note...'
 			).open();
 		});
 	}
