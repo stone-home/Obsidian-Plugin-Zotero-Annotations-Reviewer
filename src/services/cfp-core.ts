@@ -126,7 +126,7 @@ export function getCoreRankForSeries(
 	if (!raw) return null;
 
 	// Strip trailing year if present: e.g. "AAAI 2026" -> "AAAI"
-	const base = raw.replace(/\s+(19|20)\d{2}\b/, '');
+	const base = raw.replace(/\s+/g, ' ').replace(/ (?:19|20)\d{2}$/, '');
 	const acrKey = normAcronym(base);
 	const nameKey = normName(base);
 

@@ -123,9 +123,50 @@ function tokenizeConcept(label: string): string[] {
 	);
 }
 
+function trimEdgeQuotes(str: string): string {
+	let start = 0;
+	let end = str.length;
+	while (start < end && (str[start] === '"' || str[start] === "'")) {
+		start++;
+	}
+	while (end > start && (str[end - 1] === '"' || str[end - 1] === "'")) {
+		end--;
+	}
+	return str.slice(start, end);
+}
+
+function isVenueDelimiter(ch: string): boolean {
+	return (
+		ch === ' ' ||
+		ch === '\t' ||
+		ch === '\r' ||
+		ch === '\n' ||
+		ch === ',' ||
+		ch === '.' ||
+		ch === ':' ||
+		ch === ';' ||
+		ch === '-' ||
+		ch === '–' ||
+		ch === '—' ||
+		ch === '/'
+	);
+}
+
+function trimVenueDelimiters(str: string): string {
+	let start = 0;
+	let end = str.length;
+	while (start < end && isVenueDelimiter(str[start])) {
+		start++;
+	}
+	while (end > start && isVenueDelimiter(str[end - 1])) {
+		end--;
+	}
+	return str.slice(start, end);
+}
+
 export function normalizeVenueSeries(rawVenue: string): string {
 	if (!rawVenue) return '';
-	let text = rawVenue.trim().replace(/^["']+|["']+$/g, '');
+	let text = trimEdgeQuotes(rawVenue.trim());
 	if (!text) return '';
 
 	const wiki = text.match(/^\[\[([^\]|]+)(?:\|([^\]]+))?\]\]$/);
@@ -142,14 +183,14 @@ export function normalizeVenueSeries(rawVenue: string): string {
 		return pureSeriesFromAcronym(parenMatch[1]);
 	}
 
-	let cleaned = text
-		.replace(/\bSeries\b/gi, '')
-		.replace(/\b\d+(?:st|nd|rd|th)\b/gi, '')
-		.replace(/\b(?:19|20)\d{2}\b/g, '')
-		.replace(/['’]\d{2}\b/g, '')
-		.replace(/\s+/g, ' ')
-		.replace(/^[\s,.:;\-–—/]+|[\s,.:;\-–—/]+$/g, '')
-		.trim();
+	let cleaned = trimVenueDelimiters(
+		text
+			.replace(/\bSeries\b/gi, '')
+			.replace(/\b\d+(?:st|nd|rd|th)\b/gi, '')
+			.replace(/\b(?:19|20)\d{2}\b/g, '')
+			.replace(/['’]\d{2}\b/g, '')
+			.replace(/\s+/g, ' ')
+	);
 
 	const orgPrefix = cleaned.match(
 		/^(?:ACM|IEEE|USENIX)\s+([A-Z][A-Za-z0-9-]{1,14})$/
@@ -245,14 +286,60 @@ export class VaultLibraryService {
 		}
 
 		const fm = this.app.metadataCache.getFileCache(file)?.frontmatter;
-		if (fm?.['type'] === 'paper-note' || fm?.['cfp-series'] === true) {
+		const fmType = fm?.['type'];
+		if (
+			fm?.['cfp-series'] === true ||
+			fmType === 'fleeting' ||
+			fmType === 'atom' ||
+			fmType === 'permanent' ||
+			fmType === 'paper-note' ||
+			fmType === 'deep-report' ||
+			fmType === 'external-report' ||
+			fmType === 'takeaway' ||
+			(fm !== undefined && ('linked-notes' in fm || 'linkedNotes' in fm))
+		) {
 			return false;
+		}
+
+		const tags = toStringArray(fm?.['tags'])
+			.flatMap((t) => t.split(/[\s,]+/))
+			.map((t) => t.replace(/^#/, '').trim())
+			.filter(Boolean);
+		const hasZoteroTag = tags.some(
+			(t) => t === 'source/📜Zotero' || t.startsWith('source/📜Zotero/')
+		);
+
+		if (
+			tags.some(
+				(t) =>
+					t === 'source/🤖AI' ||
+					t.startsWith('source/🤖AI/') ||
+					t === 'type/paper-note' ||
+					t.startsWith('type/report') ||
+					t === 'type/takeaway'
+			)
+		) {
+			return false;
+		}
+
+		const lowerBase = fileBasename(file).toLowerCase();
+		if (
+			!hasZoteroTag &&
+			(lowerBase.startsWith('takeaway-') ||
+				lowerBase.startsWith('deep research-') ||
+				lowerBase.startsWith('external research-'))
+		) {
+			return false;
+		}
+
+		if (hasZoteroTag) {
+			return true;
 		}
 
 		if (litPrefix && path.startsWith(litPrefix)) {
 			return true;
 		}
-		return fm?.['type'] === 'literature';
+		return fmType === 'literature';
 	}
 
 	async listLiteraturePapers(): Promise<VaultPaperEntry[]> {

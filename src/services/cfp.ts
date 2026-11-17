@@ -789,7 +789,8 @@ export class CFPService {
 					fm['series']
 						?.toString()
 						?.replace(/^\[\[|\]\]$/g, '')
-						.replace(/\s+Series$/, '') || undefined,
+						.replace(/\s+/g, ' ')
+						.replace(/ Series$/, '') || undefined,
 				fullName: (fm['full-name'] ?? fm['title'] ?? '').toString(),
 				location: (fm['location'] ?? '').toString(),
 				start: fm['start']?.toString(),
@@ -1238,7 +1239,8 @@ export class CFPService {
 				fm['series']
 					?.toString()
 					?.replace(/^\[\[|\]\]$/g, '')
-					.replace(/\s+Series$/, '') || undefined,
+					.replace(/\s+/g, ' ')
+					.replace(/ Series$/, '') || undefined,
 			fullName: (fm['full-name'] ?? fm['title'] ?? '').toString(),
 			location: (fm['location'] ?? '').toString(),
 			start: fm['start']?.toString(),
@@ -1335,7 +1337,10 @@ export class CFPService {
 		if (!fm) return null;
 		const { events } = this.getEventsUnderCfpDir();
 		if (fm['cfp-series'] === true) {
-			const seriesName = (file.basename || '').replace(/\s+Series$/i, '').trim();
+			const seriesName = (file.basename || '')
+				.replace(/\s+/g, ' ')
+				.replace(/ Series$/i, '')
+				.trim();
 			return {
 				isSeries: true,
 				seriesNotePath: file.path,
@@ -1394,7 +1399,8 @@ export class CFPService {
 					fm['series']
 						?.toString()
 						?.replace(/^\[\[|\]\]$/g, '')
-						.replace(/\s+Series$/, '') || undefined,
+						.replace(/\s+/g, ' ')
+						.replace(/ Series$/, '') || undefined,
 				fullName: (fm['full-name'] ?? fm['title'] ?? '').toString(),
 				location: (fm['location'] ?? '').toString(),
 				start: fm['start']?.toString(),
@@ -1430,7 +1436,10 @@ export class CFPService {
 
 		let updated = 0;
 		for (const file of files) {
-			const base = file.basename.replace(/\s+Series$/i, '').trim();
+			const base = file.basename
+				.replace(/\s+/g, ' ')
+				.replace(/ Series$/i, '')
+				.trim();
 			if (!base) continue;
 			try {
 				await this.updateSeriesNoteRank(base);

@@ -204,40 +204,63 @@ var init_types = __esm({
     ].join("\n");
     DEFAULT_REPORT1_NOTE_TEMPLATE = [
       "---",
-      "citation-key: {{citekey}}",
-      "type: deep-report",
-      'title: "Deep Report - {{title}}"',
-      'source: "[[{{source_path}}|{{citekey}}]]"',
+      "id: {{id}}",
       "create: {{date}}",
+      'title: "Deep Research-{{citekey}}"',
+      "type: literature",
+      'url: ""',
       "tags:",
-      "  - type/report/deep",
+      "  - source/\u{1F916}AI",
+      "aliases:",
+      "  - {{id}}",
+      "sources:",
+      '  - "[[{{source_name}}]]"',
+      "need-attention: false",
+      'notion: ""',
       "---",
       "",
       ""
     ].join("\n");
     DEFAULT_REPORT2_NOTE_TEMPLATE = [
       "---",
-      "citation-key: {{citekey}}",
-      "type: external-report",
-      'title: "External Report - {{title}}"',
-      'source: "[[{{source_path}}|{{citekey}}]]"',
+      "id: {{id}}",
       "create: {{date}}",
+      'title: "External Research-{{citekey}}"',
+      "type: literature",
+      'url: ""',
       "tags:",
-      "  - type/report/external",
+      "  - source/\u{1F916}AI",
+      "aliases:",
+      "  - {{id}}",
+      "sources:",
+      '  - "[[{{source_name}}]]"',
+      "need-attention: false",
+      'notion: ""',
       "---",
       "",
       ""
     ].join("\n");
     DEFAULT_TAKEAWAY_NOTE_TEMPLATE = [
       "---",
-      "citation-key: {{citekey}}",
-      "type: takeaway",
-      'title: "Takeaway - {{title}}"',
-      'source: "[[{{source_path}}|{{citekey}}]]"',
+      "id: {{id}}",
       "create: {{date}}",
+      'title: "Takeaway-{{citekey}}"',
+      "type: literature",
+      'url: "{{doi_or_url}}"',
       "tags:",
-      "  - literature-note",
-      "  - type/takeaway",
+      "  - source/\u{1F916}AI",
+      "aliases:",
+      "  - {{id}}",
+      "sources:",
+      '  - "[[{{report1_name}}]]"',
+      '  - "[[{{report2_name}}]]"',
+      "need-attention: true",
+      'shortName: "{{short_name}}"',
+      "author: {{authors_yaml}}",
+      'venue: "{{venue}}"',
+      'notion: ""',
+      'paper-type: "{{paper_type}}"',
+      "citekey: {{citekey}}",
       "---",
       "",
       ""
@@ -245,8 +268,8 @@ var init_types = __esm({
     DEFAULT_CORE_NOTE_TEMPLATE = [
       "---",
       "citation-key: {{citekey}}",
-      "type: paper-note",
-      'source: "[[{{source_path}}|{{citekey}}]]"',
+      "type: literature",
+      'source: "[[{{source_name}}|{{citekey}}]]"',
       "create: {{date}}",
       "projects: []",
       "linked-notes: []",
@@ -261,7 +284,7 @@ var init_types = __esm({
       "type: permanent",
       "create: {{date}}",
       "sources:",
-      '  - "[[{{source_path}}|{{citekey}}]]"',
+      '  - "[[{{source_name}}|{{citekey}}]]"',
       "tags:",
       "  - type/atomic",
       "---",
@@ -4358,10 +4381,10 @@ function extractThoughtSnippet(markdown) {
   return "";
 }
 function resolveCitekeyTemplate(pattern, citekey) {
-  const cleanKey = citekey.trim();
+  const cleanKey = citekey.trim().replace(/^@/, "");
   const replaced = pattern.replace(
     /\{\{\s*(?:citekey|citation-key)\s*\}\}|\$\{\s*citekey\s*\}/gi,
-    cleanKey
+    () => cleanKey
   );
   const normalized = normalizePath(replaced);
   if (pattern.trim().toLowerCase().endsWith(".md") && !normalized.toLowerCase().endsWith(".md")) {
@@ -4370,7 +4393,7 @@ function resolveCitekeyTemplate(pattern, citekey) {
   return normalized;
 }
 function resolvePaperPaths(workspace, citekey) {
-  const cleanKey = citekey.trim();
+  const cleanKey = citekey.trim().replace(/^@/, "");
   const literatureNote = resolveCitekeyTemplate(
     workspace.literatureNotePath,
     cleanKey
@@ -4421,12 +4444,34 @@ function unwrapTakeawayMarkdown(raw) {
   return raw;
 }
 function matchInlineField(markdown, fieldPattern) {
-  const re = new RegExp(
-    `(?:^|\\n)\\s*(?:[-*]\\s*)?[^\\n]*?(?:\\*\\*)?(?:${fieldPattern})(?:\\*\\*)?\\s*::\\s*(.+)`,
-    "i"
-  );
-  const m = markdown.match(re);
-  return m ? m[1].trim() : "";
+  const lhsRe = new RegExp(`(?:^|[^a-zA-Z0-9])(?:${fieldPattern})$`, "i");
+  for (const line of markdown.split(/\r?\n/)) {
+    const sepIdx = line.indexOf("::");
+    if (sepIdx < 0) continue;
+    let lhs = line.slice(0, sepIdx).trimEnd();
+    if (lhs.endsWith("**")) {
+      lhs = lhs.slice(0, -2).trimEnd();
+    }
+    const rhs = line.slice(sepIdx + 2).trim();
+    if (rhs && lhsRe.test(lhs)) {
+      return rhs;
+    }
+  }
+  return "";
+}
+function isHeadingDelimiter(ch) {
+  return ch === " " || ch === "	" || ch === "\r" || ch === "\n" || ch === ":" || ch === "-" || ch === "\u2013" || ch === "\u2014";
+}
+function trimHeadingDelimiters(str2) {
+  let start = 0;
+  let end = str2.length;
+  while (start < end && isHeadingDelimiter(str2[start])) {
+    start++;
+  }
+  while (end > start && isHeadingDelimiter(str2[end - 1])) {
+    end--;
+  }
+  return str2.slice(start, end);
 }
 function extractTakeawaySummary(raw) {
   const md = unwrapTakeawayMarkdown(raw);
@@ -4458,7 +4503,7 @@ function parseWikiLinkParts(text) {
 }
 function parseTakeawayCandidates(raw) {
   const md = unwrapTakeawayMarkdown(raw);
-  const headingRegex = /^###\s+Candidate\s+(\d+)\s*[:\-–—]?\s*(.*)$/gim;
+  const headingRegex = /^###[ \t]+Candidate[ \t]+(\d+)[ \t]*(?:[:\-–—][ \t]*)?(.*)$/gim;
   const matches = [];
   let match;
   while ((match = headingRegex.exec(md)) !== null) {
@@ -4501,7 +4546,9 @@ function parseTakeawayCandidates(raw) {
       }
     }
     if (!linkTitle) {
-      const strippedHeading = item.heading.replace(/\[([^[\]]+)\]/g, "").replace(/\[\[|\]\]/g, "").replace(/^[\s:\-–—]+|[\s:\-–—]+$/g, "").trim();
+      const strippedHeading = trimHeadingDelimiters(
+        item.heading.replace(/\[([^[\]]+)\]/g, "").replace(/\[\[|\]\]/g, "")
+      );
       linkTitle = strippedHeading || `A - Concept - Candidate ${item.index}`;
     }
     const rawTags = extractBulletValue(block, "Potential Tags") || extractBulletValue(block, "Tags");
@@ -4529,15 +4576,32 @@ function parseTakeawayCandidates(raw) {
 function formatTodayIso() {
   return (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
 }
+function escapeYamlDoubleQuoted(val) {
+  return val.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\r?\n/g, " ");
+}
+function generateNoteId() {
+  return (Date.now().toString(36) + Math.random().toString(36).slice(2, 12)).toLowerCase().replace(/[^a-z0-9]/g, "").padEnd(16, "0").slice(0, 16);
+}
 function renderNoteTemplateString(template, vars) {
-  var _a, _b;
-  const cleanCitekey = vars.citekey.trim();
+  var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k;
+  const cleanCitekey = vars.citekey.trim().replace(/^@/, "");
   const rawTitle = (vars.title !== void 0 && vars.title.trim() ? vars.title : cleanCitekey).trim();
-  const escapedTitle = rawTitle.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\r?\n/g, " ");
+  const escapedTitle = escapeYamlDoubleQuoted(rawTitle);
   const cleanSourcePath = (vars.sourcePath !== void 0 && vars.sourcePath.trim() ? vars.sourcePath : cleanCitekey).trim().replace(/\.md$/i, "");
-  const cleanDate = ((_a = vars.date) == null ? void 0 : _a.trim()) || formatTodayIso();
-  const cleanAtomicTitle = ((_b = vars.atomicTitle) != null ? _b : "").trim();
-  return template.replace(/\{\{\s*citekey\s*\}\}/g, () => cleanCitekey).replace(/\{\{\s*title\s*\}\}/g, () => escapedTitle).replace(/\{\{\s*source_path\s*\}\}/g, () => cleanSourcePath).replace(/\{\{\s*date\s*\}\}/g, () => cleanDate).replace(/\{\{\s*atomic_title\s*\}\}/g, () => cleanAtomicTitle);
+  const cleanSourceName = (vars.sourceName !== void 0 && vars.sourceName.trim() ? vars.sourceName : cleanSourcePath.split("/").pop() || cleanCitekey).trim().replace(/\.md$/i, "");
+  const sanitizedCustomId = ((_b = (_a = vars.id) == null ? void 0 : _a.trim()) != null ? _b : "").replace(/[^a-zA-Z0-9_-]/g, "");
+  const cleanId = sanitizedCustomId || generateNoteId();
+  const cleanReport1Name = (((_c = vars.report1Name) == null ? void 0 : _c.trim()) || `Deep Research-${cleanCitekey}`).replace(/\.md$/i, "");
+  const cleanReport2Name = (((_d = vars.report2Name) == null ? void 0 : _d.trim()) || `External Research-${cleanCitekey}`).replace(/\.md$/i, "");
+  const cleanDate = ((_e = vars.date) == null ? void 0 : _e.trim()) || formatTodayIso();
+  const cleanAtomicTitle = ((_f = vars.atomicTitle) != null ? _f : "").trim();
+  const escapedDoiOrUrl = escapeYamlDoubleQuoted(((_g = vars.doiOrUrl) != null ? _g : "").trim());
+  const escapedShortName = escapeYamlDoubleQuoted(((_h = vars.shortName) != null ? _h : "").trim());
+  const escapedVenue = escapeYamlDoubleQuoted(((_i = vars.venue) != null ? _i : "").trim());
+  const escapedPaperType = escapeYamlDoubleQuoted(((_j = vars.paperType) != null ? _j : "").trim());
+  const authorsList = ((_k = vars.authors) != null ? _k : []).map((a) => a.trim()).filter(Boolean);
+  const authorsYaml = authorsList.length > 0 ? "\n" + authorsList.map((a) => `  - "${escapeYamlDoubleQuoted(a)}"`).join("\n") : "[]";
+  return template.replace(/\{\{\s*citekey\s*\}\}/g, () => cleanCitekey).replace(/\{\{\s*id\s*\}\}/g, () => cleanId).replace(/\{\{\s*title\s*\}\}/g, () => escapedTitle).replace(/\{\{\s*source_path\s*\}\}/g, () => cleanSourcePath).replace(/\{\{\s*source_name\s*\}\}/g, () => cleanSourceName).replace(/\{\{\s*report1_name\s*\}\}/g, () => cleanReport1Name).replace(/\{\{\s*report2_name\s*\}\}/g, () => cleanReport2Name).replace(/\{\{\s*date\s*\}\}/g, () => cleanDate).replace(/\{\{\s*atomic_title\s*\}\}/g, () => cleanAtomicTitle).replace(/\{\{\s*doi_or_url\s*\}\}/g, () => escapedDoiOrUrl).replace(/\{\{\s*short_name\s*\}\}/g, () => escapedShortName).replace(/\{\{\s*authors_yaml\s*\}\}/g, () => authorsYaml).replace(/\{\{\s*venue\s*\}\}/g, () => escapedVenue).replace(/\{\{\s*paper_type\s*\}\}/g, () => escapedPaperType);
 }
 function normalizeYamlScalar(val) {
   if (val instanceof Date && !isNaN(val.getTime())) {
@@ -4585,7 +4649,7 @@ function parseCoreNoteContent(raw, fallbackCitekey = "") {
   const linkedNotes = toStringList((_d = fm["linked-notes"]) != null ? _d : fm["linkedNotes"]);
   const extra = {};
   for (const [key, value] of Object.entries(fm)) {
-    if (key === "citation-key" || key === "citekey" || key === "source" || key === "projects" || key === "linked-notes" || key === "linkedNotes" || key === "type" && value === "paper-note") {
+    if (key === "citation-key" || key === "citekey" || key === "source" || key === "projects" || key === "linked-notes" || key === "linkedNotes" || key === "type" && (value === "literature" || value === "paper-note")) {
       continue;
     }
     extra[key] = normalizeYamlScalar(value);
@@ -4604,7 +4668,7 @@ function serializeCoreNoteContent(data) {
   const extra = (_a = data.extraFrontmatter) != null ? _a : {};
   const fmObj = {
     "citation-key": data.citekey,
-    type: typeof extra["type"] === "string" && extra["type"].trim() ? extra["type"].trim() : "paper-note",
+    type: typeof extra["type"] === "string" && extra["type"].trim() ? extra["type"].trim() : "literature",
     source: data.source || (data.citekey ? `[[${data.citekey}]]` : "")
   };
   for (const [key, value] of Object.entries(extra)) {
@@ -4653,11 +4717,11 @@ var init_paper_hub = __esm({
         this.getSettings = getSettings;
       }
       getCitekeyForFile(file) {
-        var _a, _b, _c;
+        var _a, _b, _c, _d;
         const fm = (_a = this.app.metadataCache.getFileCache(file)) == null ? void 0 : _a.frontmatter;
         if (!fm) return null;
         const keyName = this.getSettings().citationKeyName || "citation-key";
-        const raw = (_c = (_b = fm[keyName]) != null ? _b : fm["citation-key"]) != null ? _c : fm["zotero-key"];
+        const raw = (_d = (_c = (_b = fm[keyName]) != null ? _b : fm["citation-key"]) != null ? _c : fm["citekey"]) != null ? _d : fm["zotero-key"];
         if (raw === void 0 || raw === null) return null;
         const trimmed = String(raw).trim();
         return trimmed.length > 0 ? trimmed : null;
@@ -4714,8 +4778,14 @@ var init_paper_hub = __esm({
           settings.paperWorkspace.highlightNotesFolder || settings.fleetingNoteFolder || ""
         );
         const highlightPrefix = highlightFolder ? `${highlightFolder}/` : "";
+        const companionPaths = new Set(
+          [paths.takeaway, paths.report1, paths.report2, paths.coreNote].map(
+            normalizePath
+          )
+        );
         const fleetingFiles = this.app.vault.getMarkdownFiles().filter((candidate) => {
           if (candidate.path === file.path) return false;
+          if (companionPaths.has(normalizePath(candidate.path))) return false;
           if (highlightPrefix && !candidate.path.startsWith(highlightPrefix))
             return false;
           const candKey = this.getCitekeyForFile(candidate);
@@ -4798,8 +4868,8 @@ var init_paper_hub = __esm({
         };
       }
       async createOrOpenReportFile(citekey, kind, literatureFile) {
-        var _a, _b;
-        const cleanKey = citekey.trim();
+        var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m;
+        const cleanKey = citekey.trim().replace(/^@/, "");
         const paths = resolvePaperPaths(this.getSettings().paperWorkspace, cleanKey);
         const targetPath = normalizePath(paths[kind]);
         const existing = this.getVaultFile(targetPath);
@@ -4815,14 +4885,28 @@ var init_paper_hub = __esm({
         const resolvedLitFile = literatureFile != null ? literatureFile : this.getVaultFile(paths.literatureNote);
         const fm = resolvedLitFile ? (_a = this.app.metadataCache.getFileCache(resolvedLitFile)) == null ? void 0 : _a.frontmatter : void 0;
         const rawTitle = (fm == null ? void 0 : fm["title"]) !== void 0 && (fm == null ? void 0 : fm["title"]) !== null ? String(fm["title"]).trim() : "";
-        const sourcePath = ((_b = literatureFile == null ? void 0 : literatureFile.path) != null ? _b : paths.literatureNote).replace(
-          /\.md$/i,
-          ""
-        );
+        const litPath = (_b = literatureFile == null ? void 0 : literatureFile.path) != null ? _b : paths.literatureNote;
+        const sourcePath = litPath.replace(/\.md$/i, "");
+        const sourceName = (litPath.split("/").pop() || cleanKey).replace(/\.md$/i, "");
+        const report1Name = (_c = paths.report1.split("/").pop()) == null ? void 0 : _c.replace(/\.md$/i, "");
+        const report2Name = (_d = paths.report2.split("/").pop()) == null ? void 0 : _d.replace(/\.md$/i, "");
+        const doiOrUrl = String((_e = fm == null ? void 0 : fm["doi"]) != null ? _e : "").trim() || String((_f = fm == null ? void 0 : fm["url"]) != null ? _f : "").trim();
+        const shortName = String((_g = fm == null ? void 0 : fm["short-name"]) != null ? _g : "").trim() || String((_h = fm == null ? void 0 : fm["shortName"]) != null ? _h : "").trim();
+        const authors = toStringList((_i = fm == null ? void 0 : fm["authors"]) != null ? _i : fm == null ? void 0 : fm["author"]);
+        const venue = (String((_j = fm == null ? void 0 : fm["publication"]) != null ? _j : "").trim() || String((_k = fm == null ? void 0 : fm["venue"]) != null ? _k : "").trim()).replace(/^\[\[|\]\]$/g, "").trim();
+        const paperType = String((_l = fm == null ? void 0 : fm["publish-type"]) != null ? _l : "").trim() || String((_m = fm == null ? void 0 : fm["paper-type"]) != null ? _m : "").trim();
         const initialContent = renderNoteTemplateString(rawTemplate, {
           citekey: cleanKey,
           title: rawTitle || cleanKey,
-          sourcePath
+          sourcePath,
+          sourceName,
+          report1Name,
+          report2Name,
+          doiOrUrl,
+          shortName,
+          authors,
+          venue,
+          paperType
         });
         await this.ensureParentFolder(targetPath);
         return await this.app.vault.create(targetPath, initialContent);
@@ -5118,9 +5202,9 @@ ${raw}`
 // src/utils/series.ts
 function pureSeriesFromAcronym(acronym) {
   if (!acronym || !acronym.trim()) return "";
-  let s = acronym.trim();
-  s = s.replace(/\s+(1st|2nd|3rd|\d+th)$/i, "");
-  s = s.replace(/\s+\d{2,4}$/, "");
+  let s = acronym.trim().replace(/\s+/g, " ");
+  s = s.replace(/ (?:1st|2nd|3rd|\d+th)$/i, "");
+  s = s.replace(/ \d{2,4}$/, "");
   s = s.replace(/\d{2,4}$/, "");
   return s.trim() || acronym.trim();
 }
@@ -5176,9 +5260,34 @@ function tokenizeConcept(label) {
     )
   );
 }
+function trimEdgeQuotes(str2) {
+  let start = 0;
+  let end = str2.length;
+  while (start < end && (str2[start] === '"' || str2[start] === "'")) {
+    start++;
+  }
+  while (end > start && (str2[end - 1] === '"' || str2[end - 1] === "'")) {
+    end--;
+  }
+  return str2.slice(start, end);
+}
+function isVenueDelimiter(ch) {
+  return ch === " " || ch === "	" || ch === "\r" || ch === "\n" || ch === "," || ch === "." || ch === ":" || ch === ";" || ch === "-" || ch === "\u2013" || ch === "\u2014" || ch === "/";
+}
+function trimVenueDelimiters(str2) {
+  let start = 0;
+  let end = str2.length;
+  while (start < end && isVenueDelimiter(str2[start])) {
+    start++;
+  }
+  while (end > start && isVenueDelimiter(str2[end - 1])) {
+    end--;
+  }
+  return str2.slice(start, end);
+}
 function normalizeVenueSeries(rawVenue) {
   if (!rawVenue) return "";
-  let text = rawVenue.trim().replace(/^["']+|["']+$/g, "");
+  let text = trimEdgeQuotes(rawVenue.trim());
   if (!text) return "";
   const wiki = text.match(/^\[\[([^\]|]+)(?:\|([^\]]+))?\]\]$/);
   if (wiki) {
@@ -5192,7 +5301,9 @@ function normalizeVenueSeries(rawVenue) {
   if (parenMatch) {
     return pureSeriesFromAcronym(parenMatch[1]);
   }
-  let cleaned = text.replace(/\bSeries\b/gi, "").replace(/\b\d+(?:st|nd|rd|th)\b/gi, "").replace(/\b(?:19|20)\d{2}\b/g, "").replace(/['’]\d{2}\b/g, "").replace(/\s+/g, " ").replace(/^[\s,.:;\-–—/]+|[\s,.:;\-–—/]+$/g, "").trim();
+  let cleaned = trimVenueDelimiters(
+    text.replace(/\bSeries\b/gi, "").replace(/\b\d+(?:st|nd|rd|th)\b/gi, "").replace(/\b(?:19|20)\d{2}\b/g, "").replace(/['’]\d{2}\b/g, "").replace(/\s+/g, " ")
+  );
   const orgPrefix = cleaned.match(
     /^(?:ACM|IEEE|USENIX)\s+([A-Z][A-Za-z0-9-]{1,14})$/
   );
@@ -5284,13 +5395,30 @@ var init_vault_library = __esm({
           return false;
         }
         const fm = (_a = this.app.metadataCache.getFileCache(file)) == null ? void 0 : _a.frontmatter;
-        if ((fm == null ? void 0 : fm["type"]) === "paper-note" || (fm == null ? void 0 : fm["cfp-series"]) === true) {
+        const fmType = fm == null ? void 0 : fm["type"];
+        if ((fm == null ? void 0 : fm["cfp-series"]) === true || fmType === "fleeting" || fmType === "atom" || fmType === "permanent" || fmType === "paper-note" || fmType === "deep-report" || fmType === "external-report" || fmType === "takeaway" || fm !== void 0 && ("linked-notes" in fm || "linkedNotes" in fm)) {
           return false;
+        }
+        const tags4 = toStringArray(fm == null ? void 0 : fm["tags"]).flatMap((t) => t.split(/[\s,]+/)).map((t) => t.replace(/^#/, "").trim()).filter(Boolean);
+        const hasZoteroTag = tags4.some(
+          (t) => t === "source/\u{1F4DC}Zotero" || t.startsWith("source/\u{1F4DC}Zotero/")
+        );
+        if (tags4.some(
+          (t) => t === "source/\u{1F916}AI" || t.startsWith("source/\u{1F916}AI/") || t === "type/paper-note" || t.startsWith("type/report") || t === "type/takeaway"
+        )) {
+          return false;
+        }
+        const lowerBase = fileBasename(file).toLowerCase();
+        if (!hasZoteroTag && (lowerBase.startsWith("takeaway-") || lowerBase.startsWith("deep research-") || lowerBase.startsWith("external research-"))) {
+          return false;
+        }
+        if (hasZoteroTag) {
+          return true;
         }
         if (litPrefix && path2.startsWith(litPrefix)) {
           return true;
         }
-        return (fm == null ? void 0 : fm["type"]) === "literature";
+        return fmType === "literature";
       }
       async listLiteraturePapers() {
         const settings = this.getSettings();
@@ -21178,7 +21306,7 @@ function parseCoreCsv(text) {
 function getCoreRankForSeries(index, seriesName) {
   const raw = seriesName == null ? void 0 : seriesName.trim();
   if (!raw) return null;
-  const base = raw.replace(/\s+(19|20)\d{2}\b/, "");
+  const base = raw.replace(/\s+/g, " ").replace(/ (?:19|20)\d{2}$/, "");
   const acrKey = normAcronym(base);
   const nameKey = normName(base);
   let candidates = [];
@@ -21844,7 +21972,7 @@ ${body}`;
       const submissionDdl = ((_b = (_a = fm["submission-ddl"]) != null ? _a : fm["submission_ddl"]) != null ? _b : "").toString();
       const item = {
         acronym: ((_c = fm["acronym"]) != null ? _c : "").toString(),
-        series: ((_e = (_d = fm["series"]) == null ? void 0 : _d.toString()) == null ? void 0 : _e.replace(/^\[\[|\]\]$/g, "").replace(/\s+Series$/, "")) || void 0,
+        series: ((_e = (_d = fm["series"]) == null ? void 0 : _d.toString()) == null ? void 0 : _e.replace(/^\[\[|\]\]$/g, "").replace(/\s+/g, " ").replace(/ Series$/, "")) || void 0,
         fullName: ((_g = (_f = fm["full-name"]) != null ? _f : fm["title"]) != null ? _g : "").toString(),
         location: ((_h = fm["location"]) != null ? _h : "").toString(),
         start: (_i = fm["start"]) == null ? void 0 : _i.toString(),
@@ -22192,7 +22320,7 @@ ${body}`;
     var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l;
     return {
       acronym: ((_a = fm["acronym"]) != null ? _a : "").toString(),
-      series: ((_c = (_b = fm["series"]) == null ? void 0 : _b.toString()) == null ? void 0 : _c.replace(/^\[\[|\]\]$/g, "").replace(/\s+Series$/, "")) || void 0,
+      series: ((_c = (_b = fm["series"]) == null ? void 0 : _b.toString()) == null ? void 0 : _c.replace(/^\[\[|\]\]$/g, "").replace(/\s+/g, " ").replace(/ Series$/, "")) || void 0,
       fullName: ((_e = (_d = fm["full-name"]) != null ? _d : fm["title"]) != null ? _e : "").toString(),
       location: ((_f = fm["location"]) != null ? _f : "").toString(),
       start: (_g = fm["start"]) == null ? void 0 : _g.toString(),
@@ -22265,7 +22393,7 @@ ${body}`;
     if (!fm) return null;
     const { events } = this.getEventsUnderCfpDir();
     if (fm["cfp-series"] === true) {
-      const seriesName2 = (file.basename || "").replace(/\s+Series$/i, "").trim();
+      const seriesName2 = (file.basename || "").replace(/\s+/g, " ").replace(/ Series$/i, "").trim();
       return {
         isSeries: true,
         seriesNotePath: file.path,
@@ -22308,7 +22436,7 @@ ${body}`;
       const submissionDdl = ((_b = (_a = fm["submission-ddl"]) != null ? _a : fm["submission_ddl"]) != null ? _b : "").toString();
       const item = {
         acronym: ((_c = fm["acronym"]) != null ? _c : "").toString(),
-        series: ((_e = (_d = fm["series"]) == null ? void 0 : _d.toString()) == null ? void 0 : _e.replace(/^\[\[|\]\]$/g, "").replace(/\s+Series$/, "")) || void 0,
+        series: ((_e = (_d = fm["series"]) == null ? void 0 : _d.toString()) == null ? void 0 : _e.replace(/^\[\[|\]\]$/g, "").replace(/\s+/g, " ").replace(/ Series$/, "")) || void 0,
         fullName: ((_g = (_f = fm["full-name"]) != null ? _f : fm["title"]) != null ? _g : "").toString(),
         location: ((_h = fm["location"]) != null ? _h : "").toString(),
         start: (_i = fm["start"]) == null ? void 0 : _i.toString(),
@@ -22337,7 +22465,7 @@ ${body}`;
     });
     let updated = 0;
     for (const file of files) {
-      const base = file.basename.replace(/\s+Series$/i, "").trim();
+      const base = file.basename.replace(/\s+/g, " ").replace(/ Series$/i, "").trim();
       if (!base) continue;
       try {
         await this.updateSeriesNoteRank(base);
@@ -22759,7 +22887,7 @@ var ZoteroGKPlugin = class extends import_obsidian26.Plugin {
         const isSeries = (_a2 = cache2 == null ? void 0 : cache2.frontmatter) == null ? void 0 : _a2["cfp-series"];
         const seriesUrl = (_d = (_c = (_b2 = cache2 == null ? void 0 : cache2.frontmatter) == null ? void 0 : _b2["series-url"]) == null ? void 0 : _c.toString) == null ? void 0 : _d.call(_c);
         if (!isSeries || !seriesUrl) return false;
-        const baseName = file.basename.replace(/\s+Series$/, "");
+        const baseName = file.basename.replace(/\s+/g, " ").replace(/ Series$/, "");
         if (checking) return true;
         new import_obsidian26.Notice(`Refreshing events for ${baseName}...`);
         this.cfpService.refreshSeriesByUrl(seriesUrl, baseName, (msg) => new import_obsidian26.Notice(msg)).then(() => new import_obsidian26.Notice(`${baseName} events refreshed.`)).catch((e) => {

@@ -63,10 +63,19 @@ export interface CoreNoteData {
 
 export interface NoteTemplateVars {
 	citekey: string;
+	id?: string;
 	title?: string;
 	sourcePath?: string;
+	sourceName?: string;
+	report1Name?: string;
+	report2Name?: string;
 	date?: string;
 	atomicTitle?: string;
+	doiOrUrl?: string;
+	shortName?: string;
+	authors?: string[];
+	venue?: string;
+	paperType?: string;
 }
 
 export interface FleetingNoteSummary {
@@ -145,10 +154,10 @@ function extractThoughtSnippet(markdown: string): string {
 }
 
 export function resolveCitekeyTemplate(pattern: string, citekey: string): string {
-	const cleanKey = citekey.trim();
+	const cleanKey = citekey.trim().replace(/^@/, '');
 	const replaced = pattern.replace(
 		/\{\{\s*(?:citekey|citation-key)\s*\}\}|\$\{\s*citekey\s*\}/gi,
-		cleanKey
+		() => cleanKey
 	);
 	const normalized = normalizePath(replaced);
 	if (
@@ -164,7 +173,7 @@ export function resolvePaperPaths(
 	workspace: PaperWorkspaceConfig,
 	citekey: string
 ): ResolvedPaperPaths {
-	const cleanKey = citekey.trim();
+	const cleanKey = citekey.trim().replace(/^@/, '');
 	const literatureNote = resolveCitekeyTemplate(
 		workspace.literatureNotePath,
 		cleanKey
@@ -222,12 +231,45 @@ export function unwrapTakeawayMarkdown(raw: string): string {
 }
 
 function matchInlineField(markdown: string, fieldPattern: string): string {
-	const re = new RegExp(
-		`(?:^|\\n)\\s*(?:[-*]\\s*)?[^\\n]*?(?:\\*\\*)?(?:${fieldPattern})(?:\\*\\*)?\\s*::\\s*(.+)`,
-		'i'
+	const lhsRe = new RegExp(`(?:^|[^a-zA-Z0-9])(?:${fieldPattern})$`, 'i');
+	for (const line of markdown.split(/\r?\n/)) {
+		const sepIdx = line.indexOf('::');
+		if (sepIdx < 0) continue;
+		let lhs = line.slice(0, sepIdx).trimEnd();
+		if (lhs.endsWith('**')) {
+			lhs = lhs.slice(0, -2).trimEnd();
+		}
+		const rhs = line.slice(sepIdx + 2).trim();
+		if (rhs && lhsRe.test(lhs)) {
+			return rhs;
+		}
+	}
+	return '';
+}
+
+function isHeadingDelimiter(ch: string): boolean {
+	return (
+		ch === ' ' ||
+		ch === '\t' ||
+		ch === '\r' ||
+		ch === '\n' ||
+		ch === ':' ||
+		ch === '-' ||
+		ch === '–' ||
+		ch === '—'
 	);
-	const m = markdown.match(re);
-	return m ? m[1].trim() : '';
+}
+
+function trimHeadingDelimiters(str: string): string {
+	let start = 0;
+	let end = str.length;
+	while (start < end && isHeadingDelimiter(str[start])) {
+		start++;
+	}
+	while (end > start && isHeadingDelimiter(str[end - 1])) {
+		end--;
+	}
+	return str.slice(start, end);
 }
 
 export function extractTakeawaySummary(raw: string): TakeawaySummary {
@@ -262,7 +304,8 @@ function parseWikiLinkParts(text: string): { target: string; alias: string } | n
 
 export function parseTakeawayCandidates(raw: string): TakeawayCandidate[] {
 	const md = unwrapTakeawayMarkdown(raw);
-	const headingRegex = /^###\s+Candidate\s+(\d+)\s*[:\-–—]?\s*(.*)$/gim;
+	const headingRegex =
+		/^###[ \t]+Candidate[ \t]+(\d+)[ \t]*(?:[:\-–—][ \t]*)?(.*)$/gim;
 	const matches: Array<{
 		index: number;
 		heading: string;
@@ -330,11 +373,9 @@ export function parseTakeawayCandidates(raw: string): TakeawayCandidate[] {
 		}
 
 		if (!linkTitle) {
-			const strippedHeading = item.heading
-				.replace(/\[([^[\]]+)\]/g, '')
-				.replace(/\[\[|\]\]/g, '')
-				.replace(/^[\s:\-–—]+|[\s:\-–—]+$/g, '')
-				.trim();
+			const strippedHeading = trimHeadingDelimiters(
+				item.heading.replace(/\[([^[\]]+)\]/g, '').replace(/\[\[|\]\]/g, '')
+			);
 			linkTitle = strippedHeading || `A - Concept - Candidate ${item.index}`;
 		}
 
@@ -376,18 +417,27 @@ function formatTodayIso(): string {
 	return new Date().toISOString().slice(0, 10);
 }
 
+function escapeYamlDoubleQuoted(val: string): string {
+	return val.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\r?\n/g, ' ');
+}
+
+function generateNoteId(): string {
+	return (Date.now().toString(36) + Math.random().toString(36).slice(2, 12))
+		.toLowerCase()
+		.replace(/[^a-z0-9]/g, '')
+		.padEnd(16, '0')
+		.slice(0, 16);
+}
+
 export function renderNoteTemplateString(
 	template: string,
 	vars: NoteTemplateVars
 ): string {
-	const cleanCitekey = vars.citekey.trim();
+	const cleanCitekey = vars.citekey.trim().replace(/^@/, '');
 	const rawTitle = (
 		vars.title !== undefined && vars.title.trim() ? vars.title : cleanCitekey
 	).trim();
-	const escapedTitle = rawTitle
-		.replace(/\\/g, '\\\\')
-		.replace(/"/g, '\\"')
-		.replace(/\r?\n/g, ' ');
+	const escapedTitle = escapeYamlDoubleQuoted(rawTitle);
 	const cleanSourcePath = (
 		vars.sourcePath !== undefined && vars.sourcePath.trim()
 			? vars.sourcePath
@@ -395,15 +445,49 @@ export function renderNoteTemplateString(
 	)
 		.trim()
 		.replace(/\.md$/i, '');
+	const cleanSourceName = (
+		vars.sourceName !== undefined && vars.sourceName.trim()
+			? vars.sourceName
+			: cleanSourcePath.split('/').pop() || cleanCitekey
+	)
+		.trim()
+		.replace(/\.md$/i, '');
+	const sanitizedCustomId = (vars.id?.trim() ?? '').replace(/[^a-zA-Z0-9_-]/g, '');
+	const cleanId = sanitizedCustomId || generateNoteId();
+	const cleanReport1Name = (
+		vars.report1Name?.trim() || `Deep Research-${cleanCitekey}`
+	).replace(/\.md$/i, '');
+	const cleanReport2Name = (
+		vars.report2Name?.trim() || `External Research-${cleanCitekey}`
+	).replace(/\.md$/i, '');
 	const cleanDate = vars.date?.trim() || formatTodayIso();
 	const cleanAtomicTitle = (vars.atomicTitle ?? '').trim();
+	const escapedDoiOrUrl = escapeYamlDoubleQuoted((vars.doiOrUrl ?? '').trim());
+	const escapedShortName = escapeYamlDoubleQuoted((vars.shortName ?? '').trim());
+	const escapedVenue = escapeYamlDoubleQuoted((vars.venue ?? '').trim());
+	const escapedPaperType = escapeYamlDoubleQuoted((vars.paperType ?? '').trim());
+	const authorsList = (vars.authors ?? []).map((a) => a.trim()).filter(Boolean);
+	const authorsYaml =
+		authorsList.length > 0
+			? '\n' +
+				authorsList.map((a) => `  - "${escapeYamlDoubleQuoted(a)}"`).join('\n')
+			: '[]';
 
 	return template
 		.replace(/\{\{\s*citekey\s*\}\}/g, () => cleanCitekey)
+		.replace(/\{\{\s*id\s*\}\}/g, () => cleanId)
 		.replace(/\{\{\s*title\s*\}\}/g, () => escapedTitle)
 		.replace(/\{\{\s*source_path\s*\}\}/g, () => cleanSourcePath)
+		.replace(/\{\{\s*source_name\s*\}\}/g, () => cleanSourceName)
+		.replace(/\{\{\s*report1_name\s*\}\}/g, () => cleanReport1Name)
+		.replace(/\{\{\s*report2_name\s*\}\}/g, () => cleanReport2Name)
 		.replace(/\{\{\s*date\s*\}\}/g, () => cleanDate)
-		.replace(/\{\{\s*atomic_title\s*\}\}/g, () => cleanAtomicTitle);
+		.replace(/\{\{\s*atomic_title\s*\}\}/g, () => cleanAtomicTitle)
+		.replace(/\{\{\s*doi_or_url\s*\}\}/g, () => escapedDoiOrUrl)
+		.replace(/\{\{\s*short_name\s*\}\}/g, () => escapedShortName)
+		.replace(/\{\{\s*authors_yaml\s*\}\}/g, () => authorsYaml)
+		.replace(/\{\{\s*venue\s*\}\}/g, () => escapedVenue)
+		.replace(/\{\{\s*paper_type\s*\}\}/g, () => escapedPaperType);
 }
 
 function normalizeYamlScalar(val: unknown): unknown {
@@ -462,7 +546,7 @@ export function parseCoreNoteContent(raw: string, fallbackCitekey = ''): CoreNot
 			key === 'projects' ||
 			key === 'linked-notes' ||
 			key === 'linkedNotes' ||
-			(key === 'type' && value === 'paper-note')
+			(key === 'type' && (value === 'literature' || value === 'paper-note'))
 		) {
 			continue;
 		}
@@ -486,7 +570,7 @@ export function serializeCoreNoteContent(data: CoreNoteData): string {
 		type:
 			typeof extra['type'] === 'string' && extra['type'].trim()
 				? extra['type'].trim()
-				: 'paper-note',
+				: 'literature',
 		source: data.source || (data.citekey ? `[[${data.citekey}]]` : ''),
 	};
 	for (const [key, value] of Object.entries(extra)) {
@@ -524,7 +608,8 @@ export class PaperHubService {
 		const fm = this.app.metadataCache.getFileCache(file)?.frontmatter;
 		if (!fm) return null;
 		const keyName = this.getSettings().citationKeyName || 'citation-key';
-		const raw = fm[keyName] ?? fm['citation-key'] ?? fm['zotero-key'];
+		const raw =
+			fm[keyName] ?? fm['citation-key'] ?? fm['citekey'] ?? fm['zotero-key'];
 		if (raw === undefined || raw === null) return null;
 		const trimmed = String(raw).trim();
 		return trimmed.length > 0 ? trimmed : null;
@@ -593,8 +678,15 @@ export class PaperHubService {
 		);
 		const highlightPrefix = highlightFolder ? `${highlightFolder}/` : '';
 
+		const companionPaths = new Set(
+			[paths.takeaway, paths.report1, paths.report2, paths.coreNote].map(
+				normalizePath
+			)
+		);
+
 		const fleetingFiles = this.app.vault.getMarkdownFiles().filter((candidate) => {
 			if (candidate.path === file.path) return false;
+			if (companionPaths.has(normalizePath(candidate.path))) return false;
 			if (highlightPrefix && !candidate.path.startsWith(highlightPrefix))
 				return false;
 			const candKey = this.getCitekeyForFile(candidate);
@@ -715,7 +807,7 @@ export class PaperHubService {
 		kind: 'takeaway' | 'report1' | 'report2' | 'coreNote',
 		literatureFile?: TFile
 	): Promise<TFile> {
-		const cleanKey = citekey.trim();
+		const cleanKey = citekey.trim().replace(/^@/, '');
 		const paths = resolvePaperPaths(this.getSettings().paperWorkspace, cleanKey);
 		const targetPath = normalizePath(paths[kind]);
 		const existing = this.getVaultFile(targetPath);
@@ -743,15 +835,39 @@ export class PaperHubService {
 			fm?.['title'] !== undefined && fm?.['title'] !== null
 				? String(fm['title']).trim()
 				: '';
-		const sourcePath = (literatureFile?.path ?? paths.literatureNote).replace(
-			/\.md$/i,
-			''
-		);
+		const litPath = literatureFile?.path ?? paths.literatureNote;
+		const sourcePath = litPath.replace(/\.md$/i, '');
+		const sourceName = (litPath.split('/').pop() || cleanKey).replace(/\.md$/i, '');
+		const report1Name = paths.report1.split('/').pop()?.replace(/\.md$/i, '');
+		const report2Name = paths.report2.split('/').pop()?.replace(/\.md$/i, '');
+		const doiOrUrl =
+			String(fm?.['doi'] ?? '').trim() || String(fm?.['url'] ?? '').trim();
+		const shortName =
+			String(fm?.['short-name'] ?? '').trim() ||
+			String(fm?.['shortName'] ?? '').trim();
+		const authors = toStringList(fm?.['authors'] ?? fm?.['author']);
+		const venue = (
+			String(fm?.['publication'] ?? '').trim() ||
+			String(fm?.['venue'] ?? '').trim()
+		)
+			.replace(/^\[\[|\]\]$/g, '')
+			.trim();
+		const paperType =
+			String(fm?.['publish-type'] ?? '').trim() ||
+			String(fm?.['paper-type'] ?? '').trim();
 
 		const initialContent = renderNoteTemplateString(rawTemplate, {
 			citekey: cleanKey,
 			title: rawTitle || cleanKey,
 			sourcePath,
+			sourceName,
+			report1Name,
+			report2Name,
+			doiOrUrl,
+			shortName,
+			authors,
+			venue,
+			paperType,
 		});
 
 		await this.ensureParentFolder(targetPath);

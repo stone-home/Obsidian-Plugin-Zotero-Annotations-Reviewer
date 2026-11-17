@@ -163,7 +163,9 @@ export default class ZoteroGKPlugin extends Plugin {
 				const isSeries = cache?.frontmatter?.['cfp-series'];
 				const seriesUrl = cache?.frontmatter?.['series-url']?.toString?.();
 				if (!isSeries || !seriesUrl) return false;
-				const baseName = file.basename.replace(/\s+Series$/, '');
+				const baseName = file.basename
+					.replace(/\s+/g, ' ')
+					.replace(/ Series$/, '');
 				if (checking) return true;
 				new Notice(`Refreshing events for ${baseName}...`);
 				this.cfpService
