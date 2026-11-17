@@ -1,6 +1,7 @@
 import {
 	App,
 	ButtonComponent,
+	Component,
 	DropdownComponent,
 	ExtraButtonComponent,
 	FuzzyMatch,
@@ -44,6 +45,7 @@ import {
 } from './types';
 import { ZoteroService } from './services/zotero';
 import { ZoteroConnectorService } from './services/zotero-connector';
+import { renderMarkdownContent } from './ui/connector-modal';
 import { normalizePath } from './utils/paths';
 
 type SettingTabId = 'general' | 'zotero' | 'prompts' | 'webhook' | 'cfp' | 'digest';
@@ -171,6 +173,8 @@ export class ZoteroSettingTab extends PluginSettingTab {
 	plugin: ZoteroGKPlugin;
 	activeTab: SettingTabId = 'general';
 	activePromptKey = 'zotero-template';
+	promptPreviewMode = false;
+	private previewComponent: Component | null = null;
 
 	constructor(app: App, plugin: ZoteroGKPlugin) {
 		super(app, plugin);
@@ -178,6 +182,10 @@ export class ZoteroSettingTab extends PluginSettingTab {
 	}
 
 	display(): void {
+		if (this.previewComponent) {
+			this.previewComponent.unload();
+			this.previewComponent = null;
+		}
 		const { containerEl } = this;
 		containerEl.empty();
 		containerEl.addClass('zotero-settings-wrapper');
@@ -237,24 +245,33 @@ export class ZoteroSettingTab extends PluginSettingTab {
 			cls: 'setting-item-description zotero-desc-tight',
 		});
 
+		const syncRefs: {
+			highlightNotes: TextComponent | null;
+			fleetingFolder: TextComponent | null;
+		} = {
+			highlightNotes: null,
+			fleetingFolder: null,
+		};
+
 		const addPathRow = (
 			name: string,
 			desc: string,
 			key: keyof PaperWorkspaceConfig,
 			defaultVal: string,
-			afterSave?: (val: string) => void
-		) => {
+			afterSave?: (val: string) => void,
+			onInitRef?: (ref: TextComponent) => void
+		): void => {
+			const rowRef: { current: TextComponent | null } = { current: null };
 			const setting = new Setting(layoutCard).setName(name).setDesc(desc);
-			let textRef: TextComponent | null = null;
 			setting.addText((text) => {
-				textRef = text;
-				text.setPlaceholder(defaultVal)
-					.setValue(ws[key])
-					.onChange(async (val) => {
-						ws[key] = val.trim();
-						if (afterSave) afterSave(ws[key]);
-						await this.plugin.saveSettings();
-					});
+				rowRef.current = text;
+				if (onInitRef) onInitRef(text);
+				text.setPlaceholder?.(defaultVal);
+				text.setValue(ws[key]).onChange(async (val) => {
+					ws[key] = val.trim();
+					if (afterSave) afterSave(ws[key]);
+					await this.plugin.saveSettings();
+				});
 				text.inputEl.addClass('zotero-workspace-path-input');
 			});
 			addSettingIconAction(
@@ -264,7 +281,7 @@ export class ZoteroSettingTab extends PluginSettingTab {
 				async () => {
 					ws[key] = defaultVal;
 					if (afterSave) afterSave(defaultVal);
-					textRef?.setValue(defaultVal);
+					rowRef.current?.setValue(defaultVal);
 					await this.plugin.saveSettings();
 				}
 			);
@@ -307,6 +324,10 @@ export class ZoteroSettingTab extends PluginSettingTab {
 			DEFAULT_PAPER_WORKSPACE.highlightNotesFolder,
 			(val) => {
 				this.plugin.settings.fleetingNoteFolder = val;
+				syncRefs.fleetingFolder?.setValue(val);
+			},
+			(ref) => {
+				syncRefs.highlightNotes = ref;
 			}
 		);
 		addPathRow(
@@ -336,6 +357,25 @@ export class ZoteroSettingTab extends PluginSettingTab {
 						await this.plugin.saveSettings();
 					})
 			);
+
+		new Setting(zoteroConnCard)
+			.setName('Fleeting Notes Folder')
+			.setDesc(
+				'Folder where exported highlight / fleeting notes are stored (synced with Highlight Notes in Paper Workspace Layout).'
+			)
+			.addText((text) => {
+				syncRefs.fleetingFolder = text;
+				text.setPlaceholder?.(DEFAULT_PAPER_WORKSPACE.highlightNotesFolder);
+				text.setValue(
+					this.plugin.settings.fleetingNoteFolder || ws.highlightNotesFolder
+				).onChange(async (value) => {
+					const trimmed = value.trim();
+					this.plugin.settings.fleetingNoteFolder = trimmed;
+					ws.highlightNotesFolder = trimmed;
+					syncRefs.highlightNotes?.setValue(trimmed);
+					await this.plugin.saveSettings();
+				});
+			});
 
 		new Setting(zoteroConnCard)
 			.setName('Citation Key Name')
@@ -491,19 +531,14 @@ export class ZoteroSettingTab extends PluginSettingTab {
 				this.display();
 			});
 
-		// Legacy Assistant Custom JS (Collapsible)
-		const detailsEl = container.createEl('details', {
-			cls: 'zotero-setting-card zotero-legacy-details',
-		});
-		if (this.plugin.settings.enableLegacyAssistantScript) {
-			detailsEl.setAttribute('open', 'true');
-		}
-		detailsEl.createEl('summary', {
-			text: 'Assistant Custom JS (Legacy DataviewJS)',
-			cls: 'zotero-legacy-summary',
+		// Assistant Custom JS (Open by default)
+		const customJsCard = container.createDiv({ cls: 'zotero-setting-card' });
+		customJsCard.createEl('h3', {
+			text: 'Assistant Custom JS',
+			cls: 'zotero-card-title',
 		});
 
-		new Setting(detailsEl)
+		new Setting(customJsCard)
 			.setName('Enable legacy DataviewJS section in Assistant')
 			.setDesc(
 				'Render the custom DataviewJS snippet inside zotero-assistant blocks. Disabled by default in favor of native inline highlights.'
@@ -517,7 +552,7 @@ export class ZoteroSettingTab extends PluginSettingTab {
 					})
 			);
 
-		const scriptHeaderRow = detailsEl.createDiv({ cls: 'zotero-legacy-script-bar' });
+		const scriptHeaderRow = customJsCard.createDiv({ cls: 'zotero-legacy-script-bar' });
 		scriptHeaderRow.createSpan({
 			text: 'Available params: dv, input',
 			cls: 'setting-item-description',
@@ -530,7 +565,7 @@ export class ZoteroSettingTab extends PluginSettingTab {
 				this.display();
 			});
 
-		const scriptWrapper = detailsEl.createDiv();
+		const scriptWrapper = customJsCard.createDiv();
 		mountCodeMirror(
 			scriptWrapper,
 			this.plugin.settings.assistantScript,
@@ -913,17 +948,52 @@ export class ZoteroSettingTab extends PluginSettingTab {
 				});
 		}
 
+		const modeSwitch = actionsBar.createDiv({ cls: 'zotero-prompt-mode-switch' });
+		const editModeBtn = modeSwitch.createEl('button', {
+			cls: `zotero-prompt-mode-btn ${!this.promptPreviewMode ? 'is-active' : ''}`,
+			text: 'Edit Source',
+			attr: { type: 'button' },
+		});
+		editModeBtn.onclick = () => {
+			if (!this.promptPreviewMode) return;
+			this.promptPreviewMode = false;
+			this.display();
+		};
+		const previewModeBtn = modeSwitch.createEl('button', {
+			cls: `zotero-prompt-mode-btn ${this.promptPreviewMode ? 'is-active' : ''}`,
+			text: 'Preview Markdown',
+			attr: { type: 'button' },
+		});
+		previewModeBtn.onclick = () => {
+			if (this.promptPreviewMode) return;
+			this.promptPreviewMode = true;
+			this.display();
+		};
+
 		const editorWrap = card.createDiv({ cls: 'zotero-template-editor-wrap' });
-		mountCodeMirror(
-			editorWrap,
-			entry.content,
-			'markdown',
-			async (val) => {
-				entry.content = val;
-				await this.plugin.saveSettings();
-			},
-			{ height: '380px', wrap: true }
-		);
+		if (this.promptPreviewMode) {
+			const previewBox = editorWrap.createDiv({ cls: 'zotero-prompt-markdown-preview' });
+			this.previewComponent = new Component();
+			this.previewComponent.load();
+			void renderMarkdownContent(
+				this.app,
+				entry.content,
+				previewBox,
+				entry.vaultPath || '',
+				this.previewComponent
+			);
+		} else {
+			mountCodeMirror(
+				editorWrap,
+				entry.content,
+				'markdown',
+				async (val) => {
+					entry.content = val;
+					await this.plugin.saveSettings();
+				},
+				{ height: '380px', wrap: true }
+			);
+		}
 	}
 
 	// -------------------------------------------------------------------------

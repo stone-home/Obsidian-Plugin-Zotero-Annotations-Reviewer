@@ -294,6 +294,13 @@ export default class ZoteroGKPlugin extends Plugin {
 			DEFAULT_PAPER_WORKSPACE,
 			data?.paperWorkspace
 		);
+		if (
+			data &&
+			typeof data.fleetingNoteFolder === 'string' &&
+			!data.paperWorkspace?.highlightNotesFolder
+		) {
+			this.settings.paperWorkspace.highlightNotesFolder = data.fleetingNoteFolder;
+		}
 		delete (this.settings.paperWorkspace as unknown as Record<string, unknown>)['s3Prefix'];
 
 		// Merge Zotero Template config safely

@@ -34,7 +34,7 @@ import {
 import { PaperHubService } from '../services/paper-hub';
 import { VaultLibraryService, VaultPaperEntry } from '../services/vault-library';
 import { ZoteroConnectorService } from '../services/zotero-connector';
-import { ConnectorModal } from './connector-modal';
+import { ConnectorModal, renderMarkdownContent } from './connector-modal';
 
 /** View type id of the Paper Digest & Library window. */
 export const VIEW_TYPE_DIGEST = 'zotero-paper-digest';
@@ -1132,8 +1132,9 @@ export class PaperDigestView extends ItemView {
 		const coreCard = detail.createDiv({ cls: 'zotero-digest-card zotero-library-core-card' });
 		const coreHead = coreCard.createDiv({ cls: 'zotero-library-section-head' });
 		coreHead.createSpan({ cls: 'zotero-digest-panel-title', text: 'Core Note' });
+		const coreHeadActions = coreHead.createDiv({ cls: 'zotero-library-section-actions' });
 		if (!this.libraryEditingCore) {
-			const editBtn = coreHead.createEl('button', {
+			const editBtn = coreHeadActions.createEl('button', {
 				cls: 'zotero-library-inline-btn',
 				text: entry.coreNoteBody ? 'Edit' : '+ Write Core Note',
 				attr: { type: 'button' },
@@ -1143,6 +1144,19 @@ export class PaperDigestView extends ItemView {
 				this.renderLibraryResultsOnly();
 			};
 		}
+		const openMdBtn = coreHeadActions.createEl('button', {
+			cls: 'zotero-library-inline-btn',
+			text: 'Open .md',
+			attr: { type: 'button', title: 'Open Core Note in Obsidian editor' },
+		});
+		openMdBtn.onclick = async () => {
+			const coreFile = await this.getPaperHub().createOrOpenReportFile(
+				entry.citekey,
+				'coreNote',
+				entry.file
+			);
+			await this.app.workspace.getLeaf(false).openFile(coreFile);
+		};
 
 		if (this.libraryEditingCore) {
 			const editor = coreCard.createEl('textarea', {
@@ -1192,14 +1206,24 @@ export class PaperDigestView extends ItemView {
 				}
 			};
 			setTimeout(() => editor.focus(), 0);
+		} else if (entry.coreNoteBody) {
+			const bodyBox = coreCard.createDiv({ cls: 'zotero-library-core-text' });
+			void renderMarkdownContent(
+				this.app,
+				entry.coreNoteBody,
+				bodyBox,
+				entry.file.path,
+				this
+			);
+			bodyBox.onclick = (ev) => {
+				if ((ev.target as HTMLElement | null)?.closest('a')) return;
+				this.libraryEditingCore = true;
+				this.renderLibraryResultsOnly();
+			};
 		} else {
 			const bodyBox = coreCard.createDiv({
-				cls: entry.coreNoteBody
-					? 'zotero-library-core-text'
-					: 'zotero-core-note-placeholder',
-				text:
-					entry.coreNoteBody ||
-					'Click "+ Write Core Note" to capture your core takeaway.',
+				cls: 'zotero-core-note-placeholder',
+				text: 'Click "+ Write Core Note" to capture your core takeaway.',
 			});
 			bodyBox.onclick = () => {
 				this.libraryEditingCore = true;
@@ -1208,7 +1232,7 @@ export class PaperDigestView extends ItemView {
 		}
 
 		// Takeaway Research Profile
-		if (entry.tldr || entry.novelty || entry.limitation) {
+		if (entry.tldr || entry.contributions || entry.novelty || entry.limitation) {
 			const profileCard = detail.createDiv({
 				cls: 'zotero-digest-card zotero-library-profile-card',
 			});
@@ -1216,13 +1240,15 @@ export class PaperDigestView extends ItemView {
 				cls: 'zotero-digest-panel-title',
 				text: 'Takeaway Research Profile',
 			});
-			const addProfileField = (label: string, val: string) => {
+			const addProfileField = (label: string, val: string | undefined) => {
 				if (!val) return;
 				const row = profileCard.createDiv({ cls: 'zotero-library-profile-row' });
 				row.createSpan({ cls: 'zotero-library-profile-key', text: label });
-				row.createSpan({ cls: 'zotero-library-profile-val', text: val });
+				const valEl = row.createDiv({ cls: 'zotero-library-profile-val' });
+				void renderMarkdownContent(this.app, val, valEl, entry.file.path, this);
 			};
 			addProfileField('TL;DR', entry.tldr);
+			addProfileField('Contributions', entry.contributions);
 			addProfileField('Novelty', entry.novelty);
 			addProfileField('Limitation', entry.limitation);
 		}

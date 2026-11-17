@@ -4,7 +4,6 @@ import {
 	ExtraButtonComponent,
 	MarkdownPostProcessorContext,
 	MarkdownRenderChild,
-	MarkdownRenderer,
 	Modal,
 	Notice,
 	setIcon,
@@ -19,7 +18,11 @@ import { ZoteroConnectorService } from '../services/zotero-connector';
 import { WebhookInputVariable, WebhookProfile } from '../types';
 import { parseImageMap } from '../utils/parser';
 import { normalizePath } from '../utils/paths';
-import { ConnectorModal, VaultMarkdownSuggestModal } from './connector-modal';
+import {
+	ConnectorModal,
+	renderMarkdownContent,
+	VaultMarkdownSuggestModal,
+} from './connector-modal';
 import { HighlightModal } from './highlights';
 
 function addIconAction(
@@ -64,78 +67,6 @@ function parseWikiDisplay(rawLink: string): { linkPath: string; label: string } 
 		linkPath,
 		label: (alias || shortTarget).trim(),
 	};
-}
-
-class ReportPasteModal extends Modal {
-	constructor(
-		app: App,
-		private readonly label: string,
-		private readonly promptText: string,
-		private readonly initialValue: string,
-		private readonly onSubmit: (markdown: string) => Promise<void>
-	) {
-		super(app);
-	}
-
-	onOpen(): void {
-		const { contentEl } = this;
-		contentEl.empty();
-		contentEl.addClass('zotero-paste-report-modal');
-		contentEl.createEl('h3', { text: `Save ${this.label}` });
-
-		const hintRow = contentEl.createDiv({ cls: 'zotero-paste-report-toolbar' });
-		hintRow.createSpan({
-			cls: 'zotero-text-muted',
-			text: 'Paste generated Markdown (or JSON envelope for Takeaway).',
-		});
-
-		if (this.promptText) {
-			new ButtonComponent(hintRow).setButtonText('Copy Prompt').onClick(async () => {
-				if (navigator.clipboard?.writeText) {
-					await navigator.clipboard.writeText(this.promptText);
-					new Notice(`Copied ${this.label} prompt.`);
-				}
-			});
-		}
-
-		const textarea = contentEl.createEl('textarea', {
-			cls: 'zotero-paste-report-textarea',
-			attr: {
-				rows: '12',
-				placeholder: `Paste ${this.label} content here...`,
-			},
-		});
-		textarea.value = this.initialValue;
-
-		const footer = contentEl.createDiv({ cls: 'zotero-modal-footer' });
-		new ButtonComponent(footer)
-			.setButtonText('Paste from Clipboard')
-			.onClick(async () => {
-				if (navigator.clipboard?.readText) {
-					const clip = await navigator.clipboard.readText();
-					if (clip) textarea.value = clip;
-				}
-			});
-		new ButtonComponent(footer).setButtonText('Cancel').onClick(() => this.close());
-		new ButtonComponent(footer)
-			.setButtonText(`Save ${this.label}`)
-			.setCta()
-			.onClick(async () => {
-				const content = textarea.value.trim();
-				if (!content) {
-					new Notice('Content cannot be empty.');
-					return;
-				}
-				await this.onSubmit(content);
-				this.close();
-			});
-
-		setTimeout(() => textarea.focus(), 10);
-	}
-
-	onClose(): void {
-		this.contentEl.empty();
-	}
 }
 
 class AssistantProjectSuggestModal extends SuggestModal<TFile> {
@@ -290,7 +221,7 @@ export class AssistantView extends MarkdownRenderChild {
 			return;
 		}
 
-		// 1. Unified Top Bar (Resource Pills + Pure-Icon Toolbar)
+		// 1. Two-Row Header (Row 1: Actions & Webhooks; Row 2: Files & External Links)
 		this.renderTopBar(container, file, state, imageMap, rerender);
 
 		// 2. Core Note Click-to-Edit Block
@@ -301,7 +232,7 @@ export class AssistantView extends MarkdownRenderChild {
 
 		// 4. Inline Highlight Notes / Comments (ONLY when fleetingNotes.length > 0)
 		if (state.fleetingNotes.length > 0) {
-			this.renderInlineCommentsSection(container, state.fleetingNotes, rerender);
+			await this.renderInlineCommentsSection(container, state.fleetingNotes, rerender);
 		}
 
 		if (this.plugin.settings.enableLegacyAssistantScript) {
@@ -321,7 +252,62 @@ export class AssistantView extends MarkdownRenderChild {
 		rerender: () => Promise<void>
 	): void {
 		const topbar = container.createDiv({ cls: 'zotero-assistant-topbar' });
-		const pills = topbar.createDiv({ cls: 'zotero-assistant-pills' });
+
+		// Row 1: Subtle citekey label + Action Toolbar & Webhooks
+		const toolbarRow = topbar.createDiv({ cls: 'zotero-assistant-toolbar-row' });
+		const identity = toolbarRow.createDiv({ cls: 'zotero-assistant-identity' });
+		identity.createSpan({ cls: 'zotero-assistant-role-label', text: 'Paper Manager' });
+		identity.createSpan({ cls: 'zotero-assistant-citekey', text: state.citekey });
+
+		const toolbar = toolbarRow.createDiv({ cls: 'zotero-assistant-toolbar' });
+
+		addIconAction(toolbar, 'refresh-cw', 'Refresh metadata from Zotero', () =>
+			this.zoteroConnector.triggerZoteroIntegrationImport(state.citekey)
+		);
+
+		addIconAction(toolbar, 'highlighter', 'Review PDF highlights', () => {
+			new HighlightModal(
+				this.plugin.app,
+				this.plugin.settings,
+				state.citekey,
+				imageMap,
+				rerender
+			).open();
+		});
+
+		const hasCandidates = state.takeawayCandidates.length > 0;
+		addIconAction(
+			toolbar,
+			'link-2',
+			'Connect Paper to Vault',
+			() => {
+				new ConnectorModal(this.plugin.app, this.plugin, file, rerender).open();
+			},
+			hasCandidates ? 'has-badge' : undefined
+		);
+
+		const visibleHooks = (this.plugin.settings.webhooks || []).filter((h) => !h.hidden);
+		if (visibleHooks.length > 0) {
+			toolbar.createSpan({ cls: 'zotero-assistant-toolbar-divider' });
+			for (const hook of visibleHooks) {
+				const hookBtn = toolbar.createEl('button', {
+					cls: 'zotero-webhook-pill',
+					attr: {
+						type: 'button',
+						title: `Trigger: ${hook.name}`,
+						'aria-label': `Trigger: ${hook.name}`,
+					},
+				});
+				const iconSpan = hookBtn.createSpan({ cls: 'zotero-res-pill-icon' });
+				setIcon(iconSpan, hook.icon || 'send');
+				hookBtn.createSpan({ text: hook.name });
+				hookBtn.onclick = () => this.triggerWebhookFromToolbar(hook, file);
+			}
+		}
+
+		// Row 2: Companion Files + External Links
+		const filesRow = topbar.createDiv({ cls: 'zotero-assistant-files-row' });
+		const pills = filesRow.createDiv({ cls: 'zotero-assistant-pills' });
 
 		this.renderReportPill(
 			pills,
@@ -333,6 +319,7 @@ export class AssistantView extends MarkdownRenderChild {
 			state.takeawayFile,
 			'synthesize',
 			true,
+			null,
 			rerender
 		);
 		this.renderReportPill(
@@ -345,6 +332,7 @@ export class AssistantView extends MarkdownRenderChild {
 			state.report1File,
 			'report1',
 			false,
+			state.deepReportUrl,
 			rerender
 		);
 		this.renderReportPill(
@@ -357,6 +345,7 @@ export class AssistantView extends MarkdownRenderChild {
 			state.report2File,
 			'report2',
 			false,
+			state.externalReportUrl,
 			rerender
 		);
 
@@ -381,41 +370,6 @@ export class AssistantView extends MarkdownRenderChild {
 			setIcon(iconSpan, 'code-2');
 			codeLink.createSpan({ text: 'Code' });
 		}
-
-		// Right Pure-Icon Toolbar
-		const toolbar = topbar.createDiv({ cls: 'zotero-assistant-toolbar' });
-
-		addIconAction(toolbar, 'refresh-cw', 'Refresh metadata from Zotero', () =>
-			this.zoteroConnector.triggerZoteroIntegrationImport(state.citekey)
-		);
-
-		addIconAction(toolbar, 'highlighter', 'Review PDF highlights', () => {
-			new HighlightModal(
-				this.plugin.app,
-				this.plugin.settings,
-				state.citekey,
-				imageMap,
-				rerender
-			).open();
-		});
-
-		const hasCandidates = state.takeawayCandidates.length > 0;
-		addIconAction(
-			toolbar,
-			'link-2',
-			'Connect Takeaway & reports to vault notes',
-			() => {
-				new ConnectorModal(this.plugin.app, this.plugin, file, rerender).open();
-			},
-			hasCandidates ? 'has-badge' : undefined
-		);
-
-		for (const hook of this.plugin.settings.webhooks || []) {
-			if (hook.hidden) continue;
-			addIconAction(toolbar, hook.icon || 'send', `Trigger: ${hook.name}`, () =>
-				this.triggerWebhookFromToolbar(hook, file)
-			);
-		}
 	}
 
 	private renderReportPill(
@@ -428,10 +382,13 @@ export class AssistantView extends MarkdownRenderChild {
 		existingFile: TFile | null,
 		promptId: string,
 		isAccent: boolean,
+		legacyExternalUrl: string | null,
 		rerender: () => Promise<void>
 	): void {
+		const group = parent.createDiv({ cls: 'zotero-res-pill-group' });
+
 		if (existingFile) {
-			const pill = parent.createEl('button', {
+			const pill = group.createEl('button', {
 				cls: `zotero-res-pill is-present${isAccent ? ' is-accent' : ''}`,
 				attr: { type: 'button', title: `Open ${existingFile.path}` },
 			});
@@ -441,65 +398,63 @@ export class AssistantView extends MarkdownRenderChild {
 			pill.onclick = () => {
 				void this.plugin.app.workspace.getLeaf(false).openFile(existingFile);
 			};
-			return;
+		} else {
+			const createBtn = group.createEl('button', {
+				cls: 'zotero-res-pill is-missing',
+				attr: {
+					type: 'button',
+					title: `Create & open ${label} markdown file in Obsidian editor`,
+				},
+			});
+			createBtn.createSpan({ text: `+ ${label}` });
+			createBtn.onclick = async () => {
+				try {
+					const created = await this.plugin.paperHub.createOrOpenReportFile(
+						citekey,
+						kind,
+						literatureFile
+					);
+					await this.plugin.app.workspace.getLeaf(false).openFile(created);
+					await rerender();
+				} catch (err) {
+					console.error(`[AssistantView] Failed to create ${label}`, err);
+					new Notice(`Failed to create ${label}: ${(err as Error)?.message ?? String(err)}`);
+				}
+			};
+
+			const copyBtn = group.createEl('button', {
+				cls: 'zotero-res-pill-copy clickable-icon',
+				attr: {
+					type: 'button',
+					title: `Copy ${label} prompt`,
+					'aria-label': `Copy ${label} prompt`,
+				},
+			});
+			setIcon(copyBtn, 'copy');
+			copyBtn.onclick = async (ev) => {
+				ev.stopPropagation();
+				const promptText = await this.plugin.paperHub.getPromptContent(promptId);
+				if (navigator.clipboard?.writeText) {
+					await navigator.clipboard.writeText(promptText);
+					new Notice(`Copied ${label} prompt to clipboard.`);
+				}
+			};
 		}
 
-		const group = parent.createDiv({ cls: 'zotero-res-pill-group' });
-		const pasteBtn = group.createEl('button', {
-			cls: 'zotero-res-pill is-missing',
-			attr: { type: 'button', title: `Paste & save ${label}` },
-		});
-		pasteBtn.createSpan({ text: `+ Paste ${label}` });
-		pasteBtn.onclick = async () => {
-			let clipText = '';
-			try {
-				if (navigator.clipboard?.readText) {
-					clipText = (await navigator.clipboard.readText()) || '';
-				}
-			} catch {
-				clipText = '';
-			}
-			const promptText = await this.plugin.paperHub.getPromptContent(promptId);
-			new ReportPasteModal(
-				this.plugin.app,
-				label,
-				promptText,
-				clipText,
-				async (content) => {
-					const { extractedCodeUrl } =
-						await this.plugin.paperHub.saveReportMarkdown(
-							citekey,
-							kind,
-							content,
-							literatureFile
-						);
-					if (extractedCodeUrl) {
-						new Notice(`Saved ${label} & extracted Code URL: ${extractedCodeUrl}`);
-					} else {
-						new Notice(`Saved ${label}.`);
-					}
-					await rerender();
-				}
-			).open();
-		};
-
-		const copyBtn = group.createEl('button', {
-			cls: 'zotero-res-pill-copy clickable-icon',
-			attr: {
-				type: 'button',
-				title: `Copy ${label} prompt`,
-				'aria-label': `Copy ${label} prompt`,
-			},
-		});
-		setIcon(copyBtn, 'copy');
-		copyBtn.onclick = async (ev) => {
-			ev.stopPropagation();
-			const promptText = await this.plugin.paperHub.getPromptContent(promptId);
-			if (navigator.clipboard?.writeText) {
-				await navigator.clipboard.writeText(promptText);
-				new Notice(`Copied ${label} prompt to clipboard.`);
-			}
-		};
+		if (legacyExternalUrl) {
+			const extPill = group.createEl('a', {
+				cls: 'zotero-res-pill is-external is-compact-url',
+				href: legacyExternalUrl,
+				attr: {
+					target: '_blank',
+					rel: 'noopener noreferrer',
+					title: `Open ${label} external URL: ${legacyExternalUrl}`,
+					'aria-label': `Open ${label} external URL`,
+				},
+			});
+			const iconSpan = extPill.createSpan({ cls: 'zotero-res-pill-icon' });
+			setIcon(iconSpan, 'external-link');
+		}
 	}
 
 	private triggerWebhookFromToolbar(hook: WebhookProfile, file: TFile): void {
@@ -558,19 +513,39 @@ export class AssistantView extends MarkdownRenderChild {
 			};
 		}
 
-		if (state.coreNoteFile) {
-			const coreFile = state.coreNoteFile;
-			addIconAction(right, 'arrow-up-right', 'Open Core Note file', () => {
-				void this.plugin.app.workspace.getLeaf(false).openFile(coreFile);
-			});
-		}
+		const openInEditorBtn = right.createEl('button', {
+			cls: 'zotero-core-note-action-btn zotero-core-note-open-btn',
+			attr: {
+				type: 'button',
+				title: 'Open Core Note in Obsidian Markdown editor',
+			},
+		});
+		const openIcon = openInEditorBtn.createSpan({ cls: 'zotero-res-pill-icon' });
+		setIcon(openIcon, 'arrow-up-right');
+		openInEditorBtn.createSpan({ text: 'Open in Editor' });
+		openInEditorBtn.onclick = async (ev) => {
+			ev.stopPropagation();
+			try {
+				const coreFile = await this.plugin.paperHub.createOrOpenReportFile(
+					state.citekey,
+					'coreNote',
+					file
+				);
+				await this.plugin.app.workspace.getLeaf(false).openFile(coreFile);
+			} catch (err) {
+				console.error('[AssistantView] Failed to open Core Note in editor', err);
+				new Notice(
+					`Failed to open Core Note: ${(err as Error)?.message ?? String(err)}`
+				);
+			}
+		};
 
 		const bodyWrap = block.createDiv({ cls: 'zotero-core-note-body' });
 		const displayEl = bodyWrap.createDiv({ cls: 'zotero-core-note-display' });
 		const currentBody = state.coreNote.body.trim();
 
 		if (currentBody) {
-			await MarkdownRenderer.render(
+			await renderMarkdownContent(
 				this.plugin.app,
 				currentBody,
 				displayEl,
@@ -763,11 +738,11 @@ export class AssistantView extends MarkdownRenderChild {
 		});
 	}
 
-	private renderInlineCommentsSection(
+	private async renderInlineCommentsSection(
 		container: HTMLElement,
 		fleetingNotes: FleetingNoteSummary[],
 		rerender: () => Promise<void>
-	): void {
+	): Promise<void> {
 		const section = container.createDiv({ cls: 'zotero-inline-comments' });
 		section.createDiv({
 			cls: 'zotero-inline-comments-header',
@@ -775,6 +750,8 @@ export class AssistantView extends MarkdownRenderChild {
 		});
 
 		const list = section.createDiv({ cls: 'zotero-inline-comments-list' });
+		const renderTasks: Promise<void>[] = [];
+
 		for (const item of fleetingNotes) {
 			const row = list.createDiv({ cls: 'zotero-inline-comment-row' });
 			const textCol = row.createDiv({ cls: 'zotero-inline-comment-main' });
@@ -788,10 +765,16 @@ export class AssistantView extends MarkdownRenderChild {
 				void this.plugin.app.workspace.getLeaf(false).openFile(item.file);
 			};
 			if (item.thought) {
-				textCol.createSpan({
-					cls: 'zotero-inline-comment-snippet',
-					text: item.thought,
-				});
+				const snippetEl = textCol.createDiv({ cls: 'zotero-inline-comment-snippet' });
+				renderTasks.push(
+					renderMarkdownContent(
+						this.plugin.app,
+						item.thought,
+						snippetEl,
+						item.file.path,
+						this
+					)
+				);
 			}
 
 			const toggleBadge = row.createEl('button', {
@@ -808,6 +791,8 @@ export class AssistantView extends MarkdownRenderChild {
 				await rerender();
 			};
 		}
+
+		await Promise.all(renderTasks);
 	}
 
 	private async renderLegacyScript(

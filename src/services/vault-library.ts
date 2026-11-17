@@ -26,6 +26,7 @@ export interface VaultPaperEntry {
 	tags: string[];
 	coreNoteBody: string;
 	tldr: string;
+	contributions?: string;
 	novelty: string;
 	limitation: string;
 	hasCoreNote: boolean;
@@ -165,7 +166,7 @@ export function scoreLibraryMatch(entry: VaultPaperEntry, query: string): number
 	const authors = entry.authors.join(' ').toLowerCase();
 	const year = entry.year.toLowerCase();
 	const meta = [...entry.projects, ...entry.tags].join(' ').toLowerCase();
-	const notes = `${entry.coreNoteBody} ${entry.tldr} ${entry.novelty} ${entry.limitation}`.toLowerCase();
+	const notes = `${entry.coreNoteBody} ${entry.tldr} ${entry.contributions ?? ''} ${entry.novelty} ${entry.limitation}`.toLowerCase();
 
 	let total = 0;
 	for (const token of tokens) {
@@ -269,7 +270,14 @@ export class VaultLibraryService {
 					: { citekey, source: '', projects: [], linkedNotes: [], body: '' };
 				const summary = takeawayFile
 					? extractTakeawaySummary(takeawayContent)
-					: { tldr: '', topic: '', novelty: '', limitation: '' };
+					: {
+							tldr: '',
+							topic: '',
+							position: '',
+							contributions: '',
+							novelty: '',
+							limitation: '',
+						};
 
 				const rawVenue = String(fm['venue'] ?? fm['publication'] ?? '').trim();
 				const acronymHint = String(
@@ -296,6 +304,7 @@ export class VaultLibraryService {
 					tags: toStringArray(fm['tags']),
 					coreNoteBody: coreData.body,
 					tldr: summary.tldr,
+					contributions: summary.contributions,
 					novelty: summary.novelty,
 					limitation: summary.limitation,
 					hasCoreNote: Boolean(coreFile),
@@ -409,12 +418,36 @@ export class VaultLibraryService {
 		});
 
 		const candidateMatches: CandidateVaultMatch[] = candidates.map((candidate) => {
+			if (candidate.linkPath?.trim()) {
+				const rawLinkPath = candidate.linkPath.trim();
+				const normalizedLinkPath = normalizePath(
+					rawLinkPath.toLowerCase().endsWith('.md') ? rawLinkPath : `${rawLinkPath}.md`
+				);
+				const directFile = this.app.vault.getAbstractFileByPath(normalizedLinkPath);
+				if (directFile instanceof TFile) {
+					return {
+						candidate,
+						matchedFile: directFile,
+						matchType: 'exact',
+						overlapScore: 1,
+					};
+				}
+			}
+
 			const cleanTitle = (candidate.linkTitle.split('/').pop() || candidate.linkTitle)
 				.replace(/\.md$/i, '')
 				.trim();
-			const exact = atomicFiles.find(
-				(f) => fileBasename(f).toLowerCase() === cleanTitle.toLowerCase()
-			);
+			const exact =
+				atomicFiles.find(
+					(f) => fileBasename(f).toLowerCase() === cleanTitle.toLowerCase()
+				) ??
+				(candidate.linkStatus.toLowerCase().includes('existing')
+					? allMdFiles.find(
+							(f) =>
+								!this.isPrimaryLiteratureFile(f) &&
+								fileBasename(f).toLowerCase() === cleanTitle.toLowerCase()
+						)
+					: undefined);
 			if (exact) {
 				return {
 					candidate,
@@ -512,6 +545,7 @@ export class VaultLibraryService {
 		mode: 'reuse' | 'create';
 		targetFile?: TFile;
 		appendEvidence?: boolean;
+		rewriteTakeaway?: boolean;
 	}): Promise<TFile> {
 		const { literatureFile, citekey, candidate, mode, appendEvidence = true } = params;
 		const litPathNoExt = literatureFile.path.replace(/\.md$/i, '');
@@ -521,6 +555,7 @@ export class VaultLibraryService {
 		if (candidate.storyline) evidenceLines.push(`- **Storyline**: ${candidate.storyline}`);
 		if (candidate.brief) evidenceLines.push(`- **Brief**: ${candidate.brief}`);
 		if (candidate.evidence) evidenceLines.push(`- **Evidence**: ${candidate.evidence}`);
+		if (candidate.validation) evidenceLines.push(`- **Validation**: ${candidate.validation}`);
 		if (candidate.tags.length > 0) {
 			const tagLine = candidate.tags.map((t) => `#${t.replace(/^#/, '')}`).join(' ');
 			evidenceLines.push(`- **Tags**: ${tagLine}`);
@@ -536,6 +571,30 @@ export class VaultLibraryService {
 					const updated = `${existing.trimEnd()}\n\n${evidenceBlock}\n`;
 					await this.app.vault.modify(resolvedTarget, updated);
 				}
+			}
+
+			const cleanCandTitle = (
+				candidate.linkTitle.split('/').pop() || candidate.linkTitle
+			)
+				.replace(/\.md$/i, '')
+				.trim();
+			const chosenBasename = fileBasename(resolvedTarget);
+			const shouldRewrite =
+				params.rewriteTakeaway !== undefined
+					? params.rewriteTakeaway
+					: chosenBasename.toLowerCase() !== cleanCandTitle.toLowerCase();
+
+			if (shouldRewrite) {
+				const chosenPathNoExt = normalizePath(resolvedTarget.path).replace(
+					/\.md$/i,
+					''
+				);
+				const targetWikiLink = `[[${chosenPathNoExt}|${chosenBasename}]]`;
+				await this.paperHub.rewriteCandidateLinkInTakeaway(
+					citekey,
+					candidate.index,
+					targetWikiLink
+				);
 			}
 		} else {
 			const rawName = (candidate.linkTitle || `A - Concept - ${citekey}`)

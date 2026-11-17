@@ -1,7 +1,8 @@
 import {
 	App,
-	ButtonComponent,
+	Component,
 	FuzzySuggestModal,
+	MarkdownRenderer,
 	Modal,
 	Notice,
 	setIcon,
@@ -14,16 +15,55 @@ import {
 	CitedVaultPaperMatch,
 	ConnectorMatchResult,
 } from '../services/vault-library';
+import { normalizePath } from '../utils/paths';
 
 function getBasename(file: TFile): string {
 	if (file.basename) return file.basename;
 	return (file.name || file.path.split('/').pop() || '').replace(/\.md$/i, '');
 }
 
+export async function renderMarkdownContent(
+	app: App,
+	markdown: string,
+	container: HTMLElement,
+	sourcePath: string,
+	component: Component
+): Promise<void> {
+	const extContainer = container as HTMLElement & {
+		addClass?: (...cls: string[]) => void;
+		setText?: (text: string) => void;
+	};
+	if (typeof extContainer.addClass === 'function') {
+		extContainer.addClass('markdown-rendered');
+	} else {
+		container.classList.add('markdown-rendered');
+	}
+	if (typeof extContainer.setText !== 'function') {
+		extContainer.setText = (text: string) => {
+			container.textContent = text;
+		};
+	}
+
+	await MarkdownRenderer.render(app, markdown, container, sourcePath, component);
+
+	container.addEventListener('click', (ev: MouseEvent) => {
+		const target = ev.target as HTMLElement | null;
+		const linkEl = target?.closest?.('a.internal-link') as HTMLElement | null;
+		if (!linkEl) return;
+		ev.preventDefault();
+		ev.stopPropagation();
+		const linkTarget =
+			linkEl.getAttribute('data-href') || linkEl.getAttribute('href') || '';
+		if (linkTarget && app.workspace?.openLinkText) {
+			void app.workspace.openLinkText(linkTarget, sourcePath);
+		}
+	});
+}
+
 export class VaultMarkdownSuggestModal extends FuzzySuggestModal<TFile> {
 	constructor(
 		app: App,
-		private readonly onChoose: (file: TFile) => void,
+		private readonly onChoose: (file: TFile) => void | Promise<void>,
 		private readonly filterFn?: (file: TFile) => boolean,
 		placeholder = 'Choose a note in Vault...'
 	) {
@@ -41,7 +81,7 @@ export class VaultMarkdownSuggestModal extends FuzzySuggestModal<TFile> {
 	}
 
 	onChooseItem(file: TFile): void {
-		this.onChoose(file);
+		void this.onChoose(file);
 	}
 }
 
@@ -50,6 +90,7 @@ export class ConnectorModal extends Modal {
 	private matchResult: ConnectorMatchResult = { candidateMatches: [], citedPapers: [] };
 	private selectedIndex = 0;
 	private appendEvidence = true;
+	private mdComponent = new Component();
 
 	constructor(
 		app: App,
@@ -61,12 +102,14 @@ export class ConnectorModal extends Modal {
 	}
 
 	async onOpen(): Promise<void> {
+		this.mdComponent.load();
 		(this as { modalEl?: HTMLElement }).modalEl?.addClass('zotero-connector-modal-shell');
 		this.contentEl.addClass('zotero-connector-modal');
 		await this.refreshState();
 	}
 
 	onClose(): void {
+		this.mdComponent.unload();
 		this.contentEl.empty();
 	}
 
@@ -113,20 +156,29 @@ export class ConnectorModal extends Modal {
 			.split('|')[0]
 			.split('/')
 			.pop()
-			?.toLowerCase();
+			?.replace(/\.md$/i, '')
+			.trim()
+			.toLowerCase();
 		if (!clean) return false;
 		return this.state.coreNote.linkedNotes.some((item) => {
-			const target = item
-				.replace(/^\[\[|\]\]$/g, '')
-				.split('|')[0]
-				.split('/')
+			const inner = item.replace(/^\[\[|\]\]$/g, '').trim();
+			const [rawTarget, rawAlias] = inner.split('|');
+			const targetBase = rawTarget
+				?.split('/')
 				.pop()
-				?.toLowerCase();
-			return target === clean;
+				?.replace(/\.md$/i, '')
+				.trim()
+				.toLowerCase();
+			const aliasBase = rawAlias?.replace(/\.md$/i, '').trim().toLowerCase();
+			return targetBase === clean || aliasBase === clean;
 		});
 	}
 
 	private async renderContent(): Promise<void> {
+		this.mdComponent.unload();
+		this.mdComponent = new Component();
+		this.mdComponent.load();
+
 		const { contentEl } = this;
 		contentEl.empty();
 		const state = this.state;
@@ -160,61 +212,71 @@ export class ConnectorModal extends Modal {
 		box.createEl('h4', { text: 'No Takeaway Candidates Yet' });
 		box.createEl('p', {
 			text:
-				'Paste a synthesized Takeaway (Markdown or JSON envelope) below to extract Candidate Atomic Zettels and discover cited papers already in your vault.',
+				'Create and open the Takeaway.md file in Obsidian to paste synthesized Markdown directly, or trigger a synthesis webhook.',
 			cls: 'zotero-text-muted',
 		});
 
-		const textarea = box.createEl('textarea', {
-			cls: 'zotero-connector-paste-area',
-			attr: {
-				rows: '8',
-				placeholder: 'Paste Takeaway Markdown or JSON ({ "markdown_body": "..." })...',
-			},
-		});
-
 		const actions = box.createDiv({ cls: 'zotero-connector-empty-actions' });
-		new ButtonComponent(actions)
-			.setButtonText('Save Takeaway & Scan')
-			.setCta()
-			.onClick(async () => {
-				const raw = textarea.value.trim();
-				if (!raw) {
-					new Notice('Paste Takeaway content first.');
-					return;
-				}
-				await this.plugin.paperHub.saveReportMarkdown(
+
+		const createOpenBtn = actions.createEl('button', {
+			cls: 'mod-cta zotero-connector-btn',
+			text: '+ Create & Open Takeaway.md',
+			attr: { type: 'button' },
+		});
+		createOpenBtn.onclick = async () => {
+			try {
+				const created = await this.plugin.paperHub.createOrOpenReportFile(
 					state.citekey,
 					'takeaway',
-					raw,
 					this.literatureFile
 				);
-				new Notice('Takeaway saved.');
+				await this.app.workspace.getLeaf(false).openFile(created);
 				await this.notifyUpdated();
-				await this.refreshState();
-			});
+				this.close();
+			} catch (err) {
+				console.error('[ConnectorModal] Failed to create/open Takeaway.md', err);
+				new Notice(`Failed to open Takeaway.md: ${(err as Error)?.message ?? String(err)}`);
+			}
+		};
 
-		new ButtonComponent(actions)
-			.setButtonText('Copy Synthesize Prompt')
-			.onClick(async () => {
+		const copyPromptBtn = actions.createEl('button', {
+			cls: 'zotero-connector-btn',
+			text: 'Copy Synthesize Prompt',
+			attr: { type: 'button' },
+		});
+		copyPromptBtn.onclick = async () => {
+			try {
 				const prompt = await this.plugin.paperHub.getPromptContent('synthesize');
 				if (navigator.clipboard?.writeText) {
 					await navigator.clipboard.writeText(prompt);
 					new Notice('Copied synthesize prompt to clipboard.');
 				}
-			});
+			} catch (err) {
+				console.error('[ConnectorModal] Failed to copy prompt', err);
+				new Notice(`Failed to copy prompt: ${(err as Error)?.message ?? String(err)}`);
+			}
+		};
 
 		const visibleHooks = (this.plugin.settings.webhooks || []).filter((h) => !h.hidden);
 		for (const hook of visibleHooks) {
-			new ButtonComponent(actions)
-				.setButtonText(`Trigger: ${hook.name}`)
-				.onClick(async () => {
+			const hookBtn = actions.createEl('button', {
+				cls: 'zotero-connector-btn',
+				text: `Trigger: ${hook.name}`,
+				attr: { type: 'button' },
+			});
+			hookBtn.onclick = async () => {
+				try {
 					await this.plugin.webhookService.triggerWebhook(
 						hook,
 						this.literatureFile,
 						undefined,
 						this.plugin.settings.webhookDebugMode
 					);
-				});
+				} catch (err) {
+					console.error('[ConnectorModal] Webhook trigger failed', err);
+					new Notice(`Webhook failed: ${(err as Error)?.message ?? String(err)}`);
+				}
+			};
 		}
 	}
 
@@ -246,15 +308,27 @@ export class ConnectorModal extends Modal {
 				};
 
 				const topRow = item.createDiv({ cls: 'zotero-connector-item-top' });
+				const leftMeta = topRow.createDiv({ cls: 'zotero-connector-item-meta' });
+				leftMeta.createSpan({
+					cls: 'zotero-connector-item-index',
+					text: `#${match.candidate.index}`,
+				});
+				if (match.candidate.typeLabel) {
+					leftMeta.createSpan({
+						cls: 'zotero-connector-type-chip',
+						text: match.candidate.typeLabel,
+					});
+				}
+
 				const linked =
 					(match.matchedFile && this.isNoteLinked(getBasename(match.matchedFile))) ||
 					this.isNoteLinked(match.candidate.linkTitle);
 
 				const badgeText = linked
-					? 'Linked'
+					? '✓ 已关联'
 					: match.matchedFile
-						? 'Matched'
-						: 'Proposed';
+						? '● 库内已有'
+						: '+ 待新建';
 				const badgeCls = linked
 					? 'is-linked'
 					: match.matchedFile
@@ -264,19 +338,16 @@ export class ConnectorModal extends Modal {
 					cls: `zotero-connector-badge ${badgeCls}`,
 					text: badgeText,
 				});
-				topRow.createSpan({
-					cls: 'zotero-connector-item-index',
-					text: `#${match.candidate.index}`,
-				});
 
 				item.createDiv({
 					cls: 'zotero-connector-item-title',
 					text: match.candidate.linkTitle,
 				});
-				if (match.candidate.storyline) {
+				const subText = match.candidate.brief || match.candidate.storyline;
+				if (subText) {
 					item.createDiv({
 						cls: 'zotero-connector-item-sub',
-						text: match.candidate.storyline,
+						text: subText,
 					});
 				}
 			});
@@ -320,21 +391,27 @@ export class ConnectorModal extends Modal {
 				const btn = row.createEl('button', {
 					cls: `zotero-connector-mini-btn ${alreadyLinked ? 'is-linked' : ''}`,
 					text: alreadyLinked ? 'Linked' : 'Link',
+					attr: { type: 'button' },
 				});
 				btn.disabled = alreadyLinked;
 				btn.onclick = async () => {
-					const wiki = `[[${base}]]`;
-					const next = state.coreNote.linkedNotes.includes(wiki)
-						? state.coreNote.linkedNotes
-						: [...state.coreNote.linkedNotes, wiki];
-					await this.plugin.paperHub.saveCoreNote(
-						state.citekey,
-						{ linkedNotes: next },
-						this.literatureFile
-					);
-					new Notice(`Linked ${wiki} to Core Note.`);
-					await this.notifyUpdated();
-					await this.refreshState();
+					try {
+						const wiki = `[[${base}]]`;
+						const next = state.coreNote.linkedNotes.includes(wiki)
+							? state.coreNote.linkedNotes
+							: [...state.coreNote.linkedNotes, wiki];
+						await this.plugin.paperHub.saveCoreNote(
+							state.citekey,
+							{ linkedNotes: next },
+							this.literatureFile
+						);
+						new Notice(`Linked ${wiki} to Core Note.`);
+						await this.notifyUpdated();
+						await this.refreshState();
+					} catch (err) {
+						console.error('[ConnectorModal] Failed to link cited paper', err);
+						new Notice(`Failed to link paper: ${(err as Error)?.message ?? String(err)}`);
+					}
 				};
 			}
 		}
@@ -360,30 +437,72 @@ export class ConnectorModal extends Modal {
 			text: candidate.linkTitle,
 		});
 
+		const metaChips: Array<{ label: string; value: string }> = [
+			{ label: 'Type', value: candidate.typeLabel || '' },
+			{ label: 'Source', value: candidate.source || '' },
+			{ label: 'Storyline', value: candidate.storyline },
+			{ label: 'Answers', value: candidate.answers || '' },
+			{ label: 'Link Status', value: candidate.linkStatus },
+		].filter((m) => Boolean(m.value));
+
+		if (metaChips.length > 0) {
+			const chipsRow = head.createDiv({ cls: 'zotero-connector-meta-chips' });
+			for (const item of metaChips) {
+				chipsRow.createSpan({
+					cls: 'zotero-connector-meta-chip',
+					text: `${item.label}: ${item.value}`,
+				});
+			}
+		}
+
 		const fields = rightPane.createDiv({ cls: 'zotero-connector-fields' });
-		const addField = (label: string, value: string) => {
+		const renderTasks: Promise<void>[] = [];
+
+		const addMarkdownField = (label: string, value: string | undefined) => {
 			if (!value) return;
 			const row = fields.createDiv({ cls: 'zotero-connector-field-row' });
 			row.createSpan({ cls: 'zotero-connector-field-key', text: label });
-			row.createSpan({ cls: 'zotero-connector-field-val', text: value });
+			const valEl = row.createDiv({
+				cls: 'zotero-connector-field-val zotero-connector-md-val',
+			});
+			renderTasks.push(
+				renderMarkdownContent(
+					this.app,
+					value,
+					valEl,
+					this.literatureFile.path,
+					this.mdComponent
+				)
+			);
 		};
 
-		addField('Storyline', candidate.storyline);
-		addField('Brief Claim', candidate.brief);
-		addField('Evidence', candidate.evidence);
-		addField('Related Papers', candidate.relatedPapers);
+		addMarkdownField('Brief', candidate.brief);
+		addMarkdownField('Evidence', candidate.evidence);
+		addMarkdownField('Validation', candidate.validation);
+		addMarkdownField('Related Papers', candidate.relatedPapers);
+
 		if (candidate.tags.length > 0) {
-			addField('Tags', candidate.tags.map((t) => `#${t}`).join('  '));
+			const row = fields.createDiv({ cls: 'zotero-connector-field-row' });
+			row.createSpan({ cls: 'zotero-connector-field-key', text: 'Tags' });
+			row.createSpan({
+				cls: 'zotero-connector-field-val zotero-connector-tags-val',
+				text: candidate.tags.map((t) => `#${t}`).join('  '),
+			});
 		}
 
 		if (matchedFile) {
 			const previewWrap = rightPane.createDiv({ cls: 'zotero-connector-preview-card' });
 			const previewHead = previewWrap.createDiv({ cls: 'zotero-connector-preview-head' });
+			const isLinked =
+				this.isNoteLinked(getBasename(matchedFile)) ||
+				this.isNoteLinked(candidate.linkTitle);
 			previewHead.createSpan({
-				text: `Existing Vault Match (${matchType === 'exact' ? 'Exact Title' : 'Concept Overlap'}): ${matchedFile.path}`,
+				text: `${isLinked ? '✓ 已关联' : '● 库内已有'} (${
+					matchType === 'exact' ? 'Exact Title' : 'Concept Overlap'
+				}): ${matchedFile.path}`,
 			});
 			const openExisting = previewHead.createEl('a', {
-				text: 'Open',
+				text: 'Open in Obsidian',
 				href: '#',
 				cls: 'zotero-connector-open-link',
 			});
@@ -393,10 +512,39 @@ export class ConnectorModal extends Modal {
 				this.close();
 			};
 
-			const existingContent = await this.app.vault.read(matchedFile);
-			previewWrap.createEl('pre', {
-				cls: 'zotero-connector-preview-body',
-				text: existingContent.slice(0, 1200),
+			const previewBody = previewWrap.createDiv({
+				cls: 'zotero-connector-preview-rendered',
+			});
+			renderTasks.push(
+				this.app.vault.read(matchedFile).then((existingContent) =>
+					renderMarkdownContent(
+						this.app,
+						existingContent,
+						previewBody,
+						matchedFile.path,
+						this.mdComponent
+					)
+				)
+			);
+		}
+
+		await Promise.all(renderTasks);
+
+		const sanitizedName = (candidate.linkTitle || `A - Concept - ${state.citekey}`)
+			.replace(/\.md$/i, '')
+			.replace(/[\\/:*?"<>|]/g, '-')
+			.trim();
+		const atomicFolder = normalizePath(
+			this.plugin.settings.paperWorkspace.atomicNotesFolder || '003-Permanent'
+		);
+		const targetPathHint = atomicFolder
+			? `${atomicFolder}/${sanitizedName}.md`
+			: `${sanitizedName}.md`;
+
+		if (!matchedFile) {
+			rightPane.createDiv({
+				cls: 'zotero-connector-target-hint',
+				text: `将创建于: ${targetPathHint}`,
 			});
 		}
 
@@ -413,11 +561,16 @@ export class ConnectorModal extends Modal {
 		});
 
 		const actions = rightPane.createDiv({ cls: 'zotero-connector-actions' });
+
 		if (matchedFile) {
-			new ButtonComponent(actions)
-				.setButtonText('Link & Append Evidence')
-				.setCta()
-				.onClick(async () => {
+			const matchedBasename = getBasename(matchedFile);
+			const connectExistingBtn = actions.createEl('button', {
+				cls: 'mod-cta zotero-connector-btn',
+				text: `关联并追加证据 → [[${matchedBasename}]]`,
+				attr: { type: 'button' },
+			});
+			connectExistingBtn.onclick = async () => {
+				try {
 					const target = await this.plugin.vaultLibrary.connectCandidateToVault({
 						literatureFile: this.literatureFile,
 						citekey: state.citekey,
@@ -429,46 +582,105 @@ export class ConnectorModal extends Modal {
 					new Notice(`Connected to existing note: ${getBasename(target)}`);
 					await this.notifyUpdated();
 					await this.refreshState();
-				});
-		}
+				} catch (err) {
+					console.error('[ConnectorModal] Failed to connect existing note', err);
+					new Notice(
+						`Failed to connect note: ${(err as Error)?.message ?? String(err)}`
+					);
+				}
+			};
 
-		new ButtonComponent(actions)
-			.setButtonText('Choose Another Vault Note...')
-			.onClick(() => {
+			const rebindBtn = actions.createEl('button', {
+				cls: 'zotero-connector-btn',
+				text: '换绑库内其他已有笔记…',
+				attr: { type: 'button' },
+			});
+			rebindBtn.onclick = () => {
 				new VaultMarkdownSuggestModal(
 					this.app,
 					async (chosenFile) => {
-						const target = await this.plugin.vaultLibrary.connectCandidateToVault({
-							literatureFile: this.literatureFile,
-							citekey: state.citekey,
-							candidate,
-							mode: 'reuse',
-							targetFile: chosenFile,
-							appendEvidence: this.appendEvidence,
-						});
-						new Notice(`Connected to ${getBasename(target)}`);
-						await this.notifyUpdated();
-						await this.refreshState();
+						try {
+							const target = await this.plugin.vaultLibrary.connectCandidateToVault({
+								literatureFile: this.literatureFile,
+								citekey: state.citekey,
+								candidate,
+								mode: 'reuse',
+								targetFile: chosenFile,
+								appendEvidence: this.appendEvidence,
+								rewriteTakeaway: true,
+							});
+							new Notice(`已换绑并关联: ${getBasename(target)}`);
+							await this.notifyUpdated();
+							await this.refreshState();
+						} catch (err) {
+							console.error('[ConnectorModal] Failed to rebind vault note', err);
+							new Notice(`换绑失败: ${(err as Error)?.message ?? String(err)}`);
+						}
 					},
 					(f) => f.path !== this.literatureFile.path,
 					'Choose an existing Atomic or Vault note...'
 				).open();
+			};
+		} else {
+			const createBtn = actions.createEl('button', {
+				cls: 'mod-cta zotero-connector-btn',
+				text: `新建原子笔记：${sanitizedName}.md`,
+				attr: { type: 'button' },
 			});
+			createBtn.onclick = async () => {
+				try {
+					const target = await this.plugin.vaultLibrary.connectCandidateToVault({
+						literatureFile: this.literatureFile,
+						citekey: state.citekey,
+						candidate,
+						mode: 'create',
+						appendEvidence: this.appendEvidence,
+					});
+					new Notice(`Created & linked Atomic Note: ${getBasename(target)}`);
+					await this.notifyUpdated();
+					await this.refreshState();
+				} catch (err) {
+					console.error('[ConnectorModal] Failed to create atomic note', err);
+					new Notice(
+						`Failed to create Atomic Note: ${(err as Error)?.message ?? String(err)}`
+					);
+				}
+			};
 
-		const createBtn = new ButtonComponent(actions).setButtonText('Create New Atomic Note');
-		if (!matchedFile) createBtn.setCta();
-		createBtn.onClick(async () => {
-			const target = await this.plugin.vaultLibrary.connectCandidateToVault({
-				literatureFile: this.literatureFile,
-				citekey: state.citekey,
-				candidate,
-				mode: 'create',
-				appendEvidence: this.appendEvidence,
+			const chooseExistingBtn = actions.createEl('button', {
+				cls: 'zotero-connector-btn',
+				text: '不新建，改连库内已有笔记…',
+				attr: { type: 'button' },
 			});
-			new Notice(`Created & linked Atomic Note: ${getBasename(target)}`);
-			await this.notifyUpdated();
-			await this.refreshState();
-		});
+			chooseExistingBtn.onclick = () => {
+				new VaultMarkdownSuggestModal(
+					this.app,
+					async (chosenFile) => {
+						try {
+							const target = await this.plugin.vaultLibrary.connectCandidateToVault({
+								literatureFile: this.literatureFile,
+								citekey: state.citekey,
+								candidate,
+								mode: 'reuse',
+								targetFile: chosenFile,
+								appendEvidence: this.appendEvidence,
+								rewriteTakeaway: true,
+							});
+							new Notice(`已关联到已有笔记: ${getBasename(target)}`);
+							await this.notifyUpdated();
+							await this.refreshState();
+						} catch (err) {
+							console.error('[ConnectorModal] Failed to link chosen note', err);
+							new Notice(
+								`改连已有笔记失败: ${(err as Error)?.message ?? String(err)}`
+							);
+						}
+					},
+					(f) => f.path !== this.literatureFile.path,
+					'Choose an existing Atomic or Vault note...'
+				).open();
+			};
+		}
 	}
 
 	private async notifyUpdated(): Promise<void> {

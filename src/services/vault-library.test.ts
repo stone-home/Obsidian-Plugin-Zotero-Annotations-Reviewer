@@ -75,6 +75,7 @@ describe('vault-library pure helpers', () => {
 			tags: ['topic/mapreduce'],
 			coreNoteBody: 'Deterministic task re-execution handles stragglers.',
 			tldr: 'Functional map and reduce primitives scale across commodity clusters.',
+			contributions: 'Fault-tolerant shuffle coordinator; combiners for network reduction.',
 			novelty: 'Backup tasks mitigate tail latency.',
 			limitation: 'Materializes intermediate state to local disk.',
 			hasCoreNote: true,
@@ -92,10 +93,15 @@ describe('vault-library pure helpers', () => {
 
 			const multiTokenScore = scoreLibraryMatch(
 				sampleEntry,
-				'mapreduce cacm ghemawat 2008 distsys stragglers'
+				'mapreduce cacm ghemawat 2008 distsys stragglers combiners'
 			);
 			expect(multiTokenScore).toBeGreaterThan(20);
 
+			const entryWithoutContributions: VaultPaperEntry = {
+				...sampleEntry,
+				contributions: undefined,
+			};
+			expect(scoreLibraryMatch(entryWithoutContributions, 'stragglers')).toBeGreaterThan(0);
 			expect(scoreLibraryMatch(sampleEntry, 'mapreduce quantum-computing')).toBe(0);
 		});
 	});
@@ -263,7 +269,11 @@ describe('VaultLibraryService', () => {
 		registerFile(
 			alphaPaths.takeaway,
 			{},
-			'## 📊 Research Profile\n- 💊 **TL;DR**:: Sub-microsecond RPC over RDMA.'
+			[
+				'## 📊 Research Profile',
+				'- 💊 **TL;DR**:: Sub-microsecond RPC over RDMA.',
+				'- ✅ **contributions**:: Zero-copy ring buffer; kernel-bypass doorbell.',
+			].join('\n')
 		);
 
 		// Same year, older mtime, different venue
@@ -315,11 +325,13 @@ describe('VaultLibraryService', () => {
 		expect(all[0].hasCoreNote).toBe(true);
 		expect(all[0].hasTakeaway).toBe(true);
 		expect(all[0].tldr).toBe('Sub-microsecond RPC over RDMA.');
+		expect(all[0].contributions).toBe('Zero-copy ring buffer; kernel-bypass doorbell.');
+		expect(all[1].contributions).toBe('');
 
 		const osdiOnly = await library.searchPapers('', { venue: 'OSDI' });
 		expect(osdiOnly.map((e) => e.citekey)).toEqual(['alpha2024', 'delta2022', 'gamma2022']);
 
-		const withCoreAndTakeaway = await library.searchPapers('rdma zero-copy', {
+		const withCoreAndTakeaway = await library.searchPapers('rdma doorbell', {
 			venue: 'OSDI',
 			hasCoreNote: true,
 			hasTakeaway: true,
@@ -475,6 +487,85 @@ describe('VaultLibraryService', () => {
 		]);
 	});
 
+	it('matchCandidatesAgainstVault resolves candidate.linkPath directly via getAbstractFileByPath before basename/overlap fallback', () => {
+		const nestedAtomic = registerFile(
+			'003-Permanent/Sub/A - GPU - Cache - Lease.md'
+		);
+		const explicitMdAtomic = registerFile('CustomVault/Notes/Custom Concept Note.md');
+		const fallbackExact = registerFile(
+			'003-Permanent/A - GPU - Fallback - Basename Match.md'
+		);
+
+		const candidates: TakeawayCandidate[] = [
+			{
+				index: 1,
+				heading: '[Mechanisms]',
+				typeLabel: 'Mechanisms',
+				linkTitle: 'Short Alias Title',
+				linkPath: '003-Permanent/Sub/A - GPU - Cache - Lease',
+				linkStatus: 'Existing — Linked in Vault',
+				storyline: '',
+				evidence: '',
+				brief: '',
+				relatedPapers: '',
+				tags: [],
+			},
+			{
+				index: 2,
+				heading: '[Context & Problems]',
+				typeLabel: 'Context & Problems',
+				linkTitle: 'Custom Concept Note',
+				linkPath: 'CustomVault/Notes/Custom Concept Note.md',
+				linkStatus: 'Existing',
+				storyline: '',
+				evidence: '',
+				brief: '',
+				relatedPapers: '',
+				tags: [],
+			},
+			{
+				index: 3,
+				heading: '[Core Insights]',
+				typeLabel: 'Core Insights',
+				linkTitle: 'A - GPU - Fallback - Basename Match',
+				linkPath: '003-Permanent/Missing/DoesNotExist',
+				linkStatus: 'Proposed',
+				storyline: '',
+				evidence: '',
+				brief: '',
+				relatedPapers: '',
+				tags: [],
+			},
+		];
+
+		const result = library.matchCandidatesAgainstVault(candidates, [], 'gpu2025');
+
+		expect(app.vault.getAbstractFileByPath).toHaveBeenCalledWith(
+			'003-Permanent/Sub/A - GPU - Cache - Lease.md'
+		);
+		expect(app.vault.getAbstractFileByPath).toHaveBeenCalledWith(
+			'CustomVault/Notes/Custom Concept Note.md'
+		);
+		expect(result.candidateMatches[0]).toEqual({
+			candidate: candidates[0],
+			matchedFile: nestedAtomic,
+			matchType: 'exact',
+			overlapScore: 1,
+		});
+		expect(result.candidateMatches[1]).toEqual({
+			candidate: candidates[1],
+			matchedFile: explicitMdAtomic,
+			matchType: 'exact',
+			overlapScore: 1,
+		});
+		expect(result.candidateMatches[2]).toEqual({
+			candidate: candidates[2],
+			matchedFile: fallbackExact,
+			matchType: 'exact',
+			overlapScore: 1,
+		});
+	});
+
 	it('connectCandidateToVault supports reuse (with and without evidence) and create modes while updating CoreNote.linkedNotes', async () => {
 		const litFile = registerFile('002-Literature/smith2024.md', {
 			'citation-key': 'smith2024',
@@ -578,5 +669,123 @@ describe('VaultLibraryService', () => {
 			'[[A - Systems - RPC - Batching]]',
 			'[[A - Systems - Storage- Write-Amplification-]]',
 		]);
+	});
+
+	it('connectCandidateToVault in reuse mode rewrites Takeaway Link when chosen basename differs and includes Validation in evidence', async () => {
+		const litFile = registerFile('002-Literature/mlsys2025.md', {
+			'citation-key': 'mlsys2025',
+		});
+		const takeawayPath = resolvePaperPaths(settings.paperWorkspace, 'mlsys2025').takeaway;
+		registerFile(
+			takeawayPath,
+			{},
+			[
+				'## 💡 Candidate Atomic Zettels',
+				'',
+				'### Candidate 1 [Context & Problems]',
+				'- **Link**: [[A - ML-Sys - Memory Modeling - Proposed Liveness Name]]',
+				'- **Link Status**: Proposed — No confirmed match',
+				'- **Storyline**: Problem',
+				'- **Validation**: Exact liveness bounds verified on Llama-70B',
+				'- **Evidence**: 37% lower estimation error',
+				'- **Brief**: Operator liveness intervals determine peak tensor footprint.',
+			].join('\n')
+		);
+
+		const chosenVaultFile = registerFile(
+			'003-Permanent/Sub/A - ML-Sys - Memory Modeling - Canonical Tensor Liveness.md',
+			{ type: 'permanent' },
+			'# A - ML-Sys - Memory Modeling - Canonical Tensor Liveness\n\nCanonical note body.'
+		);
+
+		const rewriteSpy = jest.spyOn(paperHub, 'rewriteCandidateLinkInTakeaway');
+
+		const candidate: TakeawayCandidate = {
+			index: 1,
+			heading: '[Context & Problems]',
+			typeLabel: 'Context & Problems',
+			linkTitle: 'A - ML-Sys - Memory Modeling - Proposed Liveness Name',
+			linkStatus: 'Proposed — No confirmed match',
+			storyline: 'Problem',
+			validation: 'Exact liveness bounds verified on Llama-70B',
+			evidence: '37% lower estimation error',
+			brief: 'Operator liveness intervals determine peak tensor footprint.',
+			relatedPapers: '',
+			tags: ['generatedTags/MemoryModeling'],
+		};
+
+		const connected = await library.connectCandidateToVault({
+			literatureFile: litFile,
+			citekey: 'mlsys2025',
+			candidate,
+			mode: 'reuse',
+			targetFile: chosenVaultFile,
+			appendEvidence: true,
+		});
+
+		expect(connected).toBe(chosenVaultFile);
+		expect(rewriteSpy).toHaveBeenCalledTimes(1);
+		expect(rewriteSpy).toHaveBeenCalledWith(
+			'mlsys2025',
+			1,
+			'[[003-Permanent/Sub/A - ML-Sys - Memory Modeling - Canonical Tensor Liveness|A - ML-Sys - Memory Modeling - Canonical Tensor Liveness]]'
+		);
+
+		// Verify Takeaway file had - **Link**: and - **Link Status**: rewritten cleanly on their own lines
+		const updatedTakeaway = vaultContents.get(takeawayPath)!;
+		expect(updatedTakeaway).toContain(
+			'### Candidate 1 [Context & Problems]\n- **Link**: [[003-Permanent/Sub/A - ML-Sys - Memory Modeling - Canonical Tensor Liveness|A - ML-Sys - Memory Modeling - Canonical Tensor Liveness]]'
+		);
+		expect(updatedTakeaway).toContain('- **Link Status**: Existing — Linked in Vault');
+
+		// Verify appended evidence includes Validation line
+		const updatedChosenContent = vaultContents.get(chosenVaultFile.path)!;
+		expect(updatedChosenContent).toContain(
+			'### Evidence from [[002-Literature/mlsys2025|mlsys2025]]'
+		);
+		expect(updatedChosenContent).toContain(
+			'- **Validation**: Exact liveness bounds verified on Llama-70B'
+		);
+		expect(updatedChosenContent).toContain('- **Tags**: #generatedTags/MemoryModeling');
+
+		// Explicit rewriteTakeaway: false suppresses Takeaway rewrite even when basename differs
+		rewriteSpy.mockClear();
+		const otherVaultFile = registerFile(
+			'003-Permanent/A - ML-Sys - Alternate Zettel.md',
+			{ type: 'permanent' },
+			'# Alternate'
+		);
+		await library.connectCandidateToVault({
+			literatureFile: litFile,
+			citekey: 'mlsys2025',
+			candidate,
+			mode: 'reuse',
+			targetFile: otherVaultFile,
+			appendEvidence: false,
+			rewriteTakeaway: false,
+		});
+		expect(rewriteSpy).not.toHaveBeenCalled();
+
+		// Create mode when target permanent note already exists appends evidence (including Validation) instead of overwriting
+		const preExistingCreateTarget = registerFile(
+			'003-Permanent/A - ML-Sys - PreExisting Zettel.md',
+			{ type: 'permanent' },
+			'# PreExisting Zettel\n\nOriginal content.'
+		);
+		const reusedViaCreate = await library.connectCandidateToVault({
+			literatureFile: litFile,
+			citekey: 'mlsys2025',
+			candidate: {
+				...candidate,
+				index: 2,
+				linkTitle: 'A - ML-Sys - PreExisting Zettel',
+			},
+			mode: 'create',
+		});
+		expect(reusedViaCreate).toBe(preExistingCreateTarget);
+		expect(vaultContents.get(preExistingCreateTarget.path)).toContain('Original content.');
+		expect(vaultContents.get(preExistingCreateTarget.path)).toContain(
+			'- **Validation**: Exact liveness bounds verified on Llama-70B'
+		);
 	});
 });

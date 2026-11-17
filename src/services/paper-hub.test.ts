@@ -131,6 +131,16 @@ describe('paper-hub pure helpers', () => {
 				"((conferenceName or proceedingsTitle) if itemType == 'conferencePaper' else '')"
 			);
 		});
+
+		it('restores legacy deep-report, external-report, and persistent properties block', () => {
+			expect(DEFAULT_ZOTERO_TEMPLATE).toContain('deep-report:');
+			expect(DEFAULT_ZOTERO_TEMPLATE).toContain("att.title == 'deep-report'");
+			expect(DEFAULT_ZOTERO_TEMPLATE).toContain('external-report:');
+			expect(DEFAULT_ZOTERO_TEMPLATE).toContain("att.title == 'external-report'");
+			expect(DEFAULT_ZOTERO_TEMPLATE).toContain('## 💾 Persistent Data');
+			expect(DEFAULT_ZOTERO_TEMPLATE).toContain('{% persist "properties" %}');
+			expect(DEFAULT_ZOTERO_TEMPLATE).toContain('{% endpersist %}');
+		});
 	});
 
 	describe('resolvePaperPaths', () => {
@@ -205,6 +215,8 @@ describe('paper-hub pure helpers', () => {
 			'',
 			'- 💊 **TL;DR**:: Lease-based cache coherence eliminates read locks at scale.',
 			'- 🩻 **topic**:: Distributed storage and cache consistency.',
+			'- 🧬 **position**:: Bridges quorum leases and client-side invalidation.',
+			'- ✅ **contributions**:: Adaptive lease protocol; lock-free read path; YCSB-B evaluation.',
 			'- 💎 **novelty**:: Adaptive lease extension under skewed read-heavy workloads.',
 			'- 📌 **limitation**:: Tail latency spikes during lease revocation storms.',
 		].join('\n');
@@ -220,17 +232,22 @@ describe('paper-hub pure helpers', () => {
 			expect(unwrapTakeawayMarkdown('{"other_key": 42}')).toBe('{"other_key": 42}');
 		});
 
-		it('extracts TL;DR, topic, novelty, and limitation from both wrapped and raw markdown', () => {
+		it('extracts TL;DR, topic, position, contributions, novelty, and limitation from both wrapped and raw markdown', () => {
 			const wrapped = JSON.stringify({ markdown_body: sampleMarkdown });
 			expect(extractTakeawaySummary(wrapped)).toEqual({
 				tldr: 'Lease-based cache coherence eliminates read locks at scale.',
 				topic: 'Distributed storage and cache consistency.',
+				position: 'Bridges quorum leases and client-side invalidation.',
+				contributions:
+					'Adaptive lease protocol; lock-free read path; YCSB-B evaluation.',
 				novelty: 'Adaptive lease extension under skewed read-heavy workloads.',
 				limitation: 'Tail latency spikes during lease revocation storms.',
 			});
 			expect(extractTakeawaySummary('# Empty Takeaway')).toEqual({
 				tldr: '',
 				topic: '',
+				position: '',
+				contributions: '',
 				novelty: '',
 				limitation: '',
 			});
@@ -242,9 +259,14 @@ describe('paper-hub pure helpers', () => {
 			expect(candidates[0]).toEqual({
 				index: 1,
 				heading: '[[A - Systems - Caching - Lease Based Invalidation|Lease Invalidation]]',
+				typeLabel: '',
 				linkTitle: 'A - Systems - Caching - Lease Based Invalidation',
+				linkPath: '',
+				source: '',
 				linkStatus: 'Proposed',
 				storyline: 'Prevents stale reads without per-read coordination',
+				answers: '',
+				validation: '',
 				evidence: '2.4x higher throughput on YCSB-B',
 				brief: 'Short leases allow lock-free local reads while bounding staleness.',
 				relatedPapers: 'nishtala2013, 10.1145/2485732.2485740',
@@ -253,14 +275,98 @@ describe('paper-hub pure helpers', () => {
 			expect(candidates[1]).toEqual({
 				index: 2,
 				heading: 'Plain Candidate Heading',
+				typeLabel: '',
 				linkTitle: 'Plain Candidate Heading',
+				linkPath: '',
+				source: '',
 				linkStatus: 'Existing',
 				storyline: '',
+				answers: '',
+				validation: '',
 				evidence: '',
 				brief: '',
 				relatedPapers: '',
 				tags: [],
 			});
+		});
+
+		it('prioritizes Link bullet over bracketed TypeLabel headings, extracts path-qualified links, and falls back cleanly when Link is missing', () => {
+			const synthesisTakeaway = [
+				'## 💡 Candidate Atomic Zettels',
+				'',
+				'### Candidate 1 [Context & Problems]',
+				'- **Link**: [[A - ML-Sys - Memory Modeling - Liveness determines peak tensor memory]]',
+				'- **Source**: Paper',
+				'- **Link Status**: Proposed — No confirmed match',
+				'- **Storyline**: Problem',
+				'- **Answers**: Why static graph planners overestimate activation memory',
+				'- **Validation**: Exact liveness bounds verified across 12 transformer graphs',
+				'- **Evidence**: 37% lower peak memory estimation error vs profile-free baseline',
+				'- **Potential Tags**: #generatedTags/MemoryModeling, N/A, -',
+				'- **Brief**: Operator liveness intervals dictate peak tensor footprint.',
+				'- **Related Papers**: chen2016, jain2020',
+				'',
+				'### Candidate 2 [Core Insights]',
+				'- **Source**: Synthesis',
+				'- **Link Status**: Proposed — No confirmed match',
+				'- **Storyline**: Insight',
+				'- **Brief**: Missing Link bullet should never turn [Core Insights] into linkTitle.',
+				'',
+				'### Candidate 3 [Mechanisms]',
+				'- **Link**: [[003-Permanent/Sub/A - GPU - Cache - Lease|A - GPU - Cache - Lease]]',
+				'- **Link Status**: Existing — Matched in Vault',
+				'- **Storyline**: Mechanism',
+				'- **Validation**: Proven deadlock-free under warp divergence',
+				'- **Potential Tags**: #generatedTags/GPUCache; #generatedTags/Leases',
+				'',
+				'### Candidate 4 [Trade-offs]',
+				'- **Link**: 003-Permanent/Plain/A - GPU - Plain Path',
+				'- **Link Status**: Existing',
+			].join('\n');
+
+			const parsed = parseTakeawayCandidates(synthesisTakeaway);
+			expect(parsed).toHaveLength(4);
+
+			// 1) Bracketed [Context & Problems] + - **Link**: [[...]] + Potential Tags + Source/Answers/Validation
+			expect(parsed[0]).toEqual({
+				index: 1,
+				heading: '[Context & Problems]',
+				typeLabel: 'Context & Problems',
+				linkTitle:
+					'A - ML-Sys - Memory Modeling - Liveness determines peak tensor memory',
+				linkPath: '',
+				source: 'Paper',
+				linkStatus: 'Proposed — No confirmed match',
+				storyline: 'Problem',
+				answers: 'Why static graph planners overestimate activation memory',
+				validation: 'Exact liveness bounds verified across 12 transformer graphs',
+				evidence: '37% lower peak memory estimation error vs profile-free baseline',
+				brief: 'Operator liveness intervals dictate peak tensor footprint.',
+				relatedPapers: 'chen2016, jain2020',
+				tags: ['generatedTags/MemoryModeling'],
+			});
+			expect(parsed[0].linkTitle).not.toBe('[Context & Problems]');
+
+			// 2) Missing - **Link**: on ### Candidate 2 [Core Insights] -> clean fallback
+			expect(parsed[1].typeLabel).toBe('Core Insights');
+			expect(parsed[1].linkTitle).toBe('A - Concept - Candidate 2');
+			expect(parsed[1].linkTitle).not.toBe('[Core Insights]');
+			expect(parsed[1].linkPath).toBe('');
+
+			// 3) Path-qualified wiki-link with alias
+			expect(parsed[2].typeLabel).toBe('Mechanisms');
+			expect(parsed[2].linkPath).toBe('003-Permanent/Sub/A - GPU - Cache - Lease');
+			expect(parsed[2].linkTitle).toBe('A - GPU - Cache - Lease');
+			expect(parsed[2].validation).toBe('Proven deadlock-free under warp divergence');
+			expect(parsed[2].tags).toEqual([
+				'generatedTags/GPUCache',
+				'generatedTags/Leases',
+			]);
+
+			// 4) Plain-text path-qualified Link bullet without wiki brackets
+			expect(parsed[3].typeLabel).toBe('Trade-offs');
+			expect(parsed[3].linkPath).toBe('003-Permanent/Plain/A - GPU - Plain Path');
+			expect(parsed[3].linkTitle).toBe('003-Permanent/Plain/A - GPU - Plain Path');
 		});
 	});
 
@@ -434,8 +540,10 @@ describe('PaperHubService', () => {
 		frontmatters.set(litFile.path, {
 			'citation-key': 'smith2024',
 			projects: ['[[ProjA]]'],
-			code: 'N/A',
+			code: '',
 			doi: 'doi: 10.1145/999999',
+			'deep-report': 'https://gemini.google.com/share/deep-smith2024',
+			'external-report': 'https://chatgpt.com/share/ext-smith2024',
 		});
 
 		const paths = resolvePaperPaths(settings.paperWorkspace, 'smith2024');
@@ -497,7 +605,10 @@ describe('PaperHubService', () => {
 		expect(state!.report2File).toBe(report2File);
 		expect(state!.projects).toEqual(['[[ProjA]]', '[[ProjB]]']);
 		expect(state!.codeUrl).toBe('https://github.com/smith/leases');
+		expect(frontmatters.get(litFile.path)?.code).toBe('https://github.com/smith/leases');
 		expect(state!.doiUrl).toBe('https://doi.org/10.1145/999999');
+		expect(state!.deepReportUrl).toBe('https://gemini.google.com/share/deep-smith2024');
+		expect(state!.externalReportUrl).toBe('https://chatgpt.com/share/ext-smith2024');
 		expect(state!.takeawaySummary.tldr).toBe('Fast cache leases.');
 		expect(state!.takeawayCandidates).toHaveLength(1);
 		expect(state!.fleetingNotes).toEqual([
@@ -523,7 +634,180 @@ describe('PaperHubService', () => {
 		expect(state!.coreNote.source).toBe('[[002-Literature/bare2025|bare2025]]');
 		expect(state!.doiUrl).toBe('https://arxiv.org/abs/2501.00001');
 		expect(state!.codeUrl).toBeNull();
+		expect(state!.deepReportUrl).toBeNull();
+		expect(state!.externalReportUrl).toBeNull();
 		expect(state!.takeawayCandidates).toEqual([]);
+	});
+
+	it('createOrOpenReportFile returns existing files, creates empty markdown for report1/report2/takeaway, and serializes coreNote', async () => {
+		const litFile = makeVaultFile('002-Literature/open2025.md');
+		vaultFiles.set(litFile.path, litFile);
+		frontmatters.set(litFile.path, { 'citation-key': 'open2025' });
+
+		// 1. Creates empty '' .md files for report1, report2, and takeaway without reading clipboard
+		const r1 = await service.createOrOpenReportFile('open2025', 'report1', litFile);
+		expect(r1.path).toBe('002-Literature/102-Analysis Report/Deep Research-open2025.md');
+		expect(vaultContents.get(r1.path)).toBe('');
+
+		const r2 = await service.createOrOpenReportFile('open2025', 'report2', litFile);
+		expect(r2.path).toBe(
+			'002-Literature/103-External Analysis Report/External Research-open2025.md'
+		);
+		expect(vaultContents.get(r2.path)).toBe('');
+
+		const tw = await service.createOrOpenReportFile('open2025', 'takeaway');
+		expect(tw.path).toBe('002-Literature/101-Takeaways/Takeaway-open2025.md');
+		expect(vaultContents.get(tw.path)).toBe('');
+
+		// 2. Returns existing TFile without overwriting its content
+		vaultContents.set(r1.path, '# Populated Deep Report');
+		(app.vault.create as jest.Mock).mockClear();
+		const existingR1 = await service.createOrOpenReportFile('open2025', 'report1', litFile);
+		expect(existingR1).toBe(r1);
+		expect(vaultContents.get(r1.path)).toBe('# Populated Deep Report');
+		expect(app.vault.create).not.toHaveBeenCalled();
+
+		// 3. Creates serialized Core Note when missing
+		const core = await service.createOrOpenReportFile('open2025', 'coreNote', litFile);
+		expect(core.path).toBe('002-Literature/104-Paper Notes/open2025.md');
+		expect(parseCoreNoteContent(vaultContents.get(core.path)!)).toEqual({
+			citekey: 'open2025',
+			source: '[[002-Literature/open2025|open2025]]',
+			projects: [],
+			linkedNotes: [],
+			body: '',
+		});
+	});
+
+	it('rewriteCandidateLinkInTakeaway handles missing files, raw Markdown updates/insertions with word boundaries, and JSON envelopes', async () => {
+		// 1. Missing takeaway file -> false
+		await expect(
+			service.rewriteCandidateLinkInTakeaway(
+				'missing2025',
+				1,
+				'[[003-Permanent/A - Target|A - Target]]'
+			)
+		).resolves.toBe(false);
+
+		// 2. Raw Markdown with existing - **Link**: and - **Link Status**:
+		const paths = resolvePaperPaths(settings.paperWorkspace, 'rw2025');
+		const takeawayFile = makeVaultFile(paths.takeaway);
+		vaultFiles.set(takeawayFile.path, takeawayFile);
+		vaultContents.set(
+			takeawayFile.path,
+			[
+				'## 💡 Candidate Atomic Zettels',
+				'',
+				'### Candidate 1 [Context & Problems]',
+				'- **Link**: [[A - Old - Proposed - Title]]',
+				'- **Link Status**: Proposed — No confirmed match',
+				'- **Storyline**: Problem',
+				'',
+				'### Candidate 2 [Core Insights]',
+				'- **Link**: [[A - Unchanged - Second - Note]]',
+				'- **Link Status**: Proposed',
+			].join('\n')
+		);
+
+		// Non-existent candidate index -> false
+		await expect(
+			service.rewriteCandidateLinkInTakeaway('rw2025', 99, '[[003-Permanent/X|X]]')
+		).resolves.toBe(false);
+
+		await expect(
+			service.rewriteCandidateLinkInTakeaway(
+				'rw2025',
+				1,
+				'[[003-Permanent/A - Canonical - Vault - Zettel|A - Canonical - Vault - Zettel]]'
+			)
+		).resolves.toBe(true);
+
+		const updatedRaw = vaultContents.get(takeawayFile.path)!;
+		expect(updatedRaw).toContain(
+			'### Candidate 1 [Context & Problems]\n- **Link**: [[003-Permanent/A - Canonical - Vault - Zettel|A - Canonical - Vault - Zettel]]'
+		);
+		expect(updatedRaw).toContain('- **Link Status**: Existing — Linked in Vault');
+		expect(updatedRaw).toContain('- **Link**: [[A - Unchanged - Second - Note]]');
+		const reparsedAfterRaw = parseTakeawayCandidates(updatedRaw);
+		expect(reparsedAfterRaw[0].typeLabel).toBe('Context & Problems');
+		expect(reparsedAfterRaw[0].linkPath).toBe(
+			'003-Permanent/A - Canonical - Vault - Zettel'
+		);
+		expect(reparsedAfterRaw[0].linkTitle).toBe('A - Canonical - Vault - Zettel');
+		expect(reparsedAfterRaw[0].linkStatus).toBe('Existing — Linked in Vault');
+
+		// 3. Raw Markdown missing - **Link**: and ensuring Candidate 1 does NOT match Candidate 10
+		vaultContents.set(
+			takeawayFile.path,
+			[
+				'### Candidate 10 [Extra]',
+				'- **Link**: [[A - Ten - Untouched]]',
+				'- **Link Status**: Proposed',
+				'',
+				'### Candidate 1 [Core Insights]',
+				'- **Source**: Synthesis',
+				'- **Link Status**: Proposed — No confirmed match',
+				'- **Brief**: Needs inserted Link bullet.',
+			].join('\n')
+		);
+
+		await expect(
+			service.rewriteCandidateLinkInTakeaway(
+				'rw2025',
+				1,
+				'[[003-Permanent/A - Inserted - Zettel|A - Inserted - Zettel]]'
+			)
+		).resolves.toBe(true);
+
+		const afterInsert = vaultContents.get(takeawayFile.path)!;
+		expect(afterInsert).toContain(
+			'### Candidate 10 [Extra]\n- **Link**: [[A - Ten - Untouched]]\n- **Link Status**: Proposed'
+		);
+		expect(afterInsert).toContain(
+			'### Candidate 1 [Core Insights]\n- **Link**: [[003-Permanent/A - Inserted - Zettel|A - Inserted - Zettel]]\n- **Source**: Synthesis\n- **Link Status**: Existing — Linked in Vault'
+		);
+
+		// 4. JSON { markdown_body } envelope rewrite preserves outer metadata
+		const jsonEnvelope = JSON.stringify(
+			{
+				filename_suggestion: 'Takeaway-rw2025',
+				metadata: { citekey: 'rw2025', title: 'Rewrite Test' },
+				markdown_body: [
+					'### Candidate 2 [Mechanisms]',
+					'- **Link**: [[A - Draft - Mechanism]]',
+					'- **Link Status**: Proposed — No confirmed match',
+					'## 📊 Research Profile',
+					'- 💊 **TL;DR**:: Summary.',
+				].join('\n'),
+			},
+			null,
+			2
+		);
+		vaultContents.set(takeawayFile.path, jsonEnvelope);
+
+		await expect(
+			service.rewriteCandidateLinkInTakeaway(
+				'rw2025',
+				2,
+				'[[003-Permanent/Sub/A - Reused - Mechanism|A - Reused - Mechanism]]'
+			)
+		).resolves.toBe(true);
+
+		const parsedAfterJson = JSON.parse(vaultContents.get(takeawayFile.path)!) as Record<
+			string,
+			unknown
+		>;
+		expect(parsedAfterJson.filename_suggestion).toBe('Takeaway-rw2025');
+		expect(parsedAfterJson.metadata).toEqual({ citekey: 'rw2025', title: 'Rewrite Test' });
+		expect(parsedAfterJson.markdown_body).toBe(
+			[
+				'### Candidate 2 [Mechanisms]',
+				'- **Link**: [[003-Permanent/Sub/A - Reused - Mechanism|A - Reused - Mechanism]]',
+				'- **Link Status**: Existing — Linked in Vault',
+				'## 📊 Research Profile',
+				'- 💊 **TL;DR**:: Summary.',
+			].join('\n')
+		);
 	});
 
 	it('saveReportMarkdown unwraps takeaway JSON, modifies existing files, and syncs report2 code_url only when empty', async () => {
