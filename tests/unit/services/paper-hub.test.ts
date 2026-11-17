@@ -33,7 +33,7 @@ import { createTestApp, makeVaultFile, TestAppHarness } from '../../fixtures/vau
 
 describe('paper-hub pure helpers', () => {
 	describe('resolveCitekeyTemplate', () => {
-		it('replaces {{citekey}}, {{citation-key}}, and ${citekey} placeholders and normalizes slashes', () => {
+		it('replaces {{citekey}}, {{citation-key}}, and ${citekey} placeholders, strips leading @ to prevent @@ doubling, and normalizes slashes', () => {
 			expect(
 				resolveCitekeyTemplate('002-Literature\\{{citekey}}.md', ' smith2024 ')
 			).toBe('002-Literature/smith2024.md');
@@ -46,6 +46,18 @@ describe('paper-hub pure helpers', () => {
 			expect(resolveCitekeyTemplate('./001-Fleeting', 'lecun1998')).toBe(
 				'001-Fleeting'
 			);
+			expect(
+				resolveCitekeyTemplate(
+					'002-Literature/100-Zotero/@{{citekey}}.md',
+					' @linDrGPUMGuidingMemory2023 '
+				)
+			).toBe('002-Literature/100-Zotero/@linDrGPUMGuidingMemory2023.md');
+			expect(
+				resolveCitekeyTemplate(
+					'002-Literature/100-Zotero/@{{citekey}}.md',
+					'linDrGPUMGuidingMemory2023'
+				)
+			).toBe('002-Literature/100-Zotero/@linDrGPUMGuidingMemory2023.md');
 		});
 	});
 
@@ -156,7 +168,7 @@ describe('paper-hub pure helpers', () => {
 	});
 
 	describe('resolvePaperPaths', () => {
-		it('resolves all five vault-relative workspace paths without S3 fields', () => {
+		it('resolves all five vault-relative workspace paths without S3 fields and strips leading @ without @@ doubling', () => {
 			const resolved = resolvePaperPaths(
 				DEFAULT_PAPER_WORKSPACE,
 				' vaswani2017 '
@@ -175,6 +187,29 @@ describe('paper-hub pure helpers', () => {
 			expect('s3' in (resolved as unknown as Record<string, unknown>)).toBe(
 				false
 			);
+
+			const atWorkspace = {
+				...DEFAULT_PAPER_WORKSPACE,
+				literatureNotePath: '002-Literature/100-Zotero/@{{citekey}}.md',
+			};
+			const resolvedAt = resolvePaperPaths(
+				atWorkspace,
+				' @linDrGPUMGuidingMemory2023 '
+			);
+			expect(resolvedAt).toEqual({
+				citekey: 'linDrGPUMGuidingMemory2023',
+				literatureNote:
+					'002-Literature/100-Zotero/@linDrGPUMGuidingMemory2023.md',
+				report1:
+					'002-Literature/102-Analysis Report/Deep Research-linDrGPUMGuidingMemory2023.md',
+				report2:
+					'002-Literature/103-External Analysis Report/External Research-linDrGPUMGuidingMemory2023.md',
+				takeaway:
+					'002-Literature/101-Takeaways/Takeaway-linDrGPUMGuidingMemory2023.md',
+				coreNote:
+					'002-Literature/104-Paper Notes/linDrGPUMGuidingMemory2023.md',
+			});
+			expect(resolvedAt.literatureNote).not.toContain('@@');
 		});
 	});
 
@@ -401,10 +436,40 @@ describe('paper-hub pure helpers', () => {
 				'003-Permanent/Plain/A - GPU - Plain Path'
 			);
 		});
+
+		it('completes extractTakeawaySummary and parseTakeawayCandidates in linear time on adversarial long whitespace', () => {
+			const summaryAdversarial = [
+				'- 💊 **TL;DR**' + ' '.repeat(50000) + 'X',
+				' '.repeat(50000) + '::' + ' '.repeat(50000),
+				'- 💊 **TL;DR**' + ' '.repeat(50000) + ':: Fast linear summary.',
+			].join('\n');
+
+			const summaryStart = performance.now();
+			const summary = extractTakeawaySummary(summaryAdversarial);
+			const summaryElapsed = performance.now() - summaryStart;
+			expect(summary.tldr).toBe('Fast linear summary.');
+			expect(summaryElapsed).toBeLessThan(100);
+
+			const candidatesAdversarial = [
+				'### Candidate 1 ' + ' '.repeat(50000),
+				'- **Brief**:' + ' '.repeat(50000) + 'Linear candidate brief.',
+				'### Candidate 2 ' + '-'.repeat(50000),
+				'- **Link Status**: Proposed',
+			].join('\n');
+
+			const candStart = performance.now();
+			const candidates = parseTakeawayCandidates(candidatesAdversarial);
+			const candElapsed = performance.now() - candStart;
+			expect(candidates).toHaveLength(2);
+			expect(candidates[0].linkTitle).toBe('A - Concept - Candidate 1');
+			expect(candidates[0].brief).toBe('Linear candidate brief.');
+			expect(candidates[1].linkTitle).toBe('A - Concept - Candidate 2');
+			expect(candElapsed).toBeLessThan(100);
+		});
 	});
 
 	describe('workspace, template, and prompt defaults', () => {
-		it('defines templatesFolder and report/takeaway labels on DEFAULT_PAPER_WORKSPACE and DEFAULT_SETTINGS', () => {
+		it('defines templatesFolder, report/takeaway labels, and strictly enforces the 4-type vault taxonomy across all built-in templates', () => {
 			expect(DEFAULT_PAPER_WORKSPACE.templatesFolder).toBe('900-Templates');
 			expect(DEFAULT_PAPER_WORKSPACE.report1Label).toBe('Deep Report');
 			expect(DEFAULT_PAPER_WORKSPACE.report2Label).toBe('External Report');
@@ -429,45 +494,193 @@ describe('paper-hub pure helpers', () => {
 				'report1',
 				'report2',
 			]);
+
+			const allowedVaultTypes = new Set([
+				'fleeting',
+				'literature',
+				'atom',
+				'permanent',
+			]);
+			const builtInTemplates: Array<{
+				name: string;
+				content: string;
+				expectedType: string;
+			}> = [
+				{
+					name: 'DEFAULT_ZOTERO_TEMPLATE',
+					content: DEFAULT_ZOTERO_TEMPLATE,
+					expectedType: 'literature',
+				},
+				{
+					name: 'DEFAULT_REPORT1_NOTE_TEMPLATE',
+					content: DEFAULT_REPORT1_NOTE_TEMPLATE,
+					expectedType: 'literature',
+				},
+				{
+					name: 'DEFAULT_REPORT2_NOTE_TEMPLATE',
+					content: DEFAULT_REPORT2_NOTE_TEMPLATE,
+					expectedType: 'literature',
+				},
+				{
+					name: 'DEFAULT_TAKEAWAY_NOTE_TEMPLATE',
+					content: DEFAULT_TAKEAWAY_NOTE_TEMPLATE,
+					expectedType: 'literature',
+				},
+				{
+					name: 'DEFAULT_CORE_NOTE_TEMPLATE',
+					content: DEFAULT_CORE_NOTE_TEMPLATE,
+					expectedType: 'literature',
+				},
+				{
+					name: 'DEFAULT_ATOMIC_NOTE_TEMPLATE',
+					content: DEFAULT_ATOMIC_NOTE_TEMPLATE,
+					expectedType: 'permanent',
+				},
+				...templateEntries.map((entry) => ({
+					name: `DEFAULT_PROMPTS[${entry.id}]`,
+					content: entry.content,
+					expectedType:
+						entry.id === 'tpl-atomic-note' ? 'permanent' : 'literature',
+				})),
+			];
+
+			for (const tpl of builtInTemplates) {
+				const typeMatches = Array.from(
+					tpl.content.matchAll(/^type:\s*(.+)$/gm)
+				).map((m) => m[1].trim());
+				expect(typeMatches).toEqual([tpl.expectedType]);
+				for (const t of typeMatches) {
+					expect(allowedVaultTypes.has(t)).toBe(true);
+				}
+			}
+
+			expect(DEFAULT_REPORT1_NOTE_TEMPLATE).toContain('  - source/🤖AI');
+			expect(DEFAULT_REPORT1_NOTE_TEMPLATE).toContain(
+				'  - "[[{{source_name}}]]"'
+			);
+			expect(DEFAULT_REPORT2_NOTE_TEMPLATE).toContain('  - source/🤖AI');
+			expect(DEFAULT_REPORT2_NOTE_TEMPLATE).toContain(
+				'  - "[[{{source_name}}]]"'
+			);
+			expect(DEFAULT_TAKEAWAY_NOTE_TEMPLATE).toContain('  - source/🤖AI');
+			expect(DEFAULT_TAKEAWAY_NOTE_TEMPLATE).toContain(
+				'  - "[[{{report1_name}}]]"'
+			);
+			expect(DEFAULT_TAKEAWAY_NOTE_TEMPLATE).toContain(
+				'  - "[[{{report2_name}}]]"'
+			);
+			expect(DEFAULT_TAKEAWAY_NOTE_TEMPLATE).toContain('venue: "{{venue}}"');
+			expect(DEFAULT_TAKEAWAY_NOTE_TEMPLATE).not.toContain('venus:');
+			expect(DEFAULT_CORE_NOTE_TEMPLATE).toContain(
+				'source: "[[{{source_name}}|{{citekey}}]]"'
+			);
+			expect(DEFAULT_ATOMIC_NOTE_TEMPLATE).toContain(
+				'  - "[[{{source_name}}|{{citekey}}]]"'
+			);
 		});
 	});
 
 	describe('renderNoteTemplateString', () => {
-		it('substitutes citekey, losslessly escapes backslashes/quotes/LaTeX/newlines in title for YAML round-tripping, and handles source_path, date, and atomic_title', () => {
-			const complexTitle =
-				'Attention "Is" \\"Escaped\\" in $O(n\\log n)$\r\nLine2\nLine3 $& \\';
-			const rendered = renderNoteTemplateString(DEFAULT_REPORT1_NOTE_TEMPLATE, {
-				citekey: '  vaswani2017  ',
-				title: complexTitle,
-				sourcePath: '002-Literature/vaswani2017.md',
+		it('substitutes all template placeholders, escapes YAML scalars, formats empty vs multi-author YAML lists, and preserves literal $ sequences', () => {
+			const renderedR1 = renderNoteTemplateString(DEFAULT_REPORT1_NOTE_TEMPLATE, {
+				citekey: '  @vaswani2017  ',
+				id: ' custom_id-01!@# ',
+				sourcePath: '002-Literature/100-Zotero/@vaswani2017.md',
 				date: '2026-04-15',
 			});
 
-			expect(rendered).toContain('citation-key: vaswani2017');
-			expect(rendered).toContain('type: deep-report');
-			expect(rendered).toContain(
-				'title: "Deep Report - Attention \\"Is\\" \\\\\\"Escaped\\\\\\" in $O(n\\\\log n)$ Line2 Line3 $& \\\\"'
-			);
-			expect(rendered).toContain(
-				'source: "[[002-Literature/vaswani2017|vaswani2017]]"'
-			);
-			expect(rendered).toContain('create: 2026-04-15');
-
-			const fmMatch = rendered.match(/^---\n([\s\S]*?)\n---/);
-			expect(fmMatch).not.toBeNull();
-			expect(yaml.load(fmMatch![1])).toEqual({
-				'citation-key': 'vaswani2017',
-				type: 'deep-report',
-				title: 'Deep Report - Attention "Is" \\"Escaped\\" in $O(n\\log n)$ Line2 Line3 $& \\',
-				source: '[[002-Literature/vaswani2017|vaswani2017]]',
+			const r1FmMatch = renderedR1.match(/^---\n([\s\S]*?)\n---/);
+			expect(r1FmMatch).not.toBeNull();
+			expect(yaml.load(r1FmMatch![1])).toEqual({
+				id: 'custom_id-01',
 				create: new Date('2026-04-15T00:00:00.000Z'),
-				tags: ['type/report/deep'],
+				title: 'Deep Research-vaswani2017',
+				type: 'literature',
+				url: '',
+				tags: ['source/🤖AI'],
+				aliases: ['custom_id-01'],
+				sources: ['[[@vaswani2017]]'],
+				'need-attention': false,
+				notion: '',
 			});
+
+			// Rich Takeaway rendering with multi-author YAML list, escaped quotes/backslashes, and $ literal safety
+			const renderedTakeawayRich = renderNoteTemplateString(
+				DEFAULT_TAKEAWAY_NOTE_TEMPLATE,
+				{
+					citekey: '@linDrGPUMGuidingMemory2023',
+					sourceName: '@linDrGPUMGuidingMemory2023.md',
+					report1Name: 'Deep Research-linDrGPUMGuidingMemory2023.md',
+					report2Name: 'External Research-linDrGPUMGuidingMemory2023.md',
+					date: '2026-05-10',
+					doiOrUrl: 'https://doi.org/10.1145/12345?cost=$&\\test',
+					shortName: 'DrGPUM "Memory" $1 \\Path',
+					authors: [
+						'  Alice "A." Smith  ',
+						'   ',
+						"Bob C:\\Lab\\ $& $` $' $$",
+					],
+					venue: 'OSDI "23" \\ Proceedings $&',
+					paperType: 'conferencePaper "$1"',
+				}
+			);
+			const twRichFmMatch = renderedTakeawayRich.match(/^---\n([\s\S]*?)\n---/);
+			expect(twRichFmMatch).not.toBeNull();
+			const parsedTwRich = yaml.load(twRichFmMatch![1]) as Record<
+				string,
+				unknown
+			>;
+			expect(parsedTwRich.id).toMatch(/^[a-z0-9]{16}$/);
+			expect(parsedTwRich).toEqual({
+				id: parsedTwRich.id,
+				create: new Date('2026-05-10T00:00:00.000Z'),
+				title: 'Takeaway-linDrGPUMGuidingMemory2023',
+				type: 'literature',
+				url: 'https://doi.org/10.1145/12345?cost=$&\\test',
+				tags: ['source/🤖AI'],
+				aliases: [parsedTwRich.id],
+				sources: [
+					'[[Deep Research-linDrGPUMGuidingMemory2023]]',
+					'[[External Research-linDrGPUMGuidingMemory2023]]',
+				],
+				'need-attention': true,
+				shortName: 'DrGPUM "Memory" $1 \\Path',
+				author: ['Alice "A." Smith', "Bob C:\\Lab\\ $& $` $' $$"],
+				venue: 'OSDI "23" \\ Proceedings $&',
+				notion: '',
+				'paper-type': 'conferencePaper "$1"',
+				citekey: 'linDrGPUMGuidingMemory2023',
+			});
+
+			// Empty authors list renders inline [] and sanitized-to-empty id falls back to generated 16-char id
+			const renderedTakeawayEmpty = renderNoteTemplateString(
+				DEFAULT_TAKEAWAY_NOTE_TEMPLATE,
+				{
+					citekey: 'bare2026',
+					id: '   ***   ',
+					date: '2026-05-11',
+					authors: ['   '],
+				}
+			);
+			expect(renderedTakeawayEmpty).toContain('author: []');
+			const parsedTwEmpty = yaml.load(
+				renderedTakeawayEmpty.match(/^---\n([\s\S]*?)\n---/)![1]
+			) as Record<string, unknown>;
+			expect(parsedTwEmpty.id).toMatch(/^[a-z0-9]{16}$/);
+			expect(parsedTwEmpty.author).toEqual([]);
+			expect(parsedTwEmpty.sources).toEqual([
+				'[[Deep Research-bare2026]]',
+				'[[External Research-bare2026]]',
+			]);
+			expect(parsedTwEmpty.venue).toBe('');
+			expect(parsedTwEmpty.url).toBe('');
+			expect(parsedTwEmpty.shortName).toBe('');
+			expect(parsedTwEmpty['paper-type']).toBe('');
 
 			for (const singleLineTitle of [
 				'Sorting in $O(n\\log n)$ with \\alpha-trees',
 				'Trailing Backslash Path C:\\Users\\Alice\\',
-				'Mixed "Quotes" and \\"Escaped Quotes\\"',
+				'Mixed "Quotes" and \\"Escaped Quotes\\" and $& $1 $$',
 			]) {
 				const yamlLine = renderNoteTemplateString('title: "{{title}}"', {
 					citekey: 'test2026',
@@ -477,43 +690,63 @@ describe('paper-hub pure helpers', () => {
 			}
 
 			const atomicRendered = renderNoteTemplateString(
-				'{{ citekey }} | {{ date }} | # {{ atomic_title }}',
+				'{{ citekey }} | {{ date }} | {{ source_name }} | # {{ atomic_title }}',
 				{
-					citekey: 'smith2024',
+					citekey: '@smith2024',
+					sourcePath: '002-Literature/100-Zotero/@smith2024.md',
 					atomicTitle: '  A - Systems - Leases  ',
 				}
 			);
 			expect(atomicRendered).toMatch(
-				/^smith2024 \| \d{4}-\d{2}-\d{2} \| # A - Systems - Leases$/
+				/^smith2024 \| \d{4}-\d{2}-\d{2} \| @smith2024 \| # A - Systems - Leases$/
 			);
 
 			const fallbackRendered = renderNoteTemplateString(
-				'title="{{title}}" src="[[{{source_path}}]]" atom="{{atomic_title}}"',
+				'title="{{title}}" src="[[{{source_path}}]]" name="[[{{source_name}}]]" atom="{{atomic_title}}"',
 				{
 					citekey: 'bare2025',
 					title: '   ',
 					sourcePath: '   ',
+					sourceName: '   ',
 				}
 			);
 			expect(fallbackRendered).toBe(
-				'title="bare2025" src="[[bare2025]]" atom=""'
+				'title="bare2025" src="[[bare2025]]" name="[[bare2025]]" atom=""'
 			);
 		});
 	});
 
 	describe('parseCoreNoteContent and serializeCoreNoteContent', () => {
-		it('round-trips CoreNoteData with YAML frontmatter and markdown body', () => {
+		it('defaults serialized type to literature, omits both literature and legacy paper-note from extraFrontmatter, and round-trips CoreNoteData', () => {
 			const input: CoreNoteData = {
 				citekey: 'smith2024',
-				source: '[[002-Literature/smith2024|smith2024]]',
+				source: '[[smith2024|smith2024]]',
 				projects: ['[[Projects/CacheProj|CacheProj]]'],
 				linkedNotes: ['[[A - Systems - Caching - Lease Based Invalidation]]'],
 				body: 'Core claim: bounded leases outperform quorum reads.\n\nSecond paragraph.',
 			};
 			const serialized = serializeCoreNoteContent(input);
+			expect(serialized).toContain('type: literature\n');
 			const parsed = parseCoreNoteContent(serialized);
 			expect(parsed).toEqual(input);
 			expect(parsed.extraFrontmatter).toBeUndefined();
+
+			const legacyPaperNoteRaw = [
+				'---',
+				'citation-key: legacy2023',
+				'type: paper-note',
+				'source: "[[legacy2023|legacy2023]]"',
+				'projects: []',
+				'linked-notes: []',
+				'---',
+				'',
+				'Legacy body.',
+			].join('\n');
+			const parsedLegacy = parseCoreNoteContent(legacyPaperNoteRaw);
+			expect(parsedLegacy.extraFrontmatter).toBeUndefined();
+			expect(serializeCoreNoteContent(parsedLegacy)).toContain(
+				'type: literature\n'
+			);
 		});
 
 		it('preserves extraFrontmatter keys (create, tags, title, custom type, nested dates) across parse and serialize', () => {
@@ -642,12 +875,19 @@ describe('PaperHubService', () => {
 		service = new PaperHubService(harness.app, () => settings);
 	});
 
-	it('getCitekeyForFile resolves custom key, fallback keys, or returns null when absent', () => {
+	it('getCitekeyForFile resolves custom key, citation-key, citekey, and zotero-key fallbacks, or returns null when absent', () => {
 		const f1 = harness.addFile('002-Literature/a.md');
 		expect(service.getCitekeyForFile(f1)).toBeNull();
 
+		harness.setFrontmatter(f1.path, { citekey: '  citekey2026  ' });
+		expect(service.getCitekeyForFile(f1)).toBe('citekey2026');
+
 		harness.setFrontmatter(f1.path, { 'zotero-key': '  zot2024  ' });
 		expect(service.getCitekeyForFile(f1)).toBe('zot2024');
+
+		settings.citationKeyName = 'custom-cite-id';
+		harness.setFrontmatter(f1.path, { 'custom-cite-id': '  custom2025  ' });
+		expect(service.getCitekeyForFile(f1)).toBe('custom2025');
 
 		harness.setFrontmatter(f1.path, { 'citation-key': '   ' });
 		expect(service.getCitekeyForFile(f1)).toBeNull();
@@ -774,10 +1014,68 @@ describe('PaperHubService', () => {
 		expect(state!.takeawayCandidates).toEqual([]);
 	});
 
-	it('createOrOpenReportFile returns existing files untouched and renders YAML frontmatter templates for missing report1, report2, takeaway, and coreNote', async () => {
+	it('getPaperState excludes companion Takeaway, Report 1, Report 2, and Core Note files from fleetingNotes even when folders overlap and companions carry citekey frontmatter', async () => {
+		settings.paperWorkspace = {
+			...settings.paperWorkspace,
+			literatureNotePath: '002-Literature/100-Zotero/@{{citekey}}.md',
+			highlightNotesFolder: '002-Literature',
+		};
+		const litFile = harness.addFile(
+			'002-Literature/100-Zotero/@linDrGPUMGuidingMemory2023.md',
+			'',
+			{ 'citation-key': '@linDrGPUMGuidingMemory2023' }
+		);
+		const paths = resolvePaperPaths(
+			settings.paperWorkspace,
+			'@linDrGPUMGuidingMemory2023'
+		);
+
+		harness.addFile(
+			paths.takeaway,
+			'## 📊 Research Profile\n- 💊 **TL;DR**:: Ok.',
+			{
+				citekey: 'linDrGPUMGuidingMemory2023',
+				type: 'literature',
+			}
+		);
+		harness.addFile(paths.report1, '# Deep', {
+			citekey: 'linDrGPUMGuidingMemory2023',
+			type: 'literature',
+		});
+		harness.addFile(paths.report2, '# External', {
+			citekey: 'linDrGPUMGuidingMemory2023',
+			type: 'literature',
+		});
+		harness.addFile(paths.coreNote, 'Core body', {
+			'citation-key': 'linDrGPUMGuidingMemory2023',
+			type: 'literature',
+		});
+		const genuineFleeting = harness.addFile(
+			'002-Literature/999-Highlights/hl-lin.md',
+			'## Thoughts\nActual highlight thought.',
+			{ citekey: 'linDrGPUMGuidingMemory2023', status: 'read' }
+		);
+
+		const state = await service.getPaperState(litFile);
+		expect(state).not.toBeNull();
+		expect(state!.fleetingNotes).toEqual([
+			{
+				file: genuineFleeting,
+				thought: 'Actual highlight thought.',
+				read: true,
+			},
+		]);
+	});
+
+	it('createOrOpenReportFile returns existing files untouched and renders 4-type YAML frontmatter with rich metadata and @citekey support for report1, report2, takeaway, and coreNote', async () => {
 		const litFile = harness.addFile('002-Literature/open2025.md', '', {
 			'citation-key': 'open2025',
 			title: 'Systems "Scale" Study',
+			doi: '10.1145/open2025',
+			'short-name': 'ScaleSys',
+			authors: ['Alice-Smith', 'Bob "B." Jones'],
+			venue: '[[OSDI 2025]]',
+			'publish-type': 'conferencePaper',
 		});
 
 		const parseFm = (raw: string): Record<string, unknown> => {
@@ -795,37 +1093,61 @@ describe('PaperHubService', () => {
 			'002-Literature/102-Analysis Report/Deep Research-open2025.md'
 		);
 		expect(harness.getContent(r1.path)).not.toBe('');
-		expect(parseFm(harness.getContent(r1.path)!)).toEqual({
-			'citation-key': 'open2025',
-			type: 'deep-report',
-			title: 'Deep Report - Systems "Scale" Study',
-			source: '[[002-Literature/open2025|open2025]]',
+		const r1Fm = parseFm(harness.getContent(r1.path)!);
+		expect(r1Fm.id).toMatch(/^[a-z0-9]{16}$/);
+		expect(r1Fm).toEqual({
+			id: r1Fm.id,
 			create: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
-			tags: ['type/report/deep'],
+			title: 'Deep Research-open2025',
+			type: 'literature',
+			url: '',
+			tags: ['source/🤖AI'],
+			aliases: [r1Fm.id],
+			sources: ['[[open2025]]'],
+			'need-attention': false,
+			notion: '',
 		});
 
 		const r2 = await service.createOrOpenReportFile('open2025', 'report2', litFile);
 		expect(r2.path).toBe(
 			'002-Literature/103-External Analysis Report/External Research-open2025.md'
 		);
-		expect(parseFm(harness.getContent(r2.path)!)).toEqual({
-			'citation-key': 'open2025',
-			type: 'external-report',
-			title: 'External Report - Systems "Scale" Study',
-			source: '[[002-Literature/open2025|open2025]]',
+		const r2Fm = parseFm(harness.getContent(r2.path)!);
+		expect(r2Fm.id).toMatch(/^[a-z0-9]{16}$/);
+		expect(r2Fm).toEqual({
+			id: r2Fm.id,
 			create: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
-			tags: ['type/report/external'],
+			title: 'External Research-open2025',
+			type: 'literature',
+			url: '',
+			tags: ['source/🤖AI'],
+			aliases: [r2Fm.id],
+			sources: ['[[open2025]]'],
+			'need-attention': false,
+			notion: '',
 		});
 
+		// Without passing litFile explicitly, createOrOpenReportFile still resolves paths.literatureNote from the vault!
 		const tw = await service.createOrOpenReportFile('open2025', 'takeaway');
 		expect(tw.path).toBe('002-Literature/101-Takeaways/Takeaway-open2025.md');
-		expect(parseFm(harness.getContent(tw.path)!)).toEqual({
-			'citation-key': 'open2025',
-			type: 'takeaway',
-			title: 'Takeaway - Systems "Scale" Study',
-			source: '[[002-Literature/open2025|open2025]]',
+		const twFm = parseFm(harness.getContent(tw.path)!);
+		expect(twFm.id).toMatch(/^[a-z0-9]{16}$/);
+		expect(twFm).toEqual({
+			id: twFm.id,
 			create: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
-			tags: ['literature-note', 'type/takeaway'],
+			title: 'Takeaway-open2025',
+			type: 'literature',
+			url: '10.1145/open2025',
+			tags: ['source/🤖AI'],
+			aliases: [twFm.id],
+			sources: ['[[Deep Research-open2025]]', '[[External Research-open2025]]'],
+			'need-attention': true,
+			shortName: 'ScaleSys',
+			author: ['Alice-Smith', 'Bob "B." Jones'],
+			venue: 'OSDI 2025',
+			notion: '',
+			'paper-type': 'conferencePaper',
+			citekey: 'open2025',
 		});
 
 		harness.setContent(r1.path, '# Populated Deep Report');
@@ -847,8 +1169,8 @@ describe('PaperHubService', () => {
 		expect(core.path).toBe('002-Literature/104-Paper Notes/open2025.md');
 		expect(parseFm(harness.getContent(core.path)!)).toEqual({
 			'citation-key': 'open2025',
-			type: 'paper-note',
-			source: '[[002-Literature/open2025|open2025]]',
+			type: 'literature',
+			source: '[[open2025|open2025]]',
 			create: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
 			projects: [],
 			'linked-notes': [],
@@ -856,7 +1178,7 @@ describe('PaperHubService', () => {
 		});
 		expect(parseCoreNoteContent(harness.getContent(core.path)!)).toEqual({
 			citekey: 'open2025',
-			source: '[[002-Literature/open2025|open2025]]',
+			source: '[[open2025|open2025]]',
 			projects: [],
 			linkedNotes: [],
 			body: '',
@@ -866,14 +1188,65 @@ describe('PaperHubService', () => {
 			},
 		});
 
+		// Verify @-prefixed citekey + @{{citekey}}.md literatureNotePath + secondary frontmatter keys (url, shortName, author, publication, paper-type)
+		settings.paperWorkspace = {
+			...settings.paperWorkspace,
+			literatureNotePath: '002-Literature/100-Zotero/@{{citekey}}.md',
+		};
 		settings.prompts = [];
-		const noTitleR1 = await service.createOrOpenReportFile(
+		const atLitFile = harness.addFile(
+			'002-Literature/100-Zotero/@linDrGPUMGuidingMemory2023.md',
+			'',
+			{
+				citekey: '@linDrGPUMGuidingMemory2023',
+				url: 'https://arxiv.org/abs/2301.00001',
+				shortName: 'DrGPUM',
+				author: 'Lin-2023',
+				publication: '[[ASPLOS 2023]]',
+				'paper-type': 'journalArticle',
+			}
+		);
+		const atR1 = await service.createOrOpenReportFile(
+			'@linDrGPUMGuidingMemory2023',
+			'report1',
+			atLitFile
+		);
+		expect(atR1.path).toBe(
+			'002-Literature/102-Analysis Report/Deep Research-linDrGPUMGuidingMemory2023.md'
+		);
+		expect(parseFm(harness.getContent(atR1.path)!).sources).toEqual([
+			'[[@linDrGPUMGuidingMemory2023]]',
+		]);
+
+		const atCore = await service.createOrOpenReportFile(
+			'@linDrGPUMGuidingMemory2023',
+			'coreNote',
+			atLitFile
+		);
+		expect(parseFm(harness.getContent(atCore.path)!).source).toBe(
+			'[[@linDrGPUMGuidingMemory2023|linDrGPUMGuidingMemory2023]]'
+		);
+
+		const atTw = await service.createOrOpenReportFile(
+			'@linDrGPUMGuidingMemory2023',
+			'takeaway',
+			atLitFile
+		);
+		const atTwFm = parseFm(harness.getContent(atTw.path)!);
+		expect(atTwFm.url).toBe('https://arxiv.org/abs/2301.00001');
+		expect(atTwFm.shortName).toBe('DrGPUM');
+		expect(atTwFm.author).toEqual(['Lin-2023']);
+		expect(atTwFm.venue).toBe('ASPLOS 2023');
+		expect(atTwFm['paper-type']).toBe('journalArticle');
+		expect(atTwFm.citekey).toBe('linDrGPUMGuidingMemory2023');
+
+		const noTitleTw = await service.createOrOpenReportFile(
 			'notitle2026',
-			'report1'
+			'takeaway'
 		);
-		expect(parseFm(harness.getContent(noTitleR1.path)!).title).toBe(
-			'Deep Report - notitle2026'
-		);
+		const noTitleTwFm = parseFm(harness.getContent(noTitleTw.path)!);
+		expect(noTitleTwFm.title).toBe('Takeaway-notitle2026');
+		expect(noTitleTwFm.author).toEqual([]);
 	});
 
 	it('rewriteCandidateLinkInTakeaway handles missing files, raw Markdown updates/insertions with word boundaries, and JSON envelopes', async () => {

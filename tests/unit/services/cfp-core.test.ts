@@ -175,8 +175,35 @@ describe('getCoreRankForSeries', () => {
 		expect(getCoreRankForSeries(index, 'UsenixATC')?.coreLetter).toBe('A');
 		expect(getCoreRankForSeries(index, 'LC')?.coreLetter).toBe('C');
 		expect(getCoreRankForSeries(index, 'AAAI 2026')?.coreLetter).toBe('A*');
+		expect(getCoreRankForSeries(index, 'AAAI   2026')?.coreLetter).toBe('A*');
 		expect(getCoreRankForSeries(index, 'USENIX ATC 1999')?.coreLetter).toBe('A');
 		expect(getCoreRankForSeries(index, 'AAAI2026')).toBeNull();
+	});
+
+	it('does not strip mid-title years and completes in linear time on long whitespace', () => {
+		const midYearIndex = parseCoreCsv(
+			csv(HEADER, '11,IEEE 2020 Vision Workshop,,ICORE2026,B')
+		);
+		expect(getCoreRankForSeries(midYearIndex, 'IEEE 2020 Vision Workshop')).toEqual(
+			{
+				coreLetter: 'B',
+				collection: 'ICORE2026',
+			}
+		);
+		expect(
+			getCoreRankForSeries(midYearIndex, 'IEEE 2020 Vision Workshop 2026')
+		).toEqual({
+			coreLetter: 'B',
+			collection: 'ICORE2026',
+		});
+		expect(getCoreRankForSeries(midYearIndex, 'IEEE Vision Workshop')).toBeNull();
+
+		const adversarial = 'A' + ' '.repeat(50000) + 'X';
+		const start = performance.now();
+		const result = getCoreRankForSeries(index, adversarial);
+		const elapsed = performance.now() - start;
+		expect(result).toBeNull();
+		expect(elapsed).toBeLessThan(100);
 	});
 
 	it('falls back to full conference name and prefers letter grades over raw status', () => {

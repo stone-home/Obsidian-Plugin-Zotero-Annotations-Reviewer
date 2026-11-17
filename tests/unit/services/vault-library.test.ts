@@ -79,6 +79,21 @@ describe('vault-library pure helpers', () => {
 			);
 			expect(normalizeVenueSeries('[[SOSP]] 2023')).toBe('SOSP');
 		});
+
+		it('completes in linear time on adversarial long whitespace, quotes, and punctuation', () => {
+			const start = performance.now();
+			expect(normalizeVenueSeries(' '.repeat(50000))).toBe('');
+			expect(normalizeVenueSeries(','.repeat(50000) + 'X')).toBe('X');
+			expect(normalizeVenueSeries('X' + ';'.repeat(50000))).toBe('X');
+			expect(
+				normalizeVenueSeries("'".repeat(25000) + 'OSDI' + "'".repeat(25000))
+			).toBe('OSDI');
+			expect(normalizeVenueSeries('OSDI' + ' '.repeat(50000) + '2026')).toBe(
+				'OSDI'
+			);
+			const elapsed = performance.now() - start;
+			expect(elapsed).toBeLessThan(100);
+		});
 	});
 
 	describe('scoreLibraryMatch', () => {
@@ -224,6 +239,136 @@ describe('VaultLibraryService', () => {
 		expect(library.isPrimaryLiteratureFile(cfpNote)).toBe(false);
 		expect(library.isPrimaryLiteratureFile(promptNote)).toBe(false);
 		expect(library.isPrimaryLiteratureFile(templateNote)).toBe(false);
+	});
+
+	it('isPrimaryLiteratureFile distinguishes primary Zotero papers from co-located 4-type taxonomy AI reports, takeaways, core notes, and non-literature types', () => {
+		// Configure all companion paths inside the same 002-Literature/ root folder so folder exclusions do not mask frontmatter/tag/basename filtering
+		settings.paperWorkspace = {
+			...settings.paperWorkspace,
+			literatureNotePath: '002-Literature/@{{citekey}}.md',
+			report1Path: '002-Literature/Deep Research-{{citekey}}.md',
+			report2Path: '002-Literature/External Research-{{citekey}}.md',
+			takeawayPath: '002-Literature/Takeaway-{{citekey}}.md',
+			coreNotePath: '002-Literature/{{citekey}}-note.md',
+		};
+
+		const zoteroPrimary = registerFile('002-Literature/@linDrGPUM2023.md', {
+			'citation-key': 'linDrGPUM2023',
+			type: 'literature',
+			tags: ['source/📜Zotero', 'type/📰source'],
+		});
+		const zoteroNestedTagOutsideFolder = registerFile(
+			'Archive/@importedZotero2021.md',
+			{
+				'citation-key': 'importedZotero2021',
+				type: 'literature',
+				tags: ['#source/📜Zotero/import'],
+			}
+		);
+		const zoteroNamedLikeTakeaway = registerFile(
+			'002-Literature/Takeaway-ActualZoteroPaper2022.md',
+			{
+				'citation-key': 'takeawayPaper2022',
+				type: 'literature',
+				tags: ['source/📜Zotero'],
+			}
+		);
+
+		const aiDeepReport = registerFile(
+			'002-Literature/Deep Research-linDrGPUM2023.md',
+			{
+				type: 'literature',
+				tags: ['source/🤖AI'],
+			}
+		);
+		const aiExternalReportGemini = registerFile(
+			'002-Literature/External Research-linDrGPUM2023.md',
+			{
+				type: 'literature',
+				tags: ['source/🤖AI/Gemini'],
+			}
+		);
+		const aiTakeawayUndefined = registerFile(
+			'002-Literature/Takeaway-linDrGPUM2023.md',
+			{
+				type: 'literature',
+				tags: ['source/🤖AI/undefined'],
+			}
+		);
+		const untaggedTakeawayBasename = registerFile(
+			'002-Literature/Takeaway-untagged2024.md',
+			{
+				type: 'literature',
+			}
+		);
+		const untaggedDeepBasename = registerFile(
+			'002-Literature/Deep Research-untagged2024.md',
+			{
+				type: 'literature',
+			}
+		);
+		const untaggedExternalBasename = registerFile(
+			'002-Literature/External Research-untagged2024.md',
+			{
+				type: 'literature',
+			}
+		);
+		const coreNoteByTag = registerFile('002-Literature/linDrGPUM2023-note.md', {
+			type: 'literature',
+			tags: ['type/paper-note'],
+		});
+		const coreNoteByLinkedNotes = registerFile(
+			'002-Literature/linDrGPUM2023-core2.md',
+			{
+				type: 'literature',
+				'linked-notes': [],
+			}
+		);
+		const coreNoteByCamelLinkedNotes = registerFile(
+			'002-Literature/linDrGPUM2023-core3.md',
+			{
+				type: 'literature',
+				linkedNotes: [],
+			}
+		);
+		const legacyReportTag = registerFile('002-Literature/legacy-report.md', {
+			type: 'literature',
+			tags: ['type/report/deep'],
+		});
+		const legacyTakeawayTag = registerFile('002-Literature/legacy-tw.md', {
+			type: 'literature',
+			tags: ['type/takeaway'],
+		});
+		const fleetingInLit = registerFile('002-Literature/fleeting-in-lit.md', {
+			type: 'fleeting',
+		});
+		const atomInLit = registerFile('002-Literature/atom-in-lit.md', {
+			type: 'atom',
+		});
+		const permanentInLit = registerFile('002-Literature/permanent-in-lit.md', {
+			type: 'permanent',
+		});
+
+		expect(library.isPrimaryLiteratureFile(zoteroPrimary)).toBe(true);
+		expect(library.isPrimaryLiteratureFile(zoteroNestedTagOutsideFolder)).toBe(
+			true
+		);
+		expect(library.isPrimaryLiteratureFile(zoteroNamedLikeTakeaway)).toBe(true);
+
+		expect(library.isPrimaryLiteratureFile(aiDeepReport)).toBe(false);
+		expect(library.isPrimaryLiteratureFile(aiExternalReportGemini)).toBe(false);
+		expect(library.isPrimaryLiteratureFile(aiTakeawayUndefined)).toBe(false);
+		expect(library.isPrimaryLiteratureFile(untaggedTakeawayBasename)).toBe(false);
+		expect(library.isPrimaryLiteratureFile(untaggedDeepBasename)).toBe(false);
+		expect(library.isPrimaryLiteratureFile(untaggedExternalBasename)).toBe(false);
+		expect(library.isPrimaryLiteratureFile(coreNoteByTag)).toBe(false);
+		expect(library.isPrimaryLiteratureFile(coreNoteByLinkedNotes)).toBe(false);
+		expect(library.isPrimaryLiteratureFile(coreNoteByCamelLinkedNotes)).toBe(false);
+		expect(library.isPrimaryLiteratureFile(legacyReportTag)).toBe(false);
+		expect(library.isPrimaryLiteratureFile(legacyTakeawayTag)).toBe(false);
+		expect(library.isPrimaryLiteratureFile(fleetingInLit)).toBe(false);
+		expect(library.isPrimaryLiteratureFile(atomInLit)).toBe(false);
+		expect(library.isPrimaryLiteratureFile(permanentInLit)).toBe(false);
 	});
 
 	it('listLiteraturePapers and searchPapers sort and filter across venue, Core Note, Takeaway, and query text', async () => {
@@ -651,9 +796,7 @@ describe('VaultLibraryService', () => {
 		const createdText = harness.getContent(createdAtomic.path)!;
 		expect(createdText).toContain('type: permanent');
 		expect(createdText).toMatch(/^create: \d{4}-\d{2}-\d{2}$/m);
-		expect(createdText).toContain(
-			'sources:\n  - "[[002-Literature/smith2024|smith2024]]"'
-		);
+		expect(createdText).toContain('sources:\n  - "[[smith2024|smith2024]]"');
 		expect(createdText).toContain('# A - Systems - Storage- Write-Amplification-');
 		expect(createdText).toContain('Tiered compaction amortizes SSTable merges.');
 		expect(createdText).toContain(
@@ -664,11 +807,37 @@ describe('VaultLibraryService', () => {
 		expect(createdFmMatch).not.toBeNull();
 		const createdFm = yaml.load(createdFmMatch![1]) as Record<string, unknown>;
 		expect(createdFm.type).toBe('permanent');
-		expect(createdFm.sources).toEqual(['[[002-Literature/smith2024|smith2024]]']);
+		expect(createdFm.sources).toEqual(['[[smith2024|smith2024]]']);
 		expect(createdFm.tags).toEqual(
 			expect.arrayContaining(['type/atomic', 'storage/lsm'])
 		);
 		expect(createdFm.tags).toHaveLength(2);
+
+		const atPrefixedLit = registerFile(
+			'002-Literature/100-Zotero/@linDrGPUM2023.md',
+			{ 'citation-key': 'linDrGPUM2023' }
+		);
+		const atCreatedAtomic = await library.connectCandidateToVault({
+			literatureFile: atPrefixedLit,
+			citekey: 'linDrGPUM2023',
+			candidate: {
+				index: 1,
+				heading: '[[A - GPU - Memory - Liveness Analysis]]',
+				linkTitle: 'A - GPU - Memory - Liveness Analysis',
+				linkStatus: 'Proposed',
+				storyline: '',
+				evidence: '',
+				brief: 'Liveness bounds GPU footprint.',
+				relatedPapers: '',
+				tags: [],
+			},
+			mode: 'create',
+			appendEvidence: false,
+		});
+		const atCreatedFm = yaml.load(
+			harness.getContent(atCreatedAtomic.path)!.match(/^---\n([\s\S]*?)\n---/)![1]
+		) as Record<string, unknown>;
+		expect(atCreatedFm.sources).toEqual(['[[@linDrGPUM2023|linDrGPUM2023]]']);
 
 		const coreNotePath = resolvePaperPaths(
 			settings.paperWorkspace,
