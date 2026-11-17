@@ -13,11 +13,12 @@ A companion plugin for Zotero, Better BibTeX, and the [Zotero Integration](https
 - **Paper House (`[Digest | Library]` popout window)**
   - Desktop popout workspace (`Open Paper House` and `Open Paper House (Library)` commands, plus an optional ribbon icon) combining incoming paper triage with a searchable Vault Literature Library.
   - **Digest tab:** Ingests daily `*.jsonl` drops from a configurable Vault folder (`Digest/Incoming` by default) or imported `.bib` BibTeX files, resolves metadata via Zotero Translation Server, and lets you accept papers into local Zotero (assigning fixed research direction tags and Zotero collections via Zotero Local API) or reject them with structured reasons stored in `digest-store.json`.
-  - **Library tab:** Indexes primary Literature notes across your Vault (`002-Literature/` by default) with weighted full-text and metadata search, venue/Core Note/Takeaway quick filters, inline Core Note editing, and one-click Vault Connector access.
+  - **Library tab:** Indexes primary Literature notes across your Vault (`002-Literature/` by default) with weighted full-text and metadata search, venue/Core Note/Takeaway quick filters, inline Core Note editing, and one-click Vault Connector access. A note tagged `source/📜Zotero` always counts as a paper. Notes tagged `source/🤖AI`, companion notes (reports, takeaways, Core Notes, or any note with `linked-notes`), and `fleeting` / `atom` / `permanent` notes are left out, even though the companions also use `type: literature`.
 
 - **Paper Workspace & Vault-backed Templates & Prompts**
   - Organizes each paper around a citekey-driven workspace: Literature Note (`002-Literature/{{citekey}}.md`), Deep Research Report 1, External Landscape Report 2 (with automatic `code_url` extraction into frontmatter), synthesized Takeaway note, and Core Note (`linked-notes`, `projects`, and synthesis notes).
-  - Stores built-in and custom **Templates & Prompts** as editable Markdown files in `900-Templates/` (including the Zotero Integration import template, Report 1 / Report 2 / Takeaway / Core Note / Atomic Note templates, and LLM synthesis prompts), automatically materializing missing built-in files when the Vault loads.
+  - Built-in templates follow a 4-type Vault taxonomy: `fleeting` (highlight notes), `literature` (the Zotero note and its Report 1, Report 2, Takeaway, and Core Note companions), `atom`, and `permanent` (atomic Zettels). AI-generated companions are tagged `source/🤖AI` and link back with short basename wiki-links (for example `[[citekey]]`, `[[Deep Research-citekey]]`) instead of full paths.
+  - Stores built-in and custom **Templates & Prompts** as editable Markdown files in `900-Templates/` (including the Zotero Integration import template, Report 1 / Report 2 / Takeaway / Core Note / Atomic Note templates, and LLM synthesis prompts), automatically materializing missing built-in files when the Vault loads. Existing files are never overwritten; see [Note template placeholders](#-note-template-placeholders) for the variables they accept.
 
 - **Vault Knowledge Connector (`ConnectorModal`) & Atomic Zettels**
   - Parses `### Candidate` atomic note proposals and cited references from a paper's Takeaway and Report files, matching them against existing permanent notes (`003-Permanent/A - ...`) and Literature notes in the Vault by exact title, concept token overlap, citekey, or DOI.
@@ -27,6 +28,9 @@ A companion plugin for Zotero, Better BibTeX, and the [Zotero Integration](https
   - A markdown code block (` ```zotero-assistant `) renders an interactive Paper Workspace and annotation dashboard inside your literature note.
   - Displays paper metadata, DOI/code links, same-venue Vault papers, CFP conference context, linked projects, workspace tabs (Takeaway, Report 1, Report 2, Core Note, Highlights), and Zotero PDF annotations (highlights, images, ink, notes).
   - Uses a JSON map between annotation IDs and image relative paths (plus coordinate fallback) with a stable `zotero-image-path` convention (`Attachments/{{citekey}}`) to prevent broken image embeds and convert annotations into Fleeting Notes.
+
+- **Highlight notes**
+  - Fleeting notes for a paper are found by citekey in the highlight notes folder (`001-Fleeting` by default). The paper's own Report 1, Report 2, Takeaway, and Core Note files are excluded even when they sit in that folder.
 
 - **Project linker (`project-picker`)**
   - A `project-picker` code block renders an inline UI to link the current note to project `Dashboard.md` notes under a configurable Projects folder.
@@ -40,6 +44,7 @@ A companion plugin for Zotero, Better BibTeX, and the [Zotero Integration](https
 - **CFP (Call For Papers) management & CCF/CORE rankings**
   - Fetches and normalizes CFP events from WikiCFP, CCFDDL (`allconf.yml`), EasyChair, OpenResearch, and WikiCFP Conference Series (A–Z) index pages into structured Vault notes under `CFP/`.
   - Enriches Conference Series notes with **CORE** ranks (from a local Vault `CORE.csv`) and **CCF** ranks (from remote or local `allconf.yml`), surfacing compact rank badges (`CORE: A* | CCF: A`) and upcoming deadlines inside `zotero-assistant`.
+  - A `cfp-list` code block renders the upcoming and past CFP list inline in any note.
   - Provides DataviewJS on-demand series refresh via `window.__ZoteroAnnotationReviewerCFP.refreshSeries(programUrl, seriesAcronym)` and staggered daily background refreshes.
 
 ---
@@ -101,10 +106,19 @@ A companion plugin for Zotero, Better BibTeX, and the [Zotero Integration](https
    # On Linux: ~/.config/obsidian/plugins/zotero-annotation-reviewer/
    ```
 
+3. **Development commands:**
+   ```bash
+   npm run dev           # esbuild watch build
+   npm test              # Jest suites under tests/ (unit + integration)
+   npm run lint          # ESLint
+   npm run typecheck     # tsc --noEmit
+   npm run format:check  # Prettier check for src/ and tests/
+   ```
+
 ### Basic setup workflow
 
 1. **Configure Zotero Integration**
-   - Open **Settings → Zotero Annotation Reviewer → Templates & Prompts** to inspect or customize the built-in Zotero note template saved in `900-Templates/zotero-note-template.md`, or paste the following template into Zotero Integration's **Note Content** template with **Image Output Path** set to `Attachments/{{citekey}}`:
+   - Open **Settings → Zotero Annotation Reviewer → Templates** to inspect or customize the built-in Zotero note template saved in `900-Templates/zotero-note-template.md`, and point Zotero Integration's **Note Content** template at that file with **Image Output Path** set to `Attachments/{{citekey}}`. The current built-in template is reproduced below. It tags imports `source/📜Zotero` (which the Library tab uses to find papers), writes `venue` as a wiki-link, and fills `code`, `deep-report`, and `external-report` from Zotero attachments with those titles:
 `````jinja2
 ---
 citation-key: {{citekey}}
@@ -112,22 +126,27 @@ zotero-image-path: "{{imageOutputPath}}"
 title: "{{ title | replace('"', '\\"') }}"
 type: literature
 aliases:
+  - "{{ title | replace('"', '\\"') }}"
+  {%- if shortTitle.length > 0 %}
+  - "{{shortTitle}}"
+  {%- endif %}
+short-name: "{{shortTitle}}"
 authors:
-{%- set authorList = authors.split(",") -%}
-{%- if authorList.length > 0 %}  
-	{%- for author in authorList -%}  
-		{% set loopIndex = loop.index | string %}  
-   - {{author | trim | replace(" ", "-") | replace(".", "")}}  
-	{%- endfor -%}  
+{%- if authors %}
+{%- for author in authors.split(",") %}
+  - {{author | trim | replace(" ", "-") | replace(".", "")}}
+{%- endfor %}
 {%- endif %}
-date: {{date | format("YYYY-MM-DD")}}
+create: {{date | format("YYYY-MM-DD")}}
 year: {{date | format("YYYY")}}
 publication: "{{publicationTitle or proceedingsTitle or conferenceName}}"
 doi: "{{DOI}}"
 url: "{{url}}"
+publish-type: "{{itemType}}"
 tags:
   - source/📜Zotero
-  - type/source
+  - type/📰source
+  - status/inbox
 icon: {% if itemType == "conferencePaper" -%}
  LiNewspaper
 {%- elif itemType == "journalArticle" -%}
@@ -135,33 +154,46 @@ icon: {% if itemType == "conferencePaper" -%}
 {%- else -%}
  TiArticle
 {%- endif %}
+key: {{itemKey}}
+code: "{% for att in attachments %}{% if att.title == 'code' %}{{ att.url | replace('"', '\\"') }}{% endif %}{% endfor %}"
+venue: "{% set currentVenue = publicationTitle if itemType == 'journalArticle' else ((conferenceName or proceedingsTitle) if itemType == 'conferencePaper' else '') %}{% if currentVenue and currentVenue | trim %}[[{{ currentVenue | trim | replace('\"', '\\\"') }}]]{% endif %}"
+deep-report: "{% for att in attachments %}{% if att.title == 'deep-report' %}{{ att.url | replace('"', '\\"') }}{% endif %}{% endfor %}"
+external-report: "{% for att in attachments %}{% if att.title == 'external-report' %}{{ att.url | replace('"', '\\"') }}{% endif %}{% endfor %}"
 ---
 
-```zotero-assistant 
-{ 
-{%- set comma = joiner() -%} {%- for annotation in annotations -%} {%- if annotation.imageRelativePath -%} {{ comma() }} "{{annotation.id}}": "{{ annotation.imageRelativePath | replace('\\', '\\\\') }}" {%- endif -%} {%- endfor -%} 
+```zotero-assistant
+{
+{%- set comma = joiner() -%}{%- for annotation in annotations -%}{%- if annotation.imageRelativePath -%}{{ comma() }} "{{annotation.id}}": "{{ annotation.imageRelativePath | replace('\\', '\\\\') }}"{%- endif -%}{%- endfor -%}
 }
-
 ```
 
 ## 📰 Abstract
 
 {{abstractNote}}
 
-
 # 🧱 Appendix
 ## 🔖 Tags in Zotero
 {%- for t in tags %}
   - {{t.tag}}
 {%- endfor %}
+
+## 💾 Persistent Data
+{% persist "properties" %}{%- if isFirstImport %}
+code::
+tags::
+{% endif %}{% endpersist %}
 `````
 
 2. **Configure Plugin Settings**
-   - Open Obsidian **Settings → Zotero Annotation Reviewer** and review:
-     - **Paper Workspace:** Paths for Literature notes (`002-Literature/{{citekey}}.md`), Report 1, Report 2, Takeaway, Core Note, Fleeting/Highlight notes (`001-Fleeting`), Permanent Atomic notes (`003-Permanent`), and Templates (`900-Templates`).
-     - **Templates & Prompts:** Customize note templates and synthesis prompts synced directly to Markdown files in `900-Templates/`.
-     - **Paper Digest:** Incoming JSONL folder (`Digest/Incoming`), Zotero Translation Server URL, research direction tags, and reject reasons.
-     - **Projects, Webhooks & CFP:** Project folder/keys, modular webhook profiles, and CFP URLs plus optional local `CORE.csv` / `allconf.yml` ranking paths.
+   - Open Obsidian **Settings → Zotero Annotation Reviewer**. The settings are split into six tabs:
+     - **General:** Paper Workspace layout (Literature notes `002-Literature/{{citekey}}.md`, Report 1, Report 2, Takeaway, Core Note, Fleeting/Highlight notes `001-Fleeting`, Permanent Atomic notes `003-Permanent`), Zotero port and citation/annotation keys, and the Project Linker folder and keys.
+     - **Highlights:** Default annotation sort, metadata verification mapping, and the optional legacy DataviewJS section.
+     - **Templates:** Templates folder (`900-Templates`), the Zotero note template, the Report 1 / Report 2 / Takeaway / Core Note / Atomic Note templates, and the synthesis prompts. Each file can be opened, snapshotted, restored, or **Reset** to the factory default.
+     - **Webhooks:** Modular webhook profiles, the sidebar icon toggle, and debug mode.
+     - **CFP:** Note folder, tags, refresh intervals, WikiCFP Series letters, URL sources, and optional local `CORE.csv` / `allconf.yml` ranking paths.
+     - **Digest:** Incoming JSONL folder (`Digest/Incoming`), Zotero Translation Server URL, research direction tags, and reject reasons.
+
+   > **Upgrading from an earlier version:** template files already in `900-Templates/` are kept as they are. To switch to the 4-type taxonomy templates, click **Reset** on each template in the **Templates** tab (take a snapshot first if you have edits to keep).
 
 3. **Triage & Import Papers**
    - Run **Open Paper House** (or click the inbox ribbon icon) to screen incoming papers on the **Digest** tab or browse existing Vault papers on the **Library** tab.
@@ -169,6 +201,30 @@ icon: {% if itemType == "conferencePaper" -%}
 
 4. **Review, Synthesize & Connect**
    - Open any Literature note containing a `zotero-assistant` block to manage Report 1, Report 2, Takeaway, Core Note, and PDF highlights, then click **Connect to Vault** (`ConnectorModal`) to link or create permanent atomic Zettels.
+
+---
+
+## 🧩 Note template placeholders
+
+The Report 1, Report 2, Takeaway, Core Note, and Atomic Note templates in `900-Templates/` are filled with these placeholders when the plugin creates a note. Paper metadata is read from the Literature note's frontmatter.
+
+| Placeholder | Value |
+| --- | --- |
+| `{{citekey}}` | Paper citekey, with any leading `@` removed |
+| `{{id}}` | Random 16-character note id |
+| `{{title}}` | Literature note `title` (falls back to the citekey) |
+| `{{date}}` | Today's date, `YYYY-MM-DD` |
+| `{{source_path}}` | Vault path of the Literature note, without `.md` |
+| `{{source_name}}` | Basename of the Literature note, for short wiki-links |
+| `{{report1_name}}` / `{{report2_name}}` | Basenames of Report 1 and Report 2 (default `Deep Research-{{citekey}}` / `External Research-{{citekey}}`) |
+| `{{doi_or_url}}` | `doi`, or `url` if there is no DOI |
+| `{{short_name}}` | `short-name` (or `shortName`) |
+| `{{authors_yaml}}` | `authors` (or `author`) as a YAML list, or `[]` |
+| `{{venue}}` | `publication`, or `venue` with `[[ ]]` removed |
+| `{{paper_type}}` | `publish-type` (or `paper-type`) |
+| `{{atomic_title}}` | Title of the atomic note being created (Atomic Note template only) |
+
+The citekey is read from the configured citation key (`citation-key` by default), then `citation-key`, `citekey`, or `zotero-key`.
 
 ---
 
@@ -248,6 +304,16 @@ CFP notes and Series notes are designed to work seamlessly with Dataview tables 
    - Verify the "Projects Folder" setting is Vault-relative and each project subfolder contains `<ProjectsFolder>/<ProjectDir>/Dashboard.md` (or markdown notes under that folder when using the Assistant project picker).
 2. **Verify project ID key:**
    - Ensure `projectIdKey` / `project_name` matches the frontmatter key in your project notes.
+
+### Paper House Library lists the wrong notes
+
+**Symptoms:** Reports, Takeaways, or Core Notes appear as papers in the Library tab, or an imported paper is missing.
+
+**Solutions:**
+1. **Check the source tags:**
+   - Zotero imports should carry the `source/📜Zotero` tag (the built-in Zotero template adds it). AI-generated companions should carry `source/🤖AI`.
+2. **Check custom companion notes:**
+   - Without the `source/📜Zotero` tag, a note is also skipped when its `type` is a companion type (`paper-note`, `deep-report`, `external-report`, `takeaway`), when it has `linked-notes`, or when its file name starts with `Takeaway-`, `Deep Research-`, or `External Research-`. A custom companion note that matches none of these and sits under the Literature folder will show up as a paper; add `source/🤖AI` to it.
 
 ### Assistant view not rendering
 

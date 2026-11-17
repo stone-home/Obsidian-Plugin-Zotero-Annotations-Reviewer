@@ -162,3 +162,6 @@ playground/
 /.skills-hub/
 /.claude/rules/skills-hub/
 /artifacts/
+
+# Plugin
+digest-store.json
