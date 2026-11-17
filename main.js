@@ -5077,6 +5077,15 @@ function fileBasename(file) {
   const rawName = file.name || file.path.split("/").pop() || "";
   return rawName.replace(/\.md$/i, "");
 }
+function extractWikiBasename(raw) {
+  var _a;
+  const inner = raw.replace(/\[\[|\]\]/g, "").trim();
+  if (!inner) return "";
+  const target = inner.split("|")[0].split("#")[0].trim();
+  if (!target) return "";
+  const base = (_a = target.split("/").pop()) != null ? _a : "";
+  return base.replace(/\.md$/i, "").trim().toLowerCase();
+}
 function toStringArray(value) {
   if (Array.isArray(value)) {
     return value.map((v) => String(v != null ? v : "").trim()).filter(Boolean);
@@ -5462,6 +5471,19 @@ var init_vault_library = __esm({
         const { literatureFile, citekey, candidate, mode, appendEvidence = true } = params;
         const litPathNoExt = literatureFile.path.replace(/\.md$/i, "");
         const sourceLink = `[[${litPathNoExt}|${citekey}]]`;
+        const priorBasenames = /* @__PURE__ */ new Set();
+        const candTitleBase = extractWikiBasename(candidate.linkTitle);
+        if (candTitleBase) priorBasenames.add(candTitleBase);
+        if (candidate.linkPath) {
+          const candPathBase = extractWikiBasename(candidate.linkPath);
+          if (candPathBase) priorBasenames.add(candPathBase);
+        }
+        if (params.replacedFile) {
+          const replacedBase = fileBasename(params.replacedFile).trim().toLowerCase();
+          if (replacedBase) priorBasenames.add(replacedBase);
+        }
+        const cleanCandTitle = (candidate.linkTitle.split("/").pop() || candidate.linkTitle).replace(/\.md$/i, "").trim();
+        const candLinkPathNoExt = candidate.linkPath ? normalizePath(candidate.linkPath.trim()).replace(/\.md$/i, "") : "";
         const evidenceLines = [`### Evidence from ${sourceLink}`];
         if (candidate.storyline) evidenceLines.push(`- **Storyline**: ${candidate.storyline}`);
         if (candidate.brief) evidenceLines.push(`- **Brief**: ${candidate.brief}`);
@@ -5485,14 +5507,13 @@ ${evidenceBlock}
               await this.app.vault.modify(resolvedTarget, updated);
             }
           }
-          const cleanCandTitle = (candidate.linkTitle.split("/").pop() || candidate.linkTitle).replace(/\.md$/i, "").trim();
           const chosenBasename = fileBasename(resolvedTarget);
-          const shouldRewrite = params.rewriteTakeaway !== void 0 ? params.rewriteTakeaway : chosenBasename.toLowerCase() !== cleanCandTitle.toLowerCase();
+          const chosenPathNoExt = normalizePath(resolvedTarget.path).replace(
+            /\.md$/i,
+            ""
+          );
+          const shouldRewrite = params.rewriteTakeaway !== void 0 ? params.rewriteTakeaway : chosenBasename.toLowerCase() !== cleanCandTitle.toLowerCase() || Boolean(candLinkPathNoExt) && candLinkPathNoExt.toLowerCase() !== chosenPathNoExt.toLowerCase();
           if (shouldRewrite) {
-            const chosenPathNoExt = normalizePath(resolvedTarget.path).replace(
-              /\.md$/i,
-              ""
-            );
             const targetWikiLink = `[[${chosenPathNoExt}|${chosenBasename}]]`;
             await this.paperHub.rewriteCandidateLinkInTakeaway(
               citekey,
@@ -5583,11 +5604,51 @@ ${extraBlocks.join("\n\n")}
 `;
             resolvedTarget = await this.app.vault.create(targetPath, finalContent);
           }
+          const createdBasename = fileBasename(resolvedTarget);
+          const targetPathNoExt = normalizePath(resolvedTarget.path).replace(
+            /\.md$/i,
+            ""
+          );
+          const shouldRewriteCreate = params.rewriteTakeaway !== void 0 ? params.rewriteTakeaway : createdBasename.toLowerCase() !== cleanCandTitle.toLowerCase() || Boolean(candLinkPathNoExt) && candLinkPathNoExt.toLowerCase() !== targetPathNoExt.toLowerCase();
+          if (shouldRewriteCreate) {
+            await this.paperHub.rewriteCandidateLinkInTakeaway(
+              citekey,
+              candidate.index,
+              `[[${targetPathNoExt}|${createdBasename}]]`
+            );
+          }
         }
         const state = await this.paperHub.getPaperState(literatureFile);
         const currentLinks = (_b = state == null ? void 0 : state.coreNote.linkedNotes) != null ? _b : [];
+        const newBasename = fileBasename(resolvedTarget).trim().toLowerCase();
+        priorBasenames.delete(newBasename);
+        if (priorBasenames.size > 0 && (state == null ? void 0 : state.takeawayCandidates)) {
+          for (const other of state.takeawayCandidates) {
+            if (other.index === candidate.index) continue;
+            const otherMatches = this.matchCandidatesAgainstVault(
+              [other],
+              [],
+              citekey
+            ).candidateMatches[0];
+            const otherTitleBase = extractWikiBasename(other.linkTitle);
+            if (otherTitleBase) priorBasenames.delete(otherTitleBase);
+            if (other.linkPath) {
+              const otherPathBase = extractWikiBasename(other.linkPath);
+              if (otherPathBase) priorBasenames.delete(otherPathBase);
+            }
+            if (otherMatches == null ? void 0 : otherMatches.matchedFile) {
+              const otherMatchedBase = fileBasename(otherMatches.matchedFile).trim().toLowerCase();
+              if (otherMatchedBase) priorBasenames.delete(otherMatchedBase);
+            }
+          }
+        }
+        const prunedLinks = currentLinks.filter(
+          (entry) => !priorBasenames.has(extractWikiBasename(entry))
+        );
         const atomicWikiLink = `[[${fileBasename(resolvedTarget)}]]`;
-        const nextLinks = currentLinks.includes(atomicWikiLink) ? currentLinks : [...currentLinks, atomicWikiLink];
+        const nextLinks = prunedLinks.some(
+          (entry) => extractWikiBasename(entry) === newBasename
+        ) ? prunedLinks : [...prunedLinks, atomicWikiLink];
         await this.paperHub.saveCoreNote(citekey, { linkedNotes: nextLinks }, literatureFile);
         return resolvedTarget;
       }
@@ -6064,6 +6125,7 @@ var init_connector_modal = __esm({
                 candidate,
                 mode: "reuse",
                 targetFile: matchedFile,
+                replacedFile: matchedFile,
                 appendEvidence: this.appendEvidence
               });
               new import_obsidian5.Notice(`Linked note: ${getBasename(target)}`);
@@ -6093,6 +6155,7 @@ var init_connector_modal = __esm({
                     candidate,
                     mode: "reuse",
                     targetFile: chosenFile,
+                    replacedFile: matchedFile,
                     appendEvidence: this.appendEvidence,
                     rewriteTakeaway: true
                   });
@@ -6126,6 +6189,7 @@ var init_connector_modal = __esm({
                 citekey: state.citekey,
                 candidate,
                 mode: "create",
+                replacedFile: matchedFile,
                 appendEvidence: this.appendEvidence
               });
               new import_obsidian5.Notice(`Created and linked note: ${getBasename(target)}`);
@@ -6155,6 +6219,7 @@ var init_connector_modal = __esm({
                 citekey: state.citekey,
                 candidate,
                 mode: "create",
+                replacedFile: matchedFile,
                 appendEvidence: this.appendEvidence
               });
               new import_obsidian5.Notice(`Created and linked note: ${getBasename(target)}`);
@@ -6187,6 +6252,7 @@ var init_connector_modal = __esm({
                     candidate,
                     mode: "reuse",
                     targetFile: chosenFile,
+                    replacedFile: matchedFile,
                     appendEvidence: this.appendEvidence,
                     rewriteTakeaway: true
                   });

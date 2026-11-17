@@ -13,6 +13,7 @@ import {
 	TakeawayCandidate,
 } from './paper-hub';
 import {
+	extractWikiBasename,
 	normalizeVenueSeries,
 	scoreLibraryMatch,
 	VaultLibraryService,
@@ -34,6 +35,35 @@ function makeVaultFile(path: string, mtime = 1000): TFile {
 }
 
 describe('vault-library pure helpers', () => {
+	describe('extractWikiBasename', () => {
+		it('extracts lowercased basenames across plain links, folder paths, .md suffixes, aliases, headings, and empty inputs', () => {
+			expect(extractWikiBasename('')).toBe('');
+			expect(extractWikiBasename('   ')).toBe('');
+			expect(extractWikiBasename('[[]]')).toBe('');
+			expect(extractWikiBasename('[[   ]]')).toBe('');
+			expect(extractWikiBasename('[[|Alias Only]]')).toBe('');
+			expect(extractWikiBasename('[[#Heading Only]]')).toBe('');
+			expect(extractWikiBasename('[[#heading|Alias]]')).toBe('');
+			expect(extractWikiBasename('[[folder/]]')).toBe('');
+
+			expect(extractWikiBasename('[[A - Systems - Cache Lease]]')).toBe(
+				'a - systems - cache lease'
+			);
+			expect(extractWikiBasename('[[folder/Note.md|Alias#heading]]')).toBe('note');
+			expect(
+				extractWikiBasename(
+					'[[003-Permanent/Sub/A - Net - ZeroCopy.MD#Implementation|ZeroCopy Alias]]'
+				)
+			).toBe('a - net - zerocopy');
+			expect(extractWikiBasename('003-Permanent/Nested/Plain Path Note.md')).toBe(
+				'plain path note'
+			);
+			expect(extractWikiBasename('  [[002-Literature/ongaro2014|Raft 2014]]  ')).toBe(
+				'ongaro2014'
+			);
+		});
+	});
+
 	describe('normalizeVenueSeries', () => {
 		it('normalizes wiki-links, Series suffixes, parenthetical conference acronyms, and org prefixes', () => {
 			expect(normalizeVenueSeries('')).toBe('');
@@ -864,6 +894,430 @@ describe('VaultLibraryService', () => {
 		expect(vaultContents.get(preExistingCreateTarget.path)).toContain('Original content.');
 		expect(vaultContents.get(preExistingCreateTarget.path)).toContain(
 			'- **Validation**: Exact liveness bounds verified on Llama-70B'
+		);
+	});
+
+	it('connectCandidateToVault rebinding an already-linked candidate replaces the previous note in CoreNote.linkedNotes', async () => {
+		const litFile = registerFile('002-Literature/rebind2026.md', {
+			'citation-key': 'rebind2026',
+			title: 'Rebinding Candidate Notes',
+		});
+		const paths = resolvePaperPaths(settings.paperWorkspace, 'rebind2026');
+		registerFile(
+			paths.takeaway,
+			{},
+			[
+				'## 💡 Candidate Atomic Zettels',
+				'',
+				'### Candidate 1 [Mechanisms]',
+				'- **Link**: [[A - Systems - Caching - Initial Match]]',
+				'- **Link Status**: Existing — Matched in Vault',
+				'- **Storyline**: Mechanism',
+				'- **Evidence**: 40% lower tail latency',
+				'- **Brief**: Lease-based cache invalidation bounds staleness.',
+			].join('\n')
+		);
+
+		const initialNote = registerFile(
+			'003-Permanent/A - Systems - Caching - Initial Match.md',
+			{ type: 'permanent' },
+			'# Initial Match'
+		);
+		const reboundNote = registerFile(
+			'003-Permanent/Sub/A - Systems - Caching - Chosen Replacement.md',
+			{ type: 'permanent' },
+			'# Chosen Replacement'
+		);
+		const thirdNote = registerFile(
+			'003-Permanent/A - Systems - Caching - Final Choice.md',
+			{ type: 'permanent' },
+			'# Final Choice'
+		);
+		const movedSameNameNote = registerFile(
+			'003-Permanent/Moved/A - Systems - Caching - Final Choice.md',
+			{ type: 'permanent' },
+			'# Moved Final Choice'
+		);
+
+		// 1. Link a note (initial binding)
+		const state1 = (await paperHub.getPaperState(litFile))!;
+		await library.connectCandidateToVault({
+			literatureFile: litFile,
+			citekey: 'rebind2026',
+			candidate: state1.takeawayCandidates[0],
+			mode: 'reuse',
+			targetFile: initialNote,
+			replacedFile: initialNote,
+			appendEvidence: true,
+		});
+		expect(parseCoreNoteContent(vaultContents.get(paths.coreNote)!).linkedNotes).toEqual([
+			'[[A - Systems - Caching - Initial Match]]',
+		]);
+
+		// 2. Choose another note... (rebind with replacedFile removes Initial Match and keeps only Chosen Replacement)
+		const state2 = (await paperHub.getPaperState(litFile))!;
+		await library.connectCandidateToVault({
+			literatureFile: litFile,
+			citekey: 'rebind2026',
+			candidate: state2.takeawayCandidates[0],
+			mode: 'reuse',
+			targetFile: reboundNote,
+			replacedFile: initialNote,
+			appendEvidence: true,
+			rewriteTakeaway: true,
+		});
+		expect(parseCoreNoteContent(vaultContents.get(paths.coreNote)!).linkedNotes).toEqual([
+			'[[A - Systems - Caching - Chosen Replacement]]',
+		]);
+		expect(vaultContents.get(paths.takeaway)).toContain(
+			'- **Link**: [[003-Permanent/Sub/A - Systems - Caching - Chosen Replacement|A - Systems - Caching - Chosen Replacement]]'
+		);
+
+		// 3. Rebind again using refreshed candidate linkPath/linkTitle when replacedFile is null
+		const state3 = (await paperHub.getPaperState(litFile))!;
+		await library.connectCandidateToVault({
+			literatureFile: litFile,
+			citekey: 'rebind2026',
+			candidate: state3.takeawayCandidates[0],
+			mode: 'reuse',
+			targetFile: thirdNote,
+			replacedFile: null,
+			appendEvidence: false,
+		});
+		expect(parseCoreNoteContent(vaultContents.get(paths.coreNote)!).linkedNotes).toEqual([
+			'[[A - Systems - Caching - Final Choice]]',
+		]);
+
+		// 4. Rebind to a same-basename note at a different path rewrites Takeaway without duplicating linkedNotes
+		const state4 = (await paperHub.getPaperState(litFile))!;
+		await library.connectCandidateToVault({
+			literatureFile: litFile,
+			citekey: 'rebind2026',
+			candidate: state4.takeawayCandidates[0],
+			mode: 'reuse',
+			targetFile: movedSameNameNote,
+			replacedFile: thirdNote,
+			appendEvidence: false,
+		});
+		expect(vaultContents.get(paths.takeaway)).toContain(
+			'- **Link**: [[003-Permanent/Moved/A - Systems - Caching - Final Choice|A - Systems - Caching - Final Choice]]'
+		);
+		expect(parseCoreNoteContent(vaultContents.get(paths.coreNote)!).linkedNotes).toEqual([
+			'[[A - Systems - Caching - Final Choice]]',
+		]);
+	});
+
+	it('connectCandidateToVault switching from a linked or matched note to create mode removes replaced note, links created note, and updates Takeaway when needed', async () => {
+		const litFile = registerFile('002-Literature/switch2026.md', {
+			'citation-key': 'switch2026',
+			title: 'Switching Candidate To Create',
+		});
+		const paths = resolvePaperPaths(settings.paperWorkspace, 'switch2026');
+		const legacyBoundNote = registerFile(
+			'003-Permanent/Legacy/A - Systems - Legacy Bound Note.md',
+			{ type: 'permanent' },
+			'# Legacy Bound Note'
+		);
+		const overlapMatchedNote = registerFile(
+			'003-Permanent/A - Systems - Work Stealing Queue.md',
+			{ type: 'permanent' },
+			'# Work Stealing Queue'
+		);
+
+		registerFile(
+			paths.takeaway,
+			{},
+			[
+				'## 💡 Candidate Atomic Zettels',
+				'',
+				'### Candidate 1 [Core Insights]',
+				'- **Link**: [[003-Permanent/Legacy/A - Systems - Legacy Bound Note|A - Systems - Fresh Atomic Concept]]',
+				'- **Link Status**: Existing — Linked in Vault',
+				'- **Storyline**: Insight',
+				'- **Evidence**: 2x throughput under skew',
+				'- **Brief**: Fresh atomic concept distilled from paper.',
+				'',
+				'### Candidate 2 [Mechanisms]',
+				'- **Link**: [[A - Systems - Scheduler: Work Stealing]]',
+				'- **Link Status**: Proposed — No confirmed match',
+				'- **Storyline**: Mechanism',
+				'- **Evidence**: Balances tail latency across cores',
+				'- **Brief**: Decentralized work-stealing deque.',
+			].join('\n')
+		);
+		registerFile(
+			paths.coreNote,
+			{},
+			serializeCoreNoteContent({
+				citekey: 'switch2026',
+				source: '[[002-Literature/switch2026|switch2026]]',
+				projects: [],
+				linkedNotes: [
+					'[[A - Systems - Legacy Bound Note]]',
+					'[[A - Systems - Work Stealing Queue]]',
+				],
+				body: '',
+			})
+		);
+
+		// 1. Candidate 1 switches from path-linked existing note to Create a note (candLinkPath differs from created targetPath)
+		const state1 = (await paperHub.getPaperState(litFile))!;
+		const match1 = library.matchCandidatesAgainstVault(
+			[state1.takeawayCandidates[0]],
+			[],
+			'switch2026'
+		).candidateMatches[0];
+		expect(match1.matchedFile).toBe(legacyBoundNote);
+
+		const created1 = await library.connectCandidateToVault({
+			literatureFile: litFile,
+			citekey: 'switch2026',
+			candidate: state1.takeawayCandidates[0],
+			mode: 'create',
+			replacedFile: legacyBoundNote,
+			appendEvidence: true,
+		});
+		expect(created1.path).toBe('003-Permanent/A - Systems - Fresh Atomic Concept.md');
+		expect(vaultContents.get(paths.takeaway)).toContain(
+			'### Candidate 1 [Core Insights]\n- **Link**: [[003-Permanent/A - Systems - Fresh Atomic Concept|A - Systems - Fresh Atomic Concept]]'
+		);
+		expect(parseCoreNoteContent(vaultContents.get(paths.coreNote)!).linkedNotes).toEqual([
+			'[[A - Systems - Work Stealing Queue]]',
+			'[[A - Systems - Fresh Atomic Concept]]',
+		]);
+
+		// 2. Candidate 2 switches from overlap-matched existing note to Create a note (sanitized basename updates Takeaway)
+		const state2 = (await paperHub.getPaperState(litFile))!;
+		const match2 = library.matchCandidatesAgainstVault(
+			[state2.takeawayCandidates[1]],
+			[],
+			'switch2026'
+		).candidateMatches[0];
+		expect(match2.matchedFile).toBe(overlapMatchedNote);
+		expect(match2.matchType).toBe('overlap');
+
+		const created2 = await library.connectCandidateToVault({
+			literatureFile: litFile,
+			citekey: 'switch2026',
+			candidate: state2.takeawayCandidates[1],
+			mode: 'create',
+			replacedFile: overlapMatchedNote,
+			appendEvidence: true,
+		});
+		expect(created2.path).toBe('003-Permanent/A - Systems - Scheduler- Work Stealing.md');
+		expect(vaultContents.get(paths.takeaway)).toContain(
+			'### Candidate 2 [Mechanisms]\n- **Link**: [[003-Permanent/A - Systems - Scheduler- Work Stealing|A - Systems - Scheduler- Work Stealing]]\n- **Link Status**: Existing — Linked in Vault'
+		);
+		expect(parseCoreNoteContent(vaultContents.get(paths.coreNote)!).linkedNotes).toEqual([
+			'[[A - Systems - Fresh Atomic Concept]]',
+			'[[A - Systems - Scheduler- Work Stealing]]',
+		]);
+	});
+
+	it('connectCandidateToVault preserves a shared vault note in CoreNote.linkedNotes until no candidate on the paper uses it', async () => {
+		const litFile = registerFile('002-Literature/shared2026.md', {
+			'citation-key': 'shared2026',
+			title: 'Shared Candidate Note Paper',
+		});
+		const paths = resolvePaperPaths(settings.paperWorkspace, 'shared2026');
+		const sharedNote = registerFile(
+			'003-Permanent/Sub/A - DistSys - Consensus - Quorum Lease.md',
+			{ type: 'permanent' },
+			'# Quorum Lease'
+		);
+		const dedicatedNote1 = registerFile(
+			'003-Permanent/A - DistSys - Replication - Raft Log Compaction.md',
+			{ type: 'permanent' },
+			'# Raft Log Compaction'
+		);
+		const dedicatedNote2 = registerFile(
+			'003-Permanent/A - DistSys - Storage - SSTable Bloom Filter.md',
+			{ type: 'permanent' },
+			'# SSTable Bloom Filter'
+		);
+
+		registerFile(
+			paths.takeaway,
+			{},
+			[
+				'## 💡 Candidate Atomic Zettels',
+				'',
+				'### Candidate 1 [Mechanisms]',
+				'- **Link**: [[A - DistSys - Consensus - Quorum Lease]]',
+				'- **Link Status**: Existing — Linked in Vault',
+				'- **Storyline**: Mechanism',
+				'- **Evidence**: Avoids RTT on leader reads',
+				'- **Brief**: Quorum leases authorize local leader reads.',
+				'',
+				'### Candidate 2 [Trade-offs]',
+				'- **Link**: [[003-Permanent/Sub/A - DistSys - Consensus - Quorum Lease|Quorum Lease Alias]]',
+				'- **Link Status**: Existing — Linked in Vault',
+				'- **Storyline**: Trade-off',
+				'- **Evidence**: Bounded recovery delay on leader crash',
+				'- **Brief**: Lease duration trades read throughput against failover wait.',
+			].join('\n')
+		);
+		registerFile(
+			paths.coreNote,
+			{},
+			serializeCoreNoteContent({
+				citekey: 'shared2026',
+				source: '[[002-Literature/shared2026|shared2026]]',
+				projects: [],
+				linkedNotes: ['[[A - DistSys - Consensus - Quorum Lease]]'],
+				body: '',
+			})
+		);
+
+		// 1. Rebind Candidate 1 only -> Candidate 2 still references/matches sharedNote, so sharedNote remains in linkedNotes
+		const state1 = (await paperHub.getPaperState(litFile))!;
+		await library.connectCandidateToVault({
+			literatureFile: litFile,
+			citekey: 'shared2026',
+			candidate: state1.takeawayCandidates[0],
+			mode: 'reuse',
+			targetFile: dedicatedNote1,
+			replacedFile: sharedNote,
+			appendEvidence: true,
+			rewriteTakeaway: true,
+		});
+		expect(parseCoreNoteContent(vaultContents.get(paths.coreNote)!).linkedNotes).toEqual([
+			'[[A - DistSys - Consensus - Quorum Lease]]',
+			'[[A - DistSys - Replication - Raft Log Compaction]]',
+		]);
+
+		// 2. Rebind Candidate 2 as well -> no candidate references/matches sharedNote anymore, so sharedNote is pruned
+		const state2 = (await paperHub.getPaperState(litFile))!;
+		await library.connectCandidateToVault({
+			literatureFile: litFile,
+			citekey: 'shared2026',
+			candidate: state2.takeawayCandidates[1],
+			mode: 'reuse',
+			targetFile: dedicatedNote2,
+			replacedFile: sharedNote,
+			appendEvidence: true,
+			rewriteTakeaway: true,
+		});
+		expect(parseCoreNoteContent(vaultContents.get(paths.coreNote)!).linkedNotes).toEqual([
+			'[[A - DistSys - Replication - Raft Log Compaction]]',
+			'[[A - DistSys - Storage - SSTable Bloom Filter]]',
+		]);
+	});
+
+	it('connectCandidateToVault preserves unrelated cited and manual wikilinks (including path/alias wikilinks) and avoids duplicates on idempotent re-linking', async () => {
+		const litFile = registerFile('002-Literature/preserve2026.md', {
+			'citation-key': 'preserve2026',
+			title: 'Preserving Unrelated Linked Notes',
+		});
+		const paths = resolvePaperPaths(settings.paperWorkspace, 'preserve2026');
+		const oldCandidateNote = registerFile(
+			'003-Permanent/Old/A - Systems - Old Candidate Link.md',
+			{ type: 'permanent' },
+			'# Old Candidate Link'
+		);
+		const newCanonicalNote = registerFile(
+			'003-Permanent/A - Systems - New Canonical Note.md',
+			{ type: 'permanent' },
+			'# New Canonical Note'
+		);
+		const customPathNote = registerFile(
+			'003-Permanent/Manual/Custom Path Note.md',
+			{ type: 'permanent' },
+			'# Custom Path Note'
+		);
+
+		registerFile(
+			paths.takeaway,
+			{},
+			[
+				'## 💡 Candidate Atomic Zettels',
+				'',
+				'### Candidate 1 [Mechanisms]',
+				'- **Link**: [[003-Permanent/Old/A - Systems - Old Candidate Link|A - Systems - Old Candidate Link]]',
+				'- **Link Status**: Existing — Linked in Vault',
+				'- **Storyline**: Mechanism',
+				'- **Evidence**: Verified across benchmarks',
+				'- **Brief**: Replaces obsolete candidate binding.',
+				'',
+				'### Candidate 2 [Context & Problems]',
+				'- **Link**: [[A - Systems - Unmatched Proposal]]',
+				'- **Link Status**: Proposed — No confirmed match',
+				'- **Storyline**: Problem',
+				'- **Evidence**: Baseline bottleneck',
+				'- **Brief**: Connects to an already manually linked path/alias note.',
+			].join('\n')
+		);
+		registerFile(
+			paths.coreNote,
+			{},
+			serializeCoreNoteContent({
+				citekey: 'preserve2026',
+				source: '[[002-Literature/preserve2026|preserve2026]]',
+				projects: ['[[KernelProject]]'],
+				linkedNotes: [
+					'[[ongaro2014]]',
+					'[[Manual Architecture Scratchpad]]',
+					'[[003-Permanent/Manual/Custom Path Note.md|Custom Alias]]',
+					'[[Archive/Reference Note#Design|Ref Design]]',
+					'[[003-Permanent/Old/A - Systems - Old Candidate Link.md|Old Candidate Alias]]',
+				],
+				body: 'Existing core synthesis body.',
+			})
+		);
+
+		// 1. Rebind Candidate 1 -> removes path/alias entry for Old Candidate Link while keeping all unrelated entries intact
+		const state1 = (await paperHub.getPaperState(litFile))!;
+		await library.connectCandidateToVault({
+			literatureFile: litFile,
+			citekey: 'preserve2026',
+			candidate: state1.takeawayCandidates[0],
+			mode: 'reuse',
+			targetFile: newCanonicalNote,
+			replacedFile: oldCandidateNote,
+			appendEvidence: true,
+			rewriteTakeaway: true,
+		});
+
+		const expectedLinks = [
+			'[[ongaro2014]]',
+			'[[Manual Architecture Scratchpad]]',
+			'[[003-Permanent/Manual/Custom Path Note.md|Custom Alias]]',
+			'[[Archive/Reference Note#Design|Ref Design]]',
+			'[[A - Systems - New Canonical Note]]',
+		];
+		const savedAfterRebind = parseCoreNoteContent(vaultContents.get(paths.coreNote)!);
+		expect(savedAfterRebind.linkedNotes).toEqual(expectedLinks);
+		expect(savedAfterRebind.projects).toEqual(['[[KernelProject]]']);
+		expect(savedAfterRebind.body).toBe('Existing core synthesis body.');
+
+		// 2. Idempotent re-linking on Candidate 1 does not duplicate [[A - Systems - New Canonical Note]]
+		const state2 = (await paperHub.getPaperState(litFile))!;
+		await library.connectCandidateToVault({
+			literatureFile: litFile,
+			citekey: 'preserve2026',
+			candidate: state2.takeawayCandidates[0],
+			mode: 'reuse',
+			targetFile: newCanonicalNote,
+			replacedFile: newCanonicalNote,
+			appendEvidence: true,
+		});
+		expect(parseCoreNoteContent(vaultContents.get(paths.coreNote)!).linkedNotes).toEqual(
+			expectedLinks
+		);
+
+		// 3. Linking Candidate 2 to a note already present via path/alias wikilink neither duplicates nor strips its alias
+		await library.connectCandidateToVault({
+			literatureFile: litFile,
+			citekey: 'preserve2026',
+			candidate: state2.takeawayCandidates[1],
+			mode: 'reuse',
+			targetFile: customPathNote,
+			replacedFile: null,
+			appendEvidence: false,
+			rewriteTakeaway: true,
+		});
+		expect(parseCoreNoteContent(vaultContents.get(paths.coreNote)!).linkedNotes).toEqual(
+			expectedLinks
 		);
 	});
 });

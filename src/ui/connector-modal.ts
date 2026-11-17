@@ -581,6 +581,7 @@ export class ConnectorModal extends Modal {
 						candidate,
 						mode: 'reuse',
 						targetFile: matchedFile,
+						replacedFile: matchedFile,
 						appendEvidence: this.appendEvidence,
 					});
 					new Notice(`Linked note: ${getBasename(target)}`);
@@ -610,6 +611,7 @@ export class ConnectorModal extends Modal {
 								candidate,
 								mode: 'reuse',
 								targetFile: chosenFile,
+								replacedFile: matchedFile,
 								appendEvidence: this.appendEvidence,
 								rewriteTakeaway: true,
 							});
@@ -643,6 +645,7 @@ export class ConnectorModal extends Modal {
 						citekey: state.citekey,
 						candidate,
 						mode: 'create',
+						replacedFile: matchedFile,
 						appendEvidence: this.appendEvidence,
 					});
 					new Notice(`Created and linked note: ${getBasename(target)}`);
@@ -671,6 +674,7 @@ export class ConnectorModal extends Modal {
 						citekey: state.citekey,
 						candidate,
 						mode: 'create',
+						replacedFile: matchedFile,
 						appendEvidence: this.appendEvidence,
 					});
 					new Notice(`Created and linked note: ${getBasename(target)}`);
@@ -703,6 +707,7 @@ export class ConnectorModal extends Modal {
 								candidate,
 								mode: 'reuse',
 								targetFile: chosenFile,
+								replacedFile: matchedFile,
 								appendEvidence: this.appendEvidence,
 								rewriteTakeaway: true,
 							});
