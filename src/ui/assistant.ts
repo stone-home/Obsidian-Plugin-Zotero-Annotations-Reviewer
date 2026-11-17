@@ -58,6 +58,15 @@ function getFileBasename(file: TFile): string {
 	return (file.name || file.path.split('/').pop() || '').replace(/\.md$/i, '');
 }
 
+export function isDoiUrl(rawUrl: string): boolean {
+	try {
+		const host = new URL(rawUrl).hostname.toLowerCase();
+		return host === 'doi.org' || host.endsWith('.doi.org');
+	} catch {
+		return false;
+	}
+}
+
 function parseWikiDisplay(rawLink: string): { linkPath: string; label: string } {
 	const inner = rawLink.replace(/^\[\[|\]\]$/g, '').trim();
 	const [target, alias] = inner.split('|');
@@ -451,7 +460,7 @@ export class AssistantView extends MarkdownRenderChild {
 			});
 			const iconSpan = doiLink.createSpan({ cls: 'zotero-res-pill-icon' });
 			setIcon(iconSpan, 'external-link');
-			doiLink.createSpan({ text: state.doiUrl.includes('doi.org/') ? 'DOI' : 'URL' });
+			doiLink.createSpan({ text: isDoiUrl(state.doiUrl) ? 'DOI' : 'URL' });
 		}
 
 		const openCodeModal = (currentUrl: string) => {

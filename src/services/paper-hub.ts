@@ -344,7 +344,10 @@ export function renderNoteTemplateString(template: string, vars: NoteTemplateVar
 	const rawTitle = (
 		vars.title !== undefined && vars.title.trim() ? vars.title : cleanCitekey
 	).trim();
-	const escapedTitle = rawTitle.replace(/\\"/g, '"').replace(/"/g, '\\"');
+	const escapedTitle = rawTitle
+		.replace(/\\/g, '\\\\')
+		.replace(/"/g, '\\"')
+		.replace(/\r?\n/g, ' ');
 	const cleanSourcePath = (
 		vars.sourcePath !== undefined && vars.sourcePath.trim()
 			? vars.sourcePath

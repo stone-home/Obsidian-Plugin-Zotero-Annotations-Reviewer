@@ -4508,7 +4508,7 @@ function renderNoteTemplateString(template, vars) {
   var _a, _b;
   const cleanCitekey = vars.citekey.trim();
   const rawTitle = (vars.title !== void 0 && vars.title.trim() ? vars.title : cleanCitekey).trim();
-  const escapedTitle = rawTitle.replace(/\\"/g, '"').replace(/"/g, '\\"');
+  const escapedTitle = rawTitle.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\r?\n/g, " ");
   const cleanSourcePath = (vars.sourcePath !== void 0 && vars.sourcePath.trim() ? vars.sourcePath : cleanCitekey).trim().replace(/\.md$/i, "");
   const cleanDate = ((_a = vars.date) == null ? void 0 : _a.trim()) || formatTodayIso();
   const cleanAtomicTitle = ((_b = vars.atomicTitle) != null ? _b : "").trim();
@@ -18916,6 +18916,14 @@ function getFileBasename(file) {
   if (file.basename) return file.basename;
   return (file.name || file.path.split("/").pop() || "").replace(/\.md$/i, "");
 }
+function isDoiUrl(rawUrl) {
+  try {
+    const host = new URL(rawUrl).hostname.toLowerCase();
+    return host === "doi.org" || host.endsWith(".doi.org");
+  } catch (e) {
+    return false;
+  }
+}
 function parseWikiDisplay(rawLink) {
   const inner = rawLink.replace(/^\[\[|\]\]$/g, "").trim();
   const [target, alias] = inner.split("|");
@@ -19241,7 +19249,7 @@ var AssistantView = class extends import_obsidian14.MarkdownRenderChild {
       });
       const iconSpan = doiLink.createSpan({ cls: "zotero-res-pill-icon" });
       (0, import_obsidian14.setIcon)(iconSpan, "external-link");
-      doiLink.createSpan({ text: state.doiUrl.includes("doi.org/") ? "DOI" : "URL" });
+      doiLink.createSpan({ text: isDoiUrl(state.doiUrl) ? "DOI" : "URL" });
     }
     const openCodeModal = (currentUrl) => {
       new CodeUrlModal(this.plugin.app, currentUrl, async (nextUrl) => {

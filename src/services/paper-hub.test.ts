@@ -29,6 +29,7 @@ import {
 	serializeCoreNoteContent,
 	unwrapTakeawayMarkdown,
 } from './paper-hub';
+import { isDoiUrl } from '../ui/assistant';
 import { ZoteroConnectorService } from './zotero-connector';
 
 jest.mock('obsidian', () => ({
@@ -408,10 +409,12 @@ describe('paper-hub pure helpers', () => {
 	});
 
 	describe('renderNoteTemplateString', () => {
-		it('substitutes citekey, title (with single quote-escaping), source_path, custom date, and atomic_title', () => {
+		it('substitutes citekey, losslessly escapes backslashes/quotes/LaTeX/newlines in title for YAML round-tripping, and handles source_path, date, and atomic_title', () => {
+			const complexTitle =
+				'Attention "Is" \\"Escaped\\" in $O(n\\log n)$\r\nLine2\nLine3 $& \\';
 			const rendered = renderNoteTemplateString(DEFAULT_REPORT1_NOTE_TEMPLATE, {
 				citekey: '  vaswani2017  ',
-				title: 'Attention "Is" Already \\"Escaped\\" $&',
+				title: complexTitle,
 				sourcePath: '002-Literature/vaswani2017.md',
 				date: '2026-04-15',
 			});
@@ -419,7 +422,7 @@ describe('paper-hub pure helpers', () => {
 			expect(rendered).toContain('citation-key: vaswani2017');
 			expect(rendered).toContain('type: deep-report');
 			expect(rendered).toContain(
-				'title: "Deep Report - Attention \\"Is\\" Already \\"Escaped\\" $&"'
+				'title: "Deep Report - Attention \\"Is\\" \\\\\\"Escaped\\\\\\" in $O(n\\\\log n)$ Line2 Line3 $& \\\\"'
 			);
 			expect(rendered).toContain('source: "[[002-Literature/vaswani2017|vaswani2017]]"');
 			expect(rendered).toContain('create: 2026-04-15');
@@ -429,11 +432,23 @@ describe('paper-hub pure helpers', () => {
 			expect(yaml.load(fmMatch![1])).toEqual({
 				'citation-key': 'vaswani2017',
 				type: 'deep-report',
-				title: 'Deep Report - Attention "Is" Already "Escaped" $&',
+				title: 'Deep Report - Attention "Is" \\"Escaped\\" in $O(n\\log n)$ Line2 Line3 $& \\',
 				source: '[[002-Literature/vaswani2017|vaswani2017]]',
 				create: new Date('2026-04-15T00:00:00.000Z'),
 				tags: ['type/report/deep'],
 			});
+
+			for (const singleLineTitle of [
+				'Sorting in $O(n\\log n)$ with \\alpha-trees',
+				'Trailing Backslash Path C:\\Users\\Alice\\',
+				'Mixed "Quotes" and \\"Escaped Quotes\\"',
+			]) {
+				const yamlLine = renderNoteTemplateString('title: "{{title}}"', {
+					citekey: 'test2026',
+					title: singleLineTitle,
+				});
+				expect(yaml.load(yamlLine)).toEqual({ title: singleLineTitle });
+			}
 
 			const atomicRendered = renderNoteTemplateString(
 				'{{ citekey }} | {{ date }} | # {{ atomic_title }}',
@@ -455,6 +470,27 @@ describe('paper-hub pure helpers', () => {
 				}
 			);
 			expect(fallbackRendered).toBe('title="bare2025" src="[[bare2025]]" atom=""');
+		});
+	});
+
+	describe('isDoiUrl', () => {
+		it('accepts doi.org and *.doi.org hostnames and rejects path/prefix spoofing or invalid URLs', () => {
+			expect(isDoiUrl('https://doi.org/10.1145/1327452.1327492')).toBe(true);
+			expect(isDoiUrl('http://DOI.ORG/10.1000/182')).toBe(true);
+			expect(isDoiUrl('https://dx.doi.org/10.1038/nature12373')).toBe(true);
+			expect(isDoiUrl('https://hdl.doi.org/10.1000/xyz')).toBe(true);
+
+			expect(isDoiUrl('https://example.com/doi.org/10.1000/1')).toBe(false);
+			expect(isDoiUrl('https://evil-doi.org/10.1000/1')).toBe(false);
+			expect(isDoiUrl('https://doi.org.evil.com/10.1000/1')).toBe(false);
+			expect(isDoiUrl('https://arxiv.org/abs/2401.00001?doi=doi.org')).toBe(false);
+
+			expect(isDoiUrl('')).toBe(false);
+			expect(isDoiUrl('   ')).toBe(false);
+			expect(isDoiUrl('10.1145/1327452.1327492')).toBe(false);
+			expect(isDoiUrl('doi.org/10.1000/1')).toBe(false);
+			expect(isDoiUrl('doi:10.1000/1')).toBe(false);
+			expect(isDoiUrl('not a url')).toBe(false);
 		});
 	});
 
