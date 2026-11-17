@@ -1,22 +1,36 @@
 import { App, Notice, TFile } from 'obsidian';
-import { CFPItem, MyPluginSettings, CFPItemWithPath, CFPConferenceMatch } from '../types';
-import { fetchWikiCFP } from './cfp-wikicfp';
-import { fetchCcfddl, parseCcfddlYaml, getCcfRankForSeriesTitle, CcfRankInfo } from './cfp-ccfddl';
 import {
-	fetchWikiCFPSeriesIndex,
-	fetchSeriesEvents
-} from './cfp-wikicfp-series';
+	CFPItem,
+	MyPluginSettings,
+	CFPItemWithPath,
+	CFPConferenceMatch,
+} from '../types';
+import { fetchWikiCFP } from './cfp-wikicfp';
+import {
+	fetchCcfddl,
+	parseCcfddlYaml,
+	getCcfRankForSeriesTitle,
+	CcfRankInfo,
+} from './cfp-ccfddl';
+import { fetchWikiCFPSeriesIndex, fetchSeriesEvents } from './cfp-wikicfp-series';
 import { fetchEasychair } from './cfp-easychair';
 import { fetchOpenresearch } from './cfp-openresearch';
 import { pureSeriesFromAcronym } from '../utils/series';
-import { CoreRankIndex, parseCoreCsv, getCoreRankForSeries as getCoreRankForSeriesFromIndex, CoreRankForSeries } from './cfp-core';
+import {
+	CoreRankIndex,
+	parseCoreCsv,
+	getCoreRankForSeries as getCoreRankForSeriesFromIndex,
+	CoreRankForSeries,
+} from './cfp-core';
 import { normalizePath } from '../utils/paths';
 
 function sanitizeFileName(name: string): string {
-	return name
-		.replace(/[\\/:*?"<>|]/g, '')
-		.trim()
-		.slice(0, 100) || 'cfp';
+	return (
+		name
+			.replace(/[\\/:*?"<>|]/g, '')
+			.trim()
+			.slice(0, 100) || 'cfp'
+	);
 }
 
 /** Normalize various date formats into YYYY-MM-DD for Dataview. */
@@ -48,7 +62,7 @@ function frontmatterFromItem(item: CFPItem, defaultTags: string[]): string {
 		'location: ' + JSON.stringify(item.location),
 		// Use underscore so Dataview can access it without quoting.
 		'submission_ddl: ' + JSON.stringify(ddl ?? ''),
-		'cfp-source: ' + JSON.stringify(item.source)
+		'cfp-source: ' + JSON.stringify(item.source),
 	];
 	if (item.series) lines.push('series: "[[' + item.series + ' Series]]"');
 	if (start) lines.push('start: ' + JSON.stringify(start));
@@ -66,7 +80,8 @@ async function ensureFolder(app: App, path: string): Promise<void> {
 		await app.vault.createFolder(normalized);
 	} catch (e) {
 		const msg = (e as Error)?.message ?? '';
-		if (!msg.includes('already exists') && !msg.includes('Folder already exists')) throw e;
+		if (!msg.includes('already exists') && !msg.includes('Folder already exists'))
+			throw e;
 	}
 }
 
@@ -91,12 +106,16 @@ export function getSeriesRefreshButtonDataviewJS(settings?: MyPluginSettings): s
 		'    if (window.__ZoteroAnnotationReviewerCFP)',
 		'      window.__ZoteroAnnotationReviewerCFP.refreshSeries(programUrl, seriesAcronym);',
 		'  });',
-		'}'
+		'}',
 	].join('\n');
 }
 
 /** Write content to path; create or overwrite. Handles "File already exists" by modifying existing file. */
-async function createOrOverwriteFile(app: App, path: string, content: string): Promise<void> {
+async function createOrOverwriteFile(
+	app: App,
+	path: string,
+	content: string
+): Promise<void> {
 	const normalized = normalizePath(path);
 	const existing = app.vault.getAbstractFileByPath(normalized);
 	if (existing && existing instanceof TFile) {
@@ -161,14 +180,18 @@ export class CFPService {
 	}
 
 	/** Convenience wrapper: derive CORE rank for a given series name. */
-	private async getCoreRankForSeries(seriesName: string): Promise<CoreRankForSeries | null> {
+	private async getCoreRankForSeries(
+		seriesName: string
+	): Promise<CoreRankForSeries | null> {
 		const index = await this.getOrLoadCoreIndex();
 		if (!index) return null;
 		return getCoreRankForSeriesFromIndex(index, seriesName);
 	}
 
 	/** Try to find CCF rank info for a given series title, with optional local YAML fallback. */
-	private async getCcfRankForSeries(seriesTitle: string): Promise<CcfRankInfo | null> {
+	private async getCcfRankForSeries(
+		seriesTitle: string
+	): Promise<CcfRankInfo | null> {
 		const direct = getCcfRankForSeriesTitle(seriesTitle);
 		if (direct) return direct;
 
@@ -186,7 +209,11 @@ export class CFPService {
 			parseCcfddlYaml(text);
 			return getCcfRankForSeriesTitle(seriesTitle) ?? null;
 		} catch (e) {
-			console.warn('[CFP] failed to load local allconf.yml for CCF rank at', localPath, e);
+			console.warn(
+				'[CFP] failed to load local allconf.yml for CCF rank at',
+				localPath,
+				e
+			);
 			return null;
 		}
 	}
@@ -231,7 +258,9 @@ export class CFPService {
 		return typeof m === 'object' && m !== null ? { ...m } : {};
 	}
 
-	async saveSeriesMap(map: Record<string, { programUrl: string; lastUpdate: number }>): Promise<void> {
+	async saveSeriesMap(
+		map: Record<string, { programUrl: string; lastUpdate: number }>
+	): Promise<void> {
 		this.getSettings().cfpSeriesMap = map;
 		await this.saveSettings();
 	}
@@ -247,13 +276,19 @@ export class CFPService {
 	async fetchAll(): Promise<CFPItem[]> {
 		const s = this.getSettings();
 		// Priority: WikiCFP > CCFDDL > EasyChair > OpenResearch (first occurrence wins)
-		const wikicfp = s.cfpWikicfpUrls?.length ? await fetchWikiCFP(s.cfpWikicfpUrls) : [];
+		const wikicfp = s.cfpWikicfpUrls?.length
+			? await fetchWikiCFP(s.cfpWikicfpUrls)
+			: [];
 		const ccfddl = await this.fetchCcfddlWithFallback();
-		const easychair = s.cfpEasychairUrls?.length ? await fetchEasychair(s.cfpEasychairUrls) : [];
-		const openresearch = s.cfpOpenresearchUrls?.length ? await fetchOpenresearch(s.cfpOpenresearchUrls) : [];
+		const easychair = s.cfpEasychairUrls?.length
+			? await fetchEasychair(s.cfpEasychairUrls)
+			: [];
+		const openresearch = s.cfpOpenresearchUrls?.length
+			? await fetchOpenresearch(s.cfpOpenresearchUrls)
+			: [];
 		const combined = [...wikicfp, ...ccfddl, ...easychair, ...openresearch];
 		const seen = new Set<string>();
-		return combined.filter(item => {
+		return combined.filter((item) => {
 			const key = item.acronym.toLowerCase();
 			if (seen.has(key)) return false;
 			seen.add(key);
@@ -264,7 +299,9 @@ export class CFPService {
 	async syncToNotes(items: CFPItem[]): Promise<number> {
 		const s = this.getSettings();
 		const dir = (s.cfpNoteDir || 'CFP').trim() || 'CFP';
-		const defaultTags = Array.isArray(s.cfpDefaultTags) ? s.cfpDefaultTags : ['cfp'];
+		const defaultTags = Array.isArray(s.cfpDefaultTags)
+			? s.cfpDefaultTags
+			: ['cfp'];
 		const basePath = normalizePath(dir);
 
 		await ensureFolder(this.app, basePath);
@@ -279,7 +316,12 @@ export class CFPService {
 			const notePath = this.itemToPath(basePath, item);
 			const existing = this.app.vault.getAbstractFileByPath(notePath);
 			if (existing) {
-				console.log('[CFP] skipping existing file:', notePath, 'item:', item.acronym);
+				console.log(
+					'[CFP] skipping existing file:',
+					notePath,
+					'item:',
+					item.acronym
+				);
 				skipped++;
 				continue;
 			}
@@ -294,7 +336,14 @@ export class CFPService {
 			const path = normalizePath(dirPath + '/' + fileName);
 			const yaml = frontmatterFromItem(item, defaultTags);
 			const content = '---\n' + yaml + '\n---\n\n';
-			console.log('[CFP] creating file:', path, 'acronym:', item.acronym, 'series:', item.series);
+			console.log(
+				'[CFP] creating file:',
+				path,
+				'acronym:',
+				item.acronym,
+				'series:',
+				item.series
+			);
 			try {
 				await createOrOverwriteFile(this.app, path, content);
 				created++;
@@ -302,7 +351,11 @@ export class CFPService {
 				console.error('[CFP] failed to create file:', path, e);
 			}
 		}
-		console.log('[CFP] syncToNotes result:', { total: items.length, created, skipped });
+		console.log('[CFP] syncToNotes result:', {
+			total: items.length,
+			created,
+			skipped,
+		});
 		return created;
 	}
 
@@ -334,13 +387,13 @@ export class CFPService {
 		// Compute ranking metadata (CCF + CORE) for this series.
 		const [ccfRank, coreRank] = await Promise.all([
 			this.getCcfRankForSeries(seriesName),
-			this.getCoreRankForSeries(seriesName)
+			this.getCoreRankForSeries(seriesName),
 		]);
 
 		const fmLines = [
 			'title: ' + JSON.stringify(title),
 			'tags: ' + JSON.stringify(defaultTags),
-			'cfp-series: true'
+			'cfp-series: true',
 		];
 		if (seriesUrl) fmLines.push('series-url: ' + JSON.stringify(seriesUrl));
 		// Store full name (e.g. "OSDI: Operating Systems Design and Implementation" → "Operating Systems Design and Implementation")
@@ -348,28 +401,41 @@ export class CFPService {
 			const displayName = seriesFullName.includes(':')
 				? seriesFullName.split(':').slice(1).join(':').trim()
 				: seriesFullName.trim();
-			if (displayName) fmLines.push('series-full-name: ' + JSON.stringify(displayName));
+			if (displayName)
+				fmLines.push('series-full-name: ' + JSON.stringify(displayName));
 		}
 
 		// Persist ranking only on Series notes.
 		if (ccfRank?.ccf) fmLines.push('rank_ccf: ' + JSON.stringify(ccfRank.ccf));
-		if (ccfRank?.thcpl) fmLines.push('rank_thcpl: ' + JSON.stringify(ccfRank.thcpl));
+		if (ccfRank?.thcpl)
+			fmLines.push('rank_thcpl: ' + JSON.stringify(ccfRank.thcpl));
 		if (ccfRank?.sub) fmLines.push('rank_sub: ' + JSON.stringify(ccfRank.sub));
-		if (coreRank?.coreLetter) fmLines.push('rank_core: ' + JSON.stringify(coreRank.coreLetter));
-		if (coreRank?.coreStatus) fmLines.push('rank_core_status: ' + JSON.stringify(coreRank.coreStatus));
-		if (coreRank?.collection) fmLines.push('rank_core_collection: ' + JSON.stringify(coreRank.collection));
+		if (coreRank?.coreLetter)
+			fmLines.push('rank_core: ' + JSON.stringify(coreRank.coreLetter));
+		if (coreRank?.coreStatus)
+			fmLines.push('rank_core_status: ' + JSON.stringify(coreRank.coreStatus));
+		if (coreRank?.collection)
+			fmLines.push(
+				'rank_core_collection: ' + JSON.stringify(coreRank.collection)
+			);
 
 		const fm = fmLines.join('\n');
 		const tableQuery = [
 			'TABLE file.link as "Event", acronym as "Acronym", "full-name" as "Full Name", location as "Location", submission_ddl as "Deadline", start as "Start", end as "End", cfp-source as "Source", url as "URL"',
 			'FROM [[' + seriesName + ' Series]]',
-			'SORT file.name DESC'
+			'SORT file.name DESC',
 		].join('\n');
 		const refreshButtonBlock = seriesUrl
-			? '\n```dataviewjs\n' + getSeriesRefreshButtonDataviewJS(this.getSettings()) + '\n```\n\n'
+			? '\n```dataviewjs\n' +
+				getSeriesRefreshButtonDataviewJS(this.getSettings()) +
+				'\n```\n\n'
 			: '';
 		const body = refreshButtonBlock + '```dataview\n' + tableQuery + '\n```\n';
-		await createOrOverwriteFile(this.app, seriesPath, '---\n' + fm + '\n---\n' + body);
+		await createOrOverwriteFile(
+			this.app,
+			seriesPath,
+			'---\n' + fm + '\n---\n' + body
+		);
 	}
 
 	async refresh(): Promise<void> {
@@ -389,7 +455,9 @@ export class CFPService {
 		new Notice('Refreshing WikiCFP URLs...');
 		try {
 			const s = this.getSettings();
-			const items = s.cfpWikicfpUrls?.length ? await fetchWikiCFP(s.cfpWikicfpUrls) : [];
+			const items = s.cfpWikicfpUrls?.length
+				? await fetchWikiCFP(s.cfpWikicfpUrls)
+				: [];
 			const synced = await this.syncToNotes(items);
 			new Notice(`WikiCFP URLs refreshed. ${synced} items synced.`);
 		} catch (e) {
@@ -414,7 +482,9 @@ export class CFPService {
 		new Notice('Refreshing EasyChair URLs...');
 		try {
 			const s = this.getSettings();
-			const items = s.cfpEasychairUrls?.length ? await fetchEasychair(s.cfpEasychairUrls) : [];
+			const items = s.cfpEasychairUrls?.length
+				? await fetchEasychair(s.cfpEasychairUrls)
+				: [];
 			const synced = await this.syncToNotes(items);
 			new Notice(`EasyChair URLs refreshed. ${synced} items synced.`);
 		} catch (e) {
@@ -427,7 +497,9 @@ export class CFPService {
 		new Notice('Refreshing OpenResearch URLs...');
 		try {
 			const s = this.getSettings();
-			const items = s.cfpOpenresearchUrls?.length ? await fetchOpenresearch(s.cfpOpenresearchUrls) : [];
+			const items = s.cfpOpenresearchUrls?.length
+				? await fetchOpenresearch(s.cfpOpenresearchUrls)
+				: [];
 			const synced = await this.syncToNotes(items);
 			new Notice(`OpenResearch URLs refreshed. ${synced} items synced.`);
 		} catch (e) {
@@ -446,7 +518,10 @@ export class CFPService {
 			try {
 				items = await fetchCcfddl(urls);
 			} catch (e) {
-				console.warn('[CFP] CCFDDL URL fetch failed, will try local fallback if configured.', e);
+				console.warn(
+					'[CFP] CCFDDL URL fetch failed, will try local fallback if configured.',
+					e
+				);
 			}
 		}
 
@@ -462,7 +537,11 @@ export class CFPService {
 					console.warn('[CFP] Local allconf.yml not found at', localPath);
 				}
 			} catch (e) {
-				console.warn('[CFP] Failed to read/parse local allconf.yml fallback at', s.cfpCcfddlLocalPath, e);
+				console.warn(
+					'[CFP] Failed to read/parse local allconf.yml fallback at',
+					s.cfpCcfddlLocalPath,
+					e
+				);
 			}
 		}
 
@@ -476,14 +555,18 @@ export class CFPService {
 	private async updateSeriesNoteRank(seriesName: string): Promise<void> {
 		const s = this.getSettings();
 		const baseDir = (s.cfpNoteDir || 'CFP').trim() || 'CFP';
-		const seriesFolder = normalizePath(baseDir + '/' + sanitizeFileName(seriesName));
-		const seriesPath = normalizePath(seriesFolder + '/' + sanitizeFileName(seriesName) + ' Series.md');
+		const seriesFolder = normalizePath(
+			baseDir + '/' + sanitizeFileName(seriesName)
+		);
+		const seriesPath = normalizePath(
+			seriesFolder + '/' + sanitizeFileName(seriesName) + ' Series.md'
+		);
 		const file = this.app.vault.getAbstractFileByPath(seriesPath);
 		if (!file || !(file instanceof TFile)) return;
 
 		const [ccfRank, coreRank] = await Promise.all([
 			this.getCcfRankForSeries(seriesName),
-			this.getCoreRankForSeries(seriesName)
+			this.getCoreRankForSeries(seriesName),
 		]);
 
 		const content = await this.app.vault.read(file);
@@ -494,17 +577,25 @@ export class CFPService {
 		const body = match[2] ?? '';
 
 		const lines = yamlPart.split('\n');
-		const cleaned = lines.filter(line => {
+		const cleaned = lines.filter((line) => {
 			const trimmed = line.trim();
-			return !/^(rank_ccf|rank_thcpl|rank_sub|rank_core|rank_core_status|rank_core_collection)\s*:/.test(trimmed);
+			return !/^(rank_ccf|rank_thcpl|rank_sub|rank_core|rank_core_status|rank_core_collection)\s*:/.test(
+				trimmed
+			);
 		});
 
 		if (ccfRank?.ccf) cleaned.push('rank_ccf: ' + JSON.stringify(ccfRank.ccf));
-		if (ccfRank?.thcpl) cleaned.push('rank_thcpl: ' + JSON.stringify(ccfRank.thcpl));
+		if (ccfRank?.thcpl)
+			cleaned.push('rank_thcpl: ' + JSON.stringify(ccfRank.thcpl));
 		if (ccfRank?.sub) cleaned.push('rank_sub: ' + JSON.stringify(ccfRank.sub));
-		if (coreRank?.coreLetter) cleaned.push('rank_core: ' + JSON.stringify(coreRank.coreLetter));
-		if (coreRank?.coreStatus) cleaned.push('rank_core_status: ' + JSON.stringify(coreRank.coreStatus));
-		if (coreRank?.collection) cleaned.push('rank_core_collection: ' + JSON.stringify(coreRank.collection));
+		if (coreRank?.coreLetter)
+			cleaned.push('rank_core: ' + JSON.stringify(coreRank.coreLetter));
+		if (coreRank?.coreStatus)
+			cleaned.push('rank_core_status: ' + JSON.stringify(coreRank.coreStatus));
+		if (coreRank?.collection)
+			cleaned.push(
+				'rank_core_collection: ' + JSON.stringify(coreRank.collection)
+			);
 
 		const newYaml = cleaned.join('\n');
 		const newContent = `---\n${newYaml}\n---\n${body}`;
@@ -517,40 +608,69 @@ export class CFPService {
 	 */
 	async refreshWikiCFPSeries(onProgress?: (msg: string) => void): Promise<void> {
 		const s = this.getSettings();
-		const letters = Array.isArray(s.cfpSeriesIndexLetters) && s.cfpSeriesIndexLetters.length > 0
-			? s.cfpSeriesIndexLetters
-			: undefined;
+		const letters =
+			Array.isArray(s.cfpSeriesIndexLetters) && s.cfpSeriesIndexLetters.length > 0
+				? s.cfpSeriesIndexLetters
+				: undefined;
 		const lettersDesc = letters ? ` (${letters.join(', ')})` : ' (A–Z)';
-		onProgress?.(`Fetching WikiCFP series index${lettersDesc} (5–10s between pages)...`);
+		onProgress?.(
+			`Fetching WikiCFP series index${lettersDesc} (5–10s between pages)...`
+		);
 		const entries = await fetchWikiCFPSeriesIndex(
 			(letter, count) => onProgress?.(`Index ${letter}: ${count} series`),
 			letters
 		);
 		const basePath = normalizePath((s.cfpNoteDir || 'CFP').trim() || 'CFP');
-		const defaultTags = Array.isArray(s.cfpDefaultTags) ? s.cfpDefaultTags : ['cfp'];
+		const defaultTags = Array.isArray(s.cfpDefaultTags)
+			? s.cfpDefaultTags
+			: ['cfp'];
 		await ensureFolder(this.app, basePath);
 		const map = this.getSeriesMap();
 		for (const entry of entries) {
-			const dirPath = normalizePath(basePath + '/' + sanitizeFileName(entry.seriesAcronym));
+			const dirPath = normalizePath(
+				basePath + '/' + sanitizeFileName(entry.seriesAcronym)
+			);
 			await ensureFolder(this.app, dirPath);
-			await this.ensureSeriesNote(dirPath, entry.seriesAcronym, defaultTags, entry.programUrl, entry.fullName);
+			await this.ensureSeriesNote(
+				dirPath,
+				entry.seriesAcronym,
+				defaultTags,
+				entry.programUrl,
+				entry.fullName
+			);
 			const key = entry.seriesAcronym;
 			if (!map[key] || map[key].programUrl !== entry.programUrl) {
-				map[key] = { programUrl: entry.programUrl, lastUpdate: map[key]?.lastUpdate ?? 0 };
+				map[key] = {
+					programUrl: entry.programUrl,
+					lastUpdate: map[key]?.lastUpdate ?? 0,
+				};
 			}
 		}
 		await this.saveSeriesMap(map);
 		await this.setLastSeriesFetchTime(Date.now());
-		onProgress?.('WikiCFP series index done. Use "Refresh events" on a Series note or wait for daily refresh.');
+		onProgress?.(
+			'WikiCFP series index done. Use "Refresh events" on a Series note or wait for daily refresh.'
+		);
 	}
 
 	/** Fetch events for one series by program URL and sync to notes. Updates series lastUpdate. */
-	async refreshSeriesByUrl(programUrl: string, seriesAcronym: string, onProgress?: (msg: string) => void): Promise<void> {
+	async refreshSeriesByUrl(
+		programUrl: string,
+		seriesAcronym: string,
+		onProgress?: (msg: string) => void
+	): Promise<void> {
 		onProgress?.('Fetching events...');
 		const events = await fetchSeriesEvents(programUrl, seriesAcronym, onProgress);
 		onProgress?.(`Found ${events.length} events, syncing to notes...`);
-		console.log('[CFP] refreshSeriesByUrl:', { programUrl, seriesAcronym, eventCount: events.length });
-		console.log('[CFP] events:', events.map(e => ({ acronym: e.acronym, series: e.series, url: e.url })));
+		console.log('[CFP] refreshSeriesByUrl:', {
+			programUrl,
+			seriesAcronym,
+			eventCount: events.length,
+		});
+		console.log(
+			'[CFP] events:',
+			events.map((e) => ({ acronym: e.acronym, series: e.series, url: e.url }))
+		);
 		const synced = await this.syncToNotes(events);
 		console.log('[CFP] synced count:', synced);
 		const map = this.getSeriesMap();
@@ -560,7 +680,11 @@ export class CFPService {
 		try {
 			await this.updateSeriesNoteRank(seriesAcronym);
 		} catch (e) {
-			console.warn('[CFP] failed to update Series rank after refreshSeriesByUrl for', seriesAcronym, e);
+			console.warn(
+				'[CFP] failed to update Series rank after refreshSeriesByUrl for',
+				seriesAcronym,
+				e
+			);
 		}
 		onProgress?.(`Synced ${synced} events.`);
 	}
@@ -574,11 +698,11 @@ export class CFPService {
 		await this.saveSettings();
 
 		const map = this.getSeriesMap();
-		const keys = Object.keys(map).filter(k => map[k].programUrl);
+		const keys = Object.keys(map).filter((k) => map[k].programUrl);
 		if (keys.length === 0) return;
 
 		const sorted = keys
-			.map(k => ({ key: k, lastUpdate: map[k].lastUpdate }))
+			.map((k) => ({ key: k, lastUpdate: map[k].lastUpdate }))
 			.sort((a, b) => a.lastUpdate - b.lastUpdate);
 		const toRefresh = sorted.slice(0, Math.min(20, Math.max(10, sorted.length)));
 		const MIN_GAP_MS = 30 * 60 * 1000;
@@ -587,9 +711,11 @@ export class CFPService {
 			const { key } = toRefresh[i];
 			const programUrl = map[key].programUrl;
 			setTimeout(() => {
-				this.refreshSeriesByUrl(programUrl, key, msg => console.log('[CFP]', key, msg))
+				this.refreshSeriesByUrl(programUrl, key, (msg) =>
+					console.log('[CFP]', key, msg)
+				)
 					.then(() => new Notice(`CFP: ${key} refreshed.`))
-					.catch(e => console.warn('[CFP] daily refresh failed', key, e));
+					.catch((e) => console.warn('[CFP] daily refresh failed', key, e));
 			}, i * MIN_GAP_MS);
 		}
 	}
@@ -598,7 +724,9 @@ export class CFPService {
 	async saveManualCFP(item: CFPItem): Promise<void> {
 		const s = this.getSettings();
 		const basePath = normalizePath((s.cfpNoteDir || 'CFP').trim() || 'CFP');
-		const defaultTags = Array.isArray(s.cfpDefaultTags) ? s.cfpDefaultTags : ['cfp'];
+		const defaultTags = Array.isArray(s.cfpDefaultTags)
+			? s.cfpDefaultTags
+			: ['cfp'];
 		await ensureFolder(this.app, basePath);
 		const dirPath = item.series
 			? normalizePath(basePath + '/' + sanitizeFileName(item.series))
@@ -632,9 +760,14 @@ export class CFPService {
 		const dirPath = normalizePath(dir);
 		const prefix = dirPath + '/';
 
-		const files = this.app.vault.getMarkdownFiles().filter(f => f.path.startsWith(prefix));
+		const files = this.app.vault
+			.getMarkdownFiles()
+			.filter((f) => f.path.startsWith(prefix));
 		if (files.length === 0) {
-			console.log('[CFP] findBestMatchingCFPForConference: no CFP notes found under', dirPath);
+			console.log(
+				'[CFP] findBestMatchingCFPForConference: no CFP notes found under',
+				dirPath
+			);
 			return { event: null };
 		}
 
@@ -645,55 +778,93 @@ export class CFPService {
 			const fm = cache?.frontmatter;
 			// Skip series notes themselves.
 			if (!fm || fm['cfp-series']) continue;
-			const submissionDdl = (fm['submission-ddl'] ?? fm['submission_ddl'] ?? '').toString();
+			const submissionDdl = (
+				fm['submission-ddl'] ??
+				fm['submission_ddl'] ??
+				''
+			).toString();
 			const item: CFPItem = {
 				acronym: (fm['acronym'] ?? '').toString(),
-				series: fm['series']?.toString()?.replace(/^\[\[|\]\]$/g, '').replace(/\s+Series$/, '') || undefined,
+				series:
+					fm['series']
+						?.toString()
+						?.replace(/^\[\[|\]\]$/g, '')
+						.replace(/\s+/g, ' ')
+						.replace(/ Series$/, '') || undefined,
 				fullName: (fm['full-name'] ?? fm['title'] ?? '').toString(),
 				location: (fm['location'] ?? '').toString(),
 				start: fm['start']?.toString(),
 				end: fm['end']?.toString(),
 				submissionDdl,
 				source: (fm['cfp-source'] ?? 'manual') as CFPItem['source'],
-				url: fm['url']?.toString()
+				url: fm['url']?.toString(),
 			};
 			if (!item.acronym) continue;
 			events.push({ item, path: file.path });
 		}
 
 		if (events.length === 0) {
-			console.log('[CFP] findBestMatchingCFPForConference: no event notes found under', dirPath, '(check CFP folder path in settings)');
+			console.log(
+				'[CFP] findBestMatchingCFPForConference: no event notes found under',
+				dirPath,
+				'(check CFP folder path in settings)'
+			);
 			return { event: null };
 		}
 
-		const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().replace(/\s+/g, ' ');
+		const norm = (s: string) =>
+			s
+				.toLowerCase()
+				.replace(/[^a-z0-9]+/g, ' ')
+				.trim()
+				.replace(/\s+/g, ' ');
 
 		// Workaround: if note has an acronym in a dedicated property, do exact match first (e.g. OSDI from "Proceedings of the 16th USENIX Symposium on OSDI").
 		const noteAcronym = meta.acronymFromNote?.trim();
 		if (noteAcronym) {
 			const noteNorm = norm(noteAcronym);
 			if (noteNorm) {
-				const exactMatches = events.filter(e => {
+				const exactMatches = events.filter((e) => {
 					const a = norm(e.item.acronym);
 					const series = e.item.series ? norm(e.item.series) : '';
-					return a === noteNorm || a.startsWith(noteNorm + ' ') || series === noteNorm;
+					return (
+						a === noteNorm ||
+						a.startsWith(noteNorm + ' ') ||
+						series === noteNorm
+					);
 				});
 
 				// Helper: return Series-only match when we can locate the Series note for this acronym.
 				const trySeriesOnlyFallback = (): CFPConferenceMatch | null => {
-					const seriesCandidates = [noteAcronym, pureSeriesFromAcronym(noteAcronym)];
+					const seriesCandidates = [
+						noteAcronym,
+						pureSeriesFromAcronym(noteAcronym),
+					];
 					for (const candidate of seriesCandidates) {
 						const seriesName = candidate.trim();
 						if (!seriesName) continue;
-						const seriesFolder = normalizePath(dirPath + '/' + sanitizeFileName(seriesName));
-						const seriesNotePath = normalizePath(seriesFolder + '/' + sanitizeFileName(seriesName) + ' Series.md');
-						const file = this.app.vault.getAbstractFileByPath(seriesNotePath);
+						const seriesFolder = normalizePath(
+							dirPath + '/' + sanitizeFileName(seriesName)
+						);
+						const seriesNotePath = normalizePath(
+							seriesFolder +
+								'/' +
+								sanitizeFileName(seriesName) +
+								' Series.md'
+						);
+						const file =
+							this.app.vault.getAbstractFileByPath(seriesNotePath);
 						if (file && file instanceof TFile) {
 							let latestTs = 0;
 							let latestStr: string | undefined;
 							for (const e of events) {
-								if (!e.item.series && pureSeriesFromAcronym(e.item.acronym) !== seriesName) continue;
-								if (e.item.series && e.item.series !== seriesName) continue;
+								if (
+									!e.item.series &&
+									pureSeriesFromAcronym(e.item.acronym) !== seriesName
+								)
+									continue;
+								if (e.item.series && e.item.series !== seriesName)
+									continue;
 								const ddl = e.item.submissionDdl;
 								if (!ddl) continue;
 								const d = new Date(ddl);
@@ -703,25 +874,37 @@ export class CFPService {
 									latestStr = ddl;
 								}
 							}
-							console.log('[CFP] findBestMatchingCFPForConference: series-only fallback by acronymFromNote', {
-								seriesName,
+							console.log(
+								'[CFP] findBestMatchingCFPForConference: series-only fallback by acronymFromNote',
+								{
+									seriesName,
+									seriesNotePath,
+									latestSeriesDdl: latestStr,
+								}
+							);
+							return {
+								event: null,
 								seriesNotePath,
-								latestSeriesDdl: latestStr
-							});
-							return { event: null, seriesNotePath, latestSeriesDdl: latestStr };
+								latestSeriesDdl: latestStr,
+							};
 						}
 					}
 					return null;
 				};
 
 				if (exactMatches.length === 0) {
-					console.log('[CFP] findBestMatchingCFPForConference: acronymFromNote had no exact match', {
-						acronymFromNote: noteAcronym,
-						noteNorm,
-						cfpDir: dirPath,
-						eventCount: events.length,
-						sampleAcronyms: events.slice(0, 8).map(e => e.item.acronym)
-					});
+					console.log(
+						'[CFP] findBestMatchingCFPForConference: acronymFromNote had no exact match',
+						{
+							acronymFromNote: noteAcronym,
+							noteNorm,
+							cfpDir: dirPath,
+							eventCount: events.length,
+							sampleAcronyms: events
+								.slice(0, 8)
+								.map((e) => e.item.acronym),
+						}
+					);
 					const fallback = trySeriesOnlyFallback();
 					if (fallback) return fallback;
 				} else {
@@ -733,8 +916,10 @@ export class CFPService {
 						return { event: null };
 					}
 					const yearStr = String(meta.year);
-					const yearMatches = exactMatches.filter(e =>
-						e.item.acronym.includes(yearStr) || (e.item.start != null && e.item.start.includes(yearStr))
+					const yearMatches = exactMatches.filter(
+						(e) =>
+							e.item.acronym.includes(yearStr) ||
+							(e.item.start != null && e.item.start.includes(yearStr))
 					);
 					if (yearMatches.length === 0) {
 						// No event for this year → series-only.
@@ -743,16 +928,35 @@ export class CFPService {
 						return { event: null };
 					}
 					const best = yearMatches[0];
-					console.log('[CFP] findBestMatchingCFPForConference: exact match by acronymFromNote', { acronymFromNote: noteAcronym, year: meta.year, chosen: best.item.acronym });
+					console.log(
+						'[CFP] findBestMatchingCFPForConference: exact match by acronymFromNote',
+						{
+							acronymFromNote: noteAcronym,
+							year: meta.year,
+							chosen: best.item.acronym,
+						}
+					);
 					const result: CFPConferenceMatch = { event: best };
-					const seriesName = best.item.series || pureSeriesFromAcronym(best.item.acronym);
+					const seriesName =
+						best.item.series || pureSeriesFromAcronym(best.item.acronym);
 					if (seriesName) {
-						const seriesFolder = normalizePath(dirPath + '/' + sanitizeFileName(seriesName));
-						result.seriesNotePath = normalizePath(seriesFolder + '/' + sanitizeFileName(seriesName) + ' Series.md');
+						const seriesFolder = normalizePath(
+							dirPath + '/' + sanitizeFileName(seriesName)
+						);
+						result.seriesNotePath = normalizePath(
+							seriesFolder +
+								'/' +
+								sanitizeFileName(seriesName) +
+								' Series.md'
+						);
 						let latestTs = 0;
 						let latestStr: string | undefined;
 						for (const e of events) {
-							if (!e.item.series && pureSeriesFromAcronym(e.item.acronym) !== seriesName) continue;
+							if (
+								!e.item.series &&
+								pureSeriesFromAcronym(e.item.acronym) !== seriesName
+							)
+								continue;
 							if (e.item.series && e.item.series !== seriesName) continue;
 							const ddl = e.item.submissionDdl;
 							if (!ddl) continue;
@@ -795,13 +999,37 @@ export class CFPService {
 
 		// Skip generic words when counting title overlap so "Proceedings... Conference... International" don't match any CFP.
 		const STOPWORDS = new Set([
-			'proceedings', 'the', 'and', 'on', 'in', 'of', 'to', 'for', 'conference', 'international',
-			'annual', 'workshop', 'symposium', 'region', 'pacific', 'europe', 'asia', 'high', 'performance',
-			'computing', 'abstract', 'interpretation', 'verification', 'model', 'checking'
+			'proceedings',
+			'the',
+			'and',
+			'on',
+			'in',
+			'of',
+			'to',
+			'for',
+			'conference',
+			'international',
+			'annual',
+			'workshop',
+			'symposium',
+			'region',
+			'pacific',
+			'europe',
+			'asia',
+			'high',
+			'performance',
+			'computing',
+			'abstract',
+			'interpretation',
+			'verification',
+			'model',
+			'checking',
 		]);
 		const meaningfulNameTokens = nameNorm
 			? new Set(
-					nameNorm.split(/\s+/).filter(t => t.length > 1 && !STOPWORDS.has(t))
+					nameNorm
+						.split(/\s+/)
+						.filter((t) => t.length > 1 && !STOPWORDS.has(t))
 				)
 			: new Set<string>();
 
@@ -815,30 +1043,48 @@ export class CFPService {
 			const locationNorm = norm(item.location);
 
 			// Series/acronym alignment: only when we have a real acronym (≥2 chars). Avoid "P" from "Proceedings" matching anything.
-			if (seriesTokenNorm.length >= 2 && (itemSeriesNorm.includes(seriesTokenNorm) || acronymNorm.startsWith(seriesTokenNorm))) {
+			if (
+				seriesTokenNorm.length >= 2 &&
+				(itemSeriesNorm.includes(seriesTokenNorm) ||
+					acronymNorm.startsWith(seriesTokenNorm))
+			) {
 				score += 60;
 			}
 
 			// Year alignment (in acronym, start date, or title).
 			if (year) {
 				const yearStr = String(year);
-				if (item.acronym.includes(yearStr) || (item.start && item.start.includes(yearStr))) {
+				if (
+					item.acronym.includes(yearStr) ||
+					(item.start && item.start.includes(yearStr))
+				) {
 					score += 40;
 				}
 			}
 
 			// Title/name similarity: only meaningful token overlap (exclude generic words).
 			if (meaningfulNameTokens.size > 0) {
-				const targetTokens = (acronymNorm + ' ' + fullNameNorm).split(/\s+/).filter(Boolean);
+				const targetTokens = (acronymNorm + ' ' + fullNameNorm)
+					.split(/\s+/)
+					.filter(Boolean);
 				let overlap = 0;
 				for (const t of targetTokens) {
-					if (t.length > 1 && !STOPWORDS.has(t) && meaningfulNameTokens.has(t)) overlap++;
+					if (
+						t.length > 1 &&
+						!STOPWORDS.has(t) &&
+						meaningfulNameTokens.has(t)
+					)
+						overlap++;
 				}
 				if (overlap > 0) score += Math.min(overlap * 5, 25);
 			}
 
 			// Location similarity.
-			if (placeNorm && placeNorm.length >= 3 && locationNorm.includes(placeNorm)) {
+			if (
+				placeNorm &&
+				placeNorm.length >= 3 &&
+				locationNorm.includes(placeNorm)
+			) {
 				score += 15;
 			}
 
@@ -858,7 +1104,9 @@ export class CFPService {
 		// When note has a year, require the chosen event to have the same year (acronym or start).
 		if (best && year) {
 			const yearStr = String(year);
-			const eventHasYear = best.item.acronym.includes(yearStr) || (best.item.start != null && best.item.start.includes(yearStr));
+			const eventHasYear =
+				best.item.acronym.includes(yearStr) ||
+				(best.item.start != null && best.item.start.includes(yearStr));
 			if (!eventHasYear) {
 				best = null;
 				bestScore = 0;
@@ -868,12 +1116,15 @@ export class CFPService {
 		// Only show when similarity is clearly high (e.g. acronym + year). Avoid "display worse than no display".
 		const MIN_SCORE = 100;
 		if (!best || bestScore < MIN_SCORE) {
-			console.log('[CFP] findBestMatchingCFPForConference: no strong match found', {
-				rawName,
-				place,
-				year,
-				bestScore
-			});
+			console.log(
+				'[CFP] findBestMatchingCFPForConference: no strong match found',
+				{
+					rawName,
+					place,
+					year,
+					bestScore,
+				}
+			);
 			return { event: null };
 		}
 
@@ -883,7 +1134,7 @@ export class CFPService {
 			year,
 			bestScore,
 			acronym: best.item.acronym,
-			series: best.item.series
+			series: best.item.series,
 		});
 
 		// Derive series information and latest submission deadline among that series.
@@ -891,14 +1142,22 @@ export class CFPService {
 		const seriesName = best.item.series || pureSeriesFromAcronym(best.item.acronym);
 		if (seriesName) {
 			// Series note path matches ensureSeriesNote.
-			const seriesFolder = normalizePath(dirPath + '/' + sanitizeFileName(seriesName));
-			result.seriesNotePath = normalizePath(seriesFolder + '/' + sanitizeFileName(seriesName) + ' Series.md');
+			const seriesFolder = normalizePath(
+				dirPath + '/' + sanitizeFileName(seriesName)
+			);
+			result.seriesNotePath = normalizePath(
+				seriesFolder + '/' + sanitizeFileName(seriesName) + ' Series.md'
+			);
 
 			// Find latest submission_ddl among events of this series.
 			let latestTs = 0;
 			let latestStr: string | undefined;
 			for (const e of events) {
-				if (!e.item.series && pureSeriesFromAcronym(e.item.acronym) !== seriesName) continue;
+				if (
+					!e.item.series &&
+					pureSeriesFromAcronym(e.item.acronym) !== seriesName
+				)
+					continue;
 				if (e.item.series && e.item.series !== seriesName) continue;
 				const ddl = e.item.submissionDdl;
 				if (!ddl) continue;
@@ -924,28 +1183,31 @@ export class CFPService {
 		const dirPath = normalizePath(dir);
 		const prefix = dirPath + '/';
 		const code = getSeriesRefreshButtonDataviewJS(s);
-		
-		const files = this.app.vault.getMarkdownFiles().filter(f => {
+
+		const files = this.app.vault.getMarkdownFiles().filter((f) => {
 			if (!f.path.startsWith(prefix)) return false;
 			const cache = this.app.metadataCache.getFileCache(f);
 			return cache?.frontmatter?.['cfp-series'] === true;
 		});
-		
+
 		let updated = 0;
 		for (const file of files) {
 			try {
 				const content = await this.app.vault.read(file);
 				const cache = this.app.metadataCache.getFileCache(file);
 				const seriesUrl = cache?.frontmatter?.['series-url']?.toString?.();
-				
+
 				// Only update if series-url exists (has refresh button)
 				if (!seriesUrl) continue;
-				
+
 				// Find dataviewjs code block and replace it
 				const codeBlockRe = /```dataviewjs\n([\s\S]*?)\n```/;
 				const match = content.match(codeBlockRe);
 				if (match) {
-					const newContent = content.replace(codeBlockRe, '```dataviewjs\n' + code + '\n```');
+					const newContent = content.replace(
+						codeBlockRe,
+						'```dataviewjs\n' + code + '\n```'
+					);
 					if (newContent !== content) {
 						await this.app.vault.modify(file, newContent);
 						updated++;
@@ -954,7 +1216,10 @@ export class CFPService {
 					// No dataviewjs block found, try to insert before dataview table block
 					const tableBlockRe = /(```dataview\n[\s\S]*?```)/;
 					if (tableBlockRe.test(content)) {
-						const newContent = content.replace(tableBlockRe, '```dataviewjs\n' + code + '\n```\n\n$1');
+						const newContent = content.replace(
+							tableBlockRe,
+							'```dataviewjs\n' + code + '\n```\n\n$1'
+						);
 						await this.app.vault.modify(file, newContent);
 						updated++;
 					}
@@ -970,14 +1235,23 @@ export class CFPService {
 	private parseCFPItemFromFrontmatter(fm: Record<string, unknown>): CFPItem {
 		return {
 			acronym: (fm['acronym'] ?? '').toString(),
-			series: fm['series']?.toString()?.replace(/^\[\[|\]\]$/g, '').replace(/\s+Series$/, '') || undefined,
+			series:
+				fm['series']
+					?.toString()
+					?.replace(/^\[\[|\]\]$/g, '')
+					.replace(/\s+/g, ' ')
+					.replace(/ Series$/, '') || undefined,
 			fullName: (fm['full-name'] ?? fm['title'] ?? '').toString(),
 			location: (fm['location'] ?? '').toString(),
 			start: fm['start']?.toString(),
 			end: fm['end']?.toString(),
-			submissionDdl: (fm['submission-ddl'] ?? fm['submission_ddl'] ?? '').toString(),
+			submissionDdl: (
+				fm['submission-ddl'] ??
+				fm['submission_ddl'] ??
+				''
+			).toString(),
 			source: (fm['cfp-source'] ?? 'manual') as CFPItem['source'],
-			url: fm['url']?.toString()
+			url: fm['url']?.toString(),
 		};
 	}
 
@@ -998,35 +1272,62 @@ export class CFPService {
 	}
 
 	/** Find the latest event in a series (by submission deadline, most recent first). */
-	private findLatestInSeries(events: CFPItemWithPath[], seriesName: string): CFPItemWithPath | undefined {
+	private findLatestInSeries(
+		events: CFPItemWithPath[],
+		seriesName: string
+	): CFPItemWithPath | undefined {
 		let best: CFPItemWithPath | undefined;
 		let bestTs = -Infinity;
 		for (const e of events) {
-			const inSeries = (e.item.series === seriesName) || (!e.item.series && pureSeriesFromAcronym(e.item.acronym) === seriesName);
+			const inSeries =
+				e.item.series === seriesName ||
+				(!e.item.series &&
+					pureSeriesFromAcronym(e.item.acronym) === seriesName);
 			if (!inSeries || !e.item.submissionDdl) continue;
 			const ts = new Date(e.item.submissionDdl).getTime();
-			if (!isNaN(ts) && ts > bestTs) { bestTs = ts; best = e; }
+			if (!isNaN(ts) && ts > bestTs) {
+				bestTs = ts;
+				best = e;
+			}
 		}
 		return best;
 	}
 
 	/** Get series info by acronym (plain string). */
-	getSeriesInfoByAcronym(acronym: string): { seriesNotePath: string; latestEvent?: CFPItemWithPath; seriesName: string } | null {
+	getSeriesInfoByAcronym(acronym: string): {
+		seriesNotePath: string;
+		latestEvent?: CFPItemWithPath;
+		seriesName: string;
+	} | null {
 		const trimmed = acronym?.trim();
 		if (!trimmed) return null;
 		const { events, dirPath } = this.getEventsUnderCfpDir();
 		for (const seriesName of [trimmed, pureSeriesFromAcronym(trimmed)]) {
 			if (!seriesName?.trim()) continue;
-			const seriesNotePath = normalizePath(`${dirPath}/${sanitizeFileName(seriesName)}/${sanitizeFileName(seriesName)} Series.md`);
+			const seriesNotePath = normalizePath(
+				`${dirPath}/${sanitizeFileName(seriesName)}/${sanitizeFileName(seriesName)} Series.md`
+			);
 			if (this.app.vault.getAbstractFileByPath(seriesNotePath) instanceof TFile) {
-				return { seriesNotePath, latestEvent: this.findLatestInSeries(events, seriesName), seriesName: seriesName.trim() };
+				return {
+					seriesNotePath,
+					latestEvent: this.findLatestInSeries(events, seriesName),
+					seriesName: seriesName.trim(),
+				};
 			}
 		}
 		return null;
 	}
 
 	/** Get CFP note info by file path (for links). */
-	getCFPNoteInfoByPath(filePath: string): { isSeries: true; seriesNotePath: string; latestEvent?: CFPItemWithPath; seriesName: string } | { isSeries: false; latestEvent?: CFPItemWithPath; event: CFPItemWithPath } | null {
+	getCFPNoteInfoByPath(filePath: string):
+		| {
+				isSeries: true;
+				seriesNotePath: string;
+				latestEvent?: CFPItemWithPath;
+				seriesName: string;
+		  }
+		| { isSeries: false; latestEvent?: CFPItemWithPath; event: CFPItemWithPath }
+		| null {
 		const dir = (this.getSettings().cfpNoteDir || 'CFP').trim() || 'CFP';
 		const prefix = normalizePath(dir) + '/';
 		if (!filePath.startsWith(prefix)) return null;
@@ -1036,22 +1337,42 @@ export class CFPService {
 		if (!fm) return null;
 		const { events } = this.getEventsUnderCfpDir();
 		if (fm['cfp-series'] === true) {
-			const seriesName = (file.basename || '').replace(/\s+Series$/i, '').trim();
-			return { isSeries: true, seriesNotePath: file.path, latestEvent: this.findLatestInSeries(events, seriesName), seriesName };
+			const seriesName = (file.basename || '')
+				.replace(/\s+/g, ' ')
+				.replace(/ Series$/i, '')
+				.trim();
+			return {
+				isSeries: true,
+				seriesNotePath: file.path,
+				latestEvent: this.findLatestInSeries(events, seriesName),
+				seriesName,
+			};
 		}
 		const item = this.parseCFPItemFromFrontmatter(fm);
-		const seriesName = item.series?.trim() || (file.parent?.name !== dir ? file.parent?.name : null) || pureSeriesFromAcronym(item.acronym);
-		return { isSeries: false, latestEvent: seriesName ? this.findLatestInSeries(events, seriesName) : undefined, event: { item, path: file.path } };
+		const seriesName =
+			item.series?.trim() ||
+			(file.parent?.name !== dir ? file.parent?.name : null) ||
+			pureSeriesFromAcronym(item.acronym);
+		return {
+			isSeries: false,
+			latestEvent: seriesName
+				? this.findLatestInSeries(events, seriesName)
+				: undefined,
+			event: { item, path: file.path },
+		};
 	}
 
 	/** Read all CFP notes from the folder; return upcoming and past, each with item + path for opening. */
-	async getCFPNotesForDisplay(): Promise<{ upcoming: { item: CFPItem; path: string }[]; past: { item: CFPItem; path: string }[] }> {
+	async getCFPNotesForDisplay(): Promise<{
+		upcoming: { item: CFPItem; path: string }[];
+		past: { item: CFPItem; path: string }[];
+	}> {
 		const s = this.getSettings();
 		const dir = (s.cfpNoteDir || 'CFP').trim() || 'CFP';
 		const dirPath = normalizePath(dir);
 		const prefix = dirPath + '/';
 		const rel = (p: string) => p.slice(prefix.length);
-		const files = this.app.vault.getMarkdownFiles().filter(f => {
+		const files = this.app.vault.getMarkdownFiles().filter((f) => {
 			if (!f.path.startsWith(prefix)) return false;
 			const r = rel(f.path);
 			return (r.match(/\//g) || []).length <= 1; // root or one subdir (series folder)
@@ -1067,22 +1388,37 @@ export class CFPService {
 			const cache = this.app.metadataCache.getFileCache(file);
 			const fm = cache?.frontmatter;
 			if (!fm || fm['cfp-series']) continue;
-			const submissionDdl = (fm['submission-ddl'] ?? fm['submission_ddl'] ?? '').toString();
+			const submissionDdl = (
+				fm['submission-ddl'] ??
+				fm['submission_ddl'] ??
+				''
+			).toString();
 			const item: CFPItem = {
 				acronym: (fm['acronym'] ?? '').toString(),
-				series: fm['series']?.toString()?.replace(/^\[\[|\]\]$/g, '').replace(/\s+Series$/, '') || undefined,
+				series:
+					fm['series']
+						?.toString()
+						?.replace(/^\[\[|\]\]$/g, '')
+						.replace(/\s+/g, ' ')
+						.replace(/ Series$/, '') || undefined,
 				fullName: (fm['full-name'] ?? fm['title'] ?? '').toString(),
 				location: (fm['location'] ?? '').toString(),
 				start: fm['start']?.toString(),
 				end: fm['end']?.toString(),
 				submissionDdl,
 				source: (fm['cfp-source'] ?? 'manual') as CFPItem['source'],
-				url: fm['url']?.toString()
+				url: fm['url']?.toString(),
 			};
 			withPathAndTs.push({ item, path: file.path, ts: parseDate(submissionDdl) });
 		}
-		const upcoming = withPathAndTs.filter(x => x.ts >= now).sort((a, b) => a.ts - b.ts).map(({ item, path }) => ({ item, path }));
-		const past = withPathAndTs.filter(x => x.ts > 0 && x.ts < now).sort((a, b) => b.ts - a.ts).map(({ item, path }) => ({ item, path }));
+		const upcoming = withPathAndTs
+			.filter((x) => x.ts >= now)
+			.sort((a, b) => a.ts - b.ts)
+			.map(({ item, path }) => ({ item, path }));
+		const past = withPathAndTs
+			.filter((x) => x.ts > 0 && x.ts < now)
+			.sort((a, b) => b.ts - a.ts)
+			.map(({ item, path }) => ({ item, path }));
 		return { upcoming, past };
 	}
 
@@ -1092,7 +1428,7 @@ export class CFPService {
 		const dir = (s.cfpNoteDir || 'CFP').trim() || 'CFP';
 		const dirPath = normalizePath(dir);
 		const prefix = dirPath + '/';
-		const files = this.app.vault.getMarkdownFiles().filter(f => {
+		const files = this.app.vault.getMarkdownFiles().filter((f) => {
 			if (!f.path.startsWith(prefix)) return false;
 			const cache = this.app.metadataCache.getFileCache(f);
 			return cache?.frontmatter?.['cfp-series'] === true;
@@ -1100,7 +1436,10 @@ export class CFPService {
 
 		let updated = 0;
 		for (const file of files) {
-			const base = file.basename.replace(/\s+Series$/i, '').trim();
+			const base = file.basename
+				.replace(/\s+/g, ' ')
+				.replace(/ Series$/i, '')
+				.trim();
 			if (!base) continue;
 			try {
 				await this.updateSeriesNoteRank(base);

@@ -2,7 +2,10 @@ import { MarkdownRenderChild, TFile } from 'obsidian';
 import ZoteroGKPlugin from '../main';
 
 export class CFPListView extends MarkdownRenderChild {
-	constructor(containerEl: HTMLElement, private plugin: ZoteroGKPlugin) {
+	constructor(
+		containerEl: HTMLElement,
+		private plugin: ZoteroGKPlugin
+	) {
 		super(containerEl);
 	}
 
@@ -13,7 +16,18 @@ export class CFPListView extends MarkdownRenderChild {
 
 		const data = await this.plugin.cfpService.getCFPNotesForDisplay();
 
-		const section = (title: string, entries: { item: { acronym: string; fullName: string; location: string; submissionDdl: string }; path: string }[]) => {
+		const section = (
+			title: string,
+			entries: {
+				item: {
+					acronym: string;
+					fullName: string;
+					location: string;
+					submissionDdl: string;
+				};
+				path: string;
+			}[]
+		) => {
 			const block = el.createDiv({ cls: 'zotero-cfp-list-section' });
 			block.createEl('h4', { text: title });
 			if (entries.length === 0) {
@@ -25,7 +39,12 @@ export class CFPListView extends MarkdownRenderChild {
 				const row = list.createDiv({ cls: 'zotero-cfp-list-row' });
 				row.createSpan({ cls: 'zotero-cfp-acronym', text: item.acronym });
 				row.createSpan({ cls: 'zotero-cfp-ddl', text: item.submissionDdl });
-				row.createSpan({ cls: 'zotero-cfp-name', text: item.fullName.slice(0, 50) + (item.fullName.length > 50 ? '…' : '') });
+				row.createSpan({
+					cls: 'zotero-cfp-name',
+					text:
+						item.fullName.slice(0, 50) +
+						(item.fullName.length > 50 ? '…' : ''),
+				});
 				row.createSpan({ cls: 'zotero-cfp-location', text: item.location });
 				row.addEventListener('click', () => {
 					const file = this.plugin.app.vault.getAbstractFileByPath(path);

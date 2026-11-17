@@ -5,7 +5,7 @@ import { pureSeriesFromAcronym } from '../utils/series';
 const DELAY_MS = 1500;
 
 function delay(ms: number): Promise<void> {
-	return new Promise(resolve => setTimeout(resolve, ms));
+	return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function stripHtml(html: string): string {
@@ -48,7 +48,7 @@ function parseEasychairRow(rowHtml: string, pageUrl: string): CFPItem | null {
 		end: undefined,
 		submissionDdl,
 		source: 'easychair',
-		url: pageUrl
+		url: pageUrl,
 	};
 }
 
@@ -58,7 +58,12 @@ function parseEasychairHtml(html: string, pageUrl: string): CFPItem[] {
 	let rowMatch: RegExpExecArray | null;
 	while ((rowMatch = rowRe.exec(html)) !== null) {
 		const rowHtml = rowMatch[1];
-		if (/<th[\s>]|Acronym\s*<\/|Name\s*<\/|Location\s*<\/|Submission\s*<\//i.test(rowHtml)) continue;
+		if (
+			/<th[\s>]|Acronym\s*<\/|Name\s*<\/|Location\s*<\/|Submission\s*<\//i.test(
+				rowHtml
+			)
+		)
+			continue;
 		const item = parseEasychairRow(rowHtml, pageUrl);
 		if (item) items.push(item);
 	}

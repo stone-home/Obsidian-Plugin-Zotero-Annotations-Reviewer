@@ -1,6 +1,6 @@
 import { App, TFile, Notice } from 'obsidian';
 import { ZoteroAnnotation, ZoteroItemMetadata, MyPluginSettings } from '../types';
-import {ObsidianNoteFactory, ZettelNoteModel} from 'markdown-note-orm';
+import { ObsidianNoteFactory, ZettelNoteModel } from 'markdown-note-orm';
 import { normalizePath } from '../utils/paths';
 
 export class ObsidianService {
@@ -16,19 +16,31 @@ export class ObsidianService {
 	 * Create/Update the Dashboard Note (Literature Note)
 	 */
 	async createLiteratureNote(metadata: ZoteroItemMetadata): Promise<TFile> {
-		const fileName = metadata.title.replace(/[\\/:*?"<>|]/g, "").trim().slice(0, 60);
-		const path = normalizePath(`${this.settings.fleetingNoteFolder}/@${metadata.key} - ${fileName}.md`);
+		const fileName = metadata.title
+			.replace(/[\\/:*?"<>|]/g, '')
+			.trim()
+			.slice(0, 60);
+		const path = normalizePath(
+			`${this.settings.fleetingNoteFolder}/@${metadata.key} - ${fileName}.md`
+		);
 
-		let note: ZettelNoteModel<any>;
+		let note: ZettelNoteModel;
 		const existing = this.app.vault.getAbstractFileByPath(path);
 
 		if (existing instanceof TFile) {
 			note = await ObsidianNoteFactory.loadAndPatch(this.app, path);
 		} else {
-			if (!this.app.vault.getAbstractFileByPath(this.settings.fleetingNoteFolder)) {
+			if (
+				!this.app.vault.getAbstractFileByPath(this.settings.fleetingNoteFolder)
+			) {
 				await this.app.vault.createFolder(this.settings.fleetingNoteFolder);
 			}
-			note = await ObsidianNoteFactory.createByType(this.app, path, 'literature', metadata.title);
+			note = await ObsidianNoteFactory.createByType(
+				this.app,
+				path,
+				'literature',
+				metadata.title
+			);
 		}
 
 		note.properties.set('zotero-key', String(metadata.key));
@@ -50,23 +62,30 @@ export class ObsidianService {
 	 */
 	async saveNote(
 		annotation: ZoteroAnnotation,
-		mode: 'create' | 'overwrite' | "append",
+		mode: 'create' | 'overwrite' | 'append',
 		targetFile?: TFile,
 		imageFile?: TFile | null
 	): Promise<void> {
-		let note: ZettelNoteModel<any>;
+		let note: ZettelNoteModel;
 
 		if (mode === 'create') {
 			const path = await this.getUniquePath(annotation);
-			note = await ObsidianNoteFactory.createByType(this.app, path, 'fleeting', this.generateTitle(annotation));
+			note = await ObsidianNoteFactory.createByType(
+				this.app,
+				path,
+				'fleeting',
+				this.generateTitle(annotation)
+			);
 			await this.setNoteContent(note, annotation, imageFile || null);
 		} else if (mode === 'overwrite' && targetFile) {
 			note = await ObsidianNoteFactory.loadAndPatch(this.app, targetFile.path);
-			await this.modifyToNote(note, annotation, true, imageFile || null, );
-		} else if (mode === "append" && targetFile) {
+			await this.modifyToNote(note, annotation, true, imageFile || null);
+		} else if (mode === 'append' && targetFile) {
 			note = await ObsidianNoteFactory.loadAndPatch(this.app, targetFile.path);
 			await this.modifyToNote(note, annotation, false, imageFile || null);
-		} else { return; }
+		} else {
+			return;
+		}
 
 		await note.save();
 	}
@@ -88,69 +107,111 @@ export class ObsidianService {
 
 	findLocalImage(annotation: ZoteroAnnotation): TFile | null {
 		const files = this.app.vault.getFiles();
-		const imageFiles = files.filter(f => ['png','jpg','jpeg'].includes(f.extension.toLowerCase()));
+		const imageFiles = files.filter((f) =>
+			['png', 'jpg', 'jpeg'].includes(f.extension.toLowerCase())
+		);
 
 		// Strategy 1: Check for Annotation Key
-		const keyMatch = imageFiles.find(f => f.name.includes(annotation.key));
+		const keyMatch = imageFiles.find((f) => f.name.includes(annotation.key));
 		if (keyMatch) return keyMatch;
 
 		// Strategy 2: Coordinate Match (Standard Zotero Integration Format)
-		if (annotation.position && annotation.position.rects && annotation.position.rects.length > 0) {
+		if (
+			typeof annotation.position === 'object' &&
+			annotation.position !== null &&
+			Array.isArray(annotation.position.rects) &&
+			annotation.position.rects.length > 0
+		) {
 			const rect = annotation.position.rects[0];
 			const targetX = Math.round(rect[0]);
 			const targetY = Math.round(rect[1]);
 			const targetPage = (annotation.position.pageIndex || 0) + 1;
 
-			return imageFiles.find(f => {
-				const name = f.name;
-				if (!name.includes(annotation.citationKey)) return false;
-				if (!name.includes(`p${targetPage}`) && !name.includes(`-${targetPage}-`)) return false;
-				return name.includes(`x${targetX}`) && name.includes(`y${targetY}`);
-			}) || null;
+			return (
+				imageFiles.find((f) => {
+					const name = f.name;
+					if (!name.includes(annotation.citationKey)) return false;
+					if (
+						!name.includes(`p${targetPage}`) &&
+						!name.includes(`-${targetPage}-`)
+					)
+						return false;
+					return name.includes(`x${targetX}`) && name.includes(`y${targetY}`);
+				}) || null
+			);
 		}
 
 		return null;
 	}
 
-	private async modifyToNote(note: ZettelNoteModel<any>, ann: ZoteroAnnotation,  replace: boolean = false, imageFile?: TFile | null): Promise<void> {
-		const lines = [`\`\`\`ad-quote`, `title: Modified at ${ann.date}`, `${ann.text}`, `\`\`\``];
-		if (imageFile) lines.push("", `![[${imageFile.path}]]`);
+	private async modifyToNote(
+		note: ZettelNoteModel,
+		ann: ZoteroAnnotation,
+		replace: boolean = false,
+		imageFile?: TFile | null
+	): Promise<void> {
+		const lines = [
+			`\`\`\`ad-quote`,
+			`title: Modified at ${ann.date}`,
+			`${ann.text}`,
+			`\`\`\``,
+		];
+		if (imageFile) lines.push('', `![[${imageFile.path}]]`);
 
 		if (replace) {
-			const highlightContent = note.content.getSection("Highlight")
+			const highlightContent = note.content.getSection('Highlight');
 			if (highlightContent) {
-				highlightContent.content = []
+				highlightContent.content = [];
 			}
-			const thoughtContent = note.content.getSection("Thoughts")
+			const thoughtContent = note.content.getSection('Thoughts');
 			if (thoughtContent) {
-				thoughtContent.content = []
+				thoughtContent.content = [];
 			}
 		}
 		note.content.addSection('Highlight', 2, lines);
-		if (ann.comment) note.content.addSection('Thoughts', 2, [`Comment at ${ann.date}`, ann.comment]);
-		new Notice("Appended.");
+		if (ann.comment)
+			note.content.addSection('Thoughts', 2, [
+				`Comment at ${ann.date}`,
+				ann.comment,
+			]);
+		new Notice('Appended.');
 	}
 
-	private async setNoteContent(note: ZettelNoteModel<any>, ann: ZoteroAnnotation, img: TFile | null) {
+	private async setNoteContent(
+		note: ZettelNoteModel,
+		ann: ZoteroAnnotation,
+		img: TFile | null
+	) {
 		const activeFile = this.app.workspace.getActiveFile();
 		if (activeFile) {
-			if (activeFile.parent?.path && activeFile.parent.path !== "/"){
-				note.addSourceToProps(`[[${activeFile.parent.path}/${activeFile.basename}]]`)
+			if (activeFile.parent?.path && activeFile.parent.path !== '/') {
+				note.addSourceToProps(
+					`[[${activeFile.parent.path}/${activeFile.basename}]]`
+				);
 			} else {
-				note.addSourceToProps(`[[${activeFile.basename}]]`)
+				note.addSourceToProps(`[[${activeFile.basename}]]`);
 			}
 		}
 
 		note.properties.set(this.settings.annotationKeyName, ann.key);
 		note.properties.set(this.settings.citationKeyName, ann.citationKey);
 
-		const lines = [`\`\`\`ad-quote`, `title: Modified at ${ann.date}`, `${ann.text}`, `\`\`\``];
-		if (img) lines.push("", `![[${img.path}]]`);
+		const lines = [
+			`\`\`\`ad-quote`,
+			`title: Modified at ${ann.date}`,
+			`${ann.text}`,
+			`\`\`\``,
+		];
+		if (img) lines.push('', `![[${img.path}]]`);
 
 		note.content.addSection('Highlight', 2, lines);
-		if (ann.comment) note.content.addSection('Thoughts', 2, [`Comment at ${ann.date}`, ann.comment]);
+		if (ann.comment)
+			note.content.addSection('Thoughts', 2, [
+				`Comment at ${ann.date}`,
+				ann.comment,
+			]);
 		note.content.addSection('Source', 2, [`[PDF](${ann.link})`]);
-		note.content.addSection("Related Projects", 2, ["```project-picker\n```\n"])
+		note.content.addSection('Related Projects', 2, ['```project-picker\n```\n']);
 	}
 
 	private generateTitle(ann: ZoteroAnnotation): string {

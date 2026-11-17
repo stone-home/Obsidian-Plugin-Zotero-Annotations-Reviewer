@@ -42,6 +42,529 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "symbol" ? key + "" : key, value);
 
+// src/types.ts
+var DEFAULT_PAPER_WORKSPACE, DEFAULT_ZOTERO_TEMPLATE, DEFAULT_SYNTHESIZE_PROMPT, DEFAULT_REPORT1_PROMPT, DEFAULT_REPORT2_PROMPT, DEFAULT_REPORT1_NOTE_TEMPLATE, DEFAULT_REPORT2_NOTE_TEMPLATE, DEFAULT_TAKEAWAY_NOTE_TEMPLATE, DEFAULT_CORE_NOTE_TEMPLATE, DEFAULT_ATOMIC_NOTE_TEMPLATE, DEFAULT_PROMPTS, DEFAULT_ASSISTANT_SCRIPT, DEFAULT_SETTINGS;
+var init_types = __esm({
+  "src/types.ts"() {
+    "use strict";
+    DEFAULT_PAPER_WORKSPACE = {
+      literatureNotePath: "002-Literature/{{citekey}}.md",
+      report1Path: "002-Literature/102-Analysis Report/Deep Research-{{citekey}}.md",
+      report2Path: "002-Literature/103-External Analysis Report/External Research-{{citekey}}.md",
+      takeawayPath: "002-Literature/101-Takeaways/Takeaway-{{citekey}}.md",
+      coreNotePath: "002-Literature/104-Paper Notes/{{citekey}}.md",
+      highlightNotesFolder: "001-Fleeting",
+      atomicNotesFolder: "003-Permanent",
+      templatesFolder: "900-Templates",
+      report1Label: "Deep Report",
+      report2Label: "External Report",
+      takeawayLabel: "Takeaway"
+    };
+    DEFAULT_ZOTERO_TEMPLATE = [
+      "---",
+      "citation-key: {{citekey}}",
+      'zotero-image-path: "{{imageOutputPath}}"',
+      `title: "{{ title | replace('"', '\\\\"') }}"`,
+      "type: literature",
+      "aliases:",
+      `  - "{{ title | replace('"', '\\\\"') }}"`,
+      "  {%- if shortTitle.length > 0 %}",
+      '  - "{{shortTitle}}"',
+      "  {%- endif %}",
+      'short-name: "{{shortTitle}}"',
+      "authors:",
+      "{%- if authors %}",
+      '{%- for author in authors.split(",") %}',
+      '  - {{author | trim | replace(" ", "-") | replace(".", "")}}',
+      "{%- endfor %}",
+      "{%- endif %}",
+      'create: {{date | format("YYYY-MM-DD")}}',
+      'year: {{date | format("YYYY")}}',
+      'publication: "{{publicationTitle or proceedingsTitle or conferenceName}}"',
+      'doi: "{{DOI}}"',
+      'url: "{{url}}"',
+      'publish-type: "{{itemType}}"',
+      "tags:",
+      "  - source/\u{1F4DC}Zotero",
+      "  - type/\u{1F4F0}source",
+      "  - status/inbox",
+      'icon: {% if itemType == "conferencePaper" -%}',
+      " LiNewspaper",
+      '{%- elif itemType == "journalArticle" -%}',
+      " FasBookJournalWhills",
+      "{%- else -%}",
+      " TiArticle",
+      "{%- endif %}",
+      "key: {{itemKey}}",
+      `code: "{% for att in attachments %}{% if att.title == 'code' %}{{ att.url | replace('"', '\\\\"') }}{% endif %}{% endfor %}"`,
+      `venue: "{% set currentVenue = publicationTitle if itemType == 'journalArticle' else ((conferenceName or proceedingsTitle) if itemType == 'conferencePaper' else '') %}{% if currentVenue and currentVenue | trim %}[[{{ currentVenue | trim | replace('\\"', '\\\\\\"') }}]]{% endif %}"`,
+      `deep-report: "{% for att in attachments %}{% if att.title == 'deep-report' %}{{ att.url | replace('"', '\\\\"') }}{% endif %}{% endfor %}"`,
+      `external-report: "{% for att in attachments %}{% if att.title == 'external-report' %}{{ att.url | replace('"', '\\\\"') }}{% endif %}{% endfor %}"`,
+      "---",
+      "",
+      "```zotero-assistant",
+      "{",
+      `{%- set comma = joiner() -%}{%- for annotation in annotations -%}{%- if annotation.imageRelativePath -%}{{ comma() }} "{{annotation.id}}": "{{ annotation.imageRelativePath | replace('\\\\', '\\\\\\\\') }}"{%- endif -%}{%- endfor -%}`,
+      "}",
+      "```",
+      "",
+      "## \u{1F4F0} Abstract",
+      "",
+      "{{abstractNote}}",
+      "",
+      "# \u{1F9F1} Appendix",
+      "## \u{1F516} Tags in Zotero",
+      "{%- for t in tags %}",
+      "  - {{t.tag}}",
+      "{%- endfor %}",
+      "",
+      "## \u{1F4BE} Persistent Data",
+      '{% persist "properties" %}{%- if isFirstImport %}',
+      "code::",
+      "tags::",
+      "{% endif %}{% endpersist %}"
+    ].join("\n");
+    DEFAULT_SYNTHESIZE_PROMPT = [
+      "# Zettelkasten Incubator \u2014 Paper Takeaway Synthesis",
+      "",
+      "You are a Zettelkasten synthesis engine. Given the paper metadata, internal deep-research report (Report 1), and external landscape report (Report 2), synthesize a structured Takeaway output.",
+      "",
+      'Return a valid JSON object with the shape `{ "filename_suggestion": "Takeaway-<citekey>", "metadata": { "citekey": "<citekey>", "title": "<paper title>" }, "markdown_body": "<markdown>" }` (or output `<markdown>` directly if raw Markdown is requested).',
+      "",
+      "The `markdown_body` MUST follow this exact section structure:",
+      "",
+      "## \u{1F4A1} Candidate Atomic Zettels",
+      "",
+      "Propose 3\u20136 reusable atomic notes using hierarchical naming `[[A - <L1> - <L2> - <L3>]]`:",
+      "",
+      "### Candidate 1 [{{TypeLabel}}]",
+      "- **Link**: [[A - {{L1}} - {{L2}} - {{L3}}]]",
+      "- **Source**: Paper | Synthesis",
+      "- **Link Status**: Proposed \u2014 No confirmed match | Existing \u2014 Matched in Vault",
+      "- **Storyline**: Problem | Bottleneck | Insight | Mechanism | Trade-off",
+      "- **Answers**: Problem or prior candidate this claim addresses",
+      "- **Validation**: Empirical or theoretical proof backing this claim",
+      "- **Evidence**: Concrete quantitative or architectural evidence from the paper",
+      "- **Potential Tags**: #generatedTags/{{Tag1}}, #generatedTags/{{Tag2}}",
+      "- **Brief**: 1\u20132 sentence atomic claim suitable for a permanent Zettel",
+      "- **Related Papers**: Citekeys, DOIs, or canonical paper titles connected to this idea",
+      "",
+      "## \u{1F4CA} Research Profile",
+      "",
+      "- \u{1F48A} **TL;DR**:: Single crisp sentence capturing problem, core mechanism, and headline result.",
+      "- \u{1FA7B} **topic**:: Primary research domain and sub-problem.",
+      "- \u{1F9EC} **position**:: Where this work sits relative to prior baselines and competing paradigms.",
+      "- \u2705 **contributions**:: Semicolon-separated list of verified technical contributions.",
+      "- \u{1F48E} **novelty**:: Key insight that differentiates the method from prior art.",
+      "- \u{1F4CC} **limitation**:: Unresolved bottlenecks, assumptions, or failure modes.",
+      "",
+      "## \u{1F6E0}\uFE0F Implementation & Reproduction",
+      "",
+      "Summarize critical system architecture, algorithms, hyperparameters, hardware/runtime assumptions, and artifact availability.",
+      "",
+      "## \u{1F52C} Experimental Deep Dive",
+      "",
+      "Highlight primary benchmarks, baselines, key ablations, and surprising empirical takeaways.",
+      "",
+      "## \u{1F517} Citation Graph",
+      "",
+      "List foundational predecessors, direct competitors, and follow-up directions (include citekeys or DOIs when known).",
+      "",
+      "## \u{1F9ED} Contextual Compass",
+      "",
+      "Actionable takeaways: when to apply this technique, when to avoid it, and open research questions."
+    ].join("\n");
+    DEFAULT_REPORT1_PROMPT = [
+      "# Report 1 \u2014 Internal Deep Research Analysis",
+      "",
+      "Perform a rigorous technical deep dive into this paper. Focus strictly on internal evidence from the manuscript:",
+      "",
+      "1. **Problem Formulation & Bottleneck**: Formal setup, motivating system/theoretical bottleneck, and why naive approaches fail.",
+      "2. **Core Mechanism & Architecture**: Step-by-step breakdown of the proposed design, data structures, equations, and control/data flow.",
+      "3. **Key Design Trade-offs**: Assumptions, complexity analysis, and design choices.",
+      "4. **Experimental Verification & Ablations**: Workloads, baselines, headline metrics, and what each ablation proves.",
+      "5. **Internal Limitations & Edge Cases**: Failure modes, sensitivity to workloads/hyperparameters, and unaddressed scenarios."
+    ].join("\n");
+    DEFAULT_REPORT2_PROMPT = [
+      "# Report 2 \u2014 External Research Landscape & Code Discovery",
+      "",
+      "Investigate the external context around this paper across recent literature, open-source repositories, and community benchmarks:",
+      "",
+      "1. **Lineage & Competing Approaches**: Compare against contemporaneous and subsequent works in the same venue/domain.",
+      "2. **Open-Source Artifacts & Reproduction**: Locate official or community implementations, benchmarks, and reproduction notes.",
+      "3. **Practical Impact & Open Directions**: Real-world adoption, critiques, and follow-up opportunities.",
+      "",
+      "At the end of the report, include a machine-readable JSON block with any discovered repository URL (`null` if none exists):",
+      "",
+      "```json",
+      "{",
+      '  "code_url": "https://github.com/org/repo"',
+      "}",
+      "```"
+    ].join("\n");
+    DEFAULT_REPORT1_NOTE_TEMPLATE = [
+      "---",
+      "id: {{id}}",
+      "create: {{date}}",
+      'title: "Deep Research-{{citekey}}"',
+      "type: literature",
+      'url: ""',
+      "tags:",
+      "  - source/\u{1F916}AI",
+      "aliases:",
+      "  - {{id}}",
+      "sources:",
+      '  - "[[{{source_name}}]]"',
+      "need-attention: false",
+      'notion: ""',
+      "---",
+      "",
+      ""
+    ].join("\n");
+    DEFAULT_REPORT2_NOTE_TEMPLATE = [
+      "---",
+      "id: {{id}}",
+      "create: {{date}}",
+      'title: "External Research-{{citekey}}"',
+      "type: literature",
+      'url: ""',
+      "tags:",
+      "  - source/\u{1F916}AI",
+      "aliases:",
+      "  - {{id}}",
+      "sources:",
+      '  - "[[{{source_name}}]]"',
+      "need-attention: false",
+      'notion: ""',
+      "---",
+      "",
+      ""
+    ].join("\n");
+    DEFAULT_TAKEAWAY_NOTE_TEMPLATE = [
+      "---",
+      "id: {{id}}",
+      "create: {{date}}",
+      'title: "Takeaway-{{citekey}}"',
+      "type: literature",
+      'url: "{{doi_or_url}}"',
+      "tags:",
+      "  - source/\u{1F916}AI",
+      "aliases:",
+      "  - {{id}}",
+      "sources:",
+      '  - "[[{{report1_name}}]]"',
+      '  - "[[{{report2_name}}]]"',
+      "need-attention: true",
+      'shortName: "{{short_name}}"',
+      "author: {{authors_yaml}}",
+      'venue: "{{venue}}"',
+      'notion: ""',
+      'paper-type: "{{paper_type}}"',
+      "citekey: {{citekey}}",
+      "---",
+      "",
+      ""
+    ].join("\n");
+    DEFAULT_CORE_NOTE_TEMPLATE = [
+      "---",
+      "citation-key: {{citekey}}",
+      "type: literature",
+      'source: "[[{{source_name}}|{{citekey}}]]"',
+      "create: {{date}}",
+      "projects: []",
+      "linked-notes: []",
+      "tags:",
+      "  - type/paper-note",
+      "---",
+      "",
+      ""
+    ].join("\n");
+    DEFAULT_ATOMIC_NOTE_TEMPLATE = [
+      "---",
+      "type: permanent",
+      "create: {{date}}",
+      "sources:",
+      '  - "[[{{source_name}}|{{citekey}}]]"',
+      "tags:",
+      "  - type/atomic",
+      "---",
+      "",
+      "# {{atomic_title}}",
+      "",
+      ""
+    ].join("\n");
+    DEFAULT_PROMPTS = [
+      {
+        id: "tpl-report1",
+        name: "Deep Report Template",
+        kind: "template",
+        vaultPath: "900-Templates/report1-note-template.md",
+        content: DEFAULT_REPORT1_NOTE_TEMPLATE,
+        builtIn: true
+      },
+      {
+        id: "tpl-report2",
+        name: "External Report Template",
+        kind: "template",
+        vaultPath: "900-Templates/report2-note-template.md",
+        content: DEFAULT_REPORT2_NOTE_TEMPLATE,
+        builtIn: true
+      },
+      {
+        id: "tpl-takeaway",
+        name: "Takeaway Template",
+        kind: "template",
+        vaultPath: "900-Templates/takeaway-note-template.md",
+        content: DEFAULT_TAKEAWAY_NOTE_TEMPLATE,
+        builtIn: true
+      },
+      {
+        id: "tpl-core-note",
+        name: "Core Note Template",
+        kind: "template",
+        vaultPath: "900-Templates/core-note-template.md",
+        content: DEFAULT_CORE_NOTE_TEMPLATE,
+        builtIn: true
+      },
+      {
+        id: "tpl-atomic-note",
+        name: "Atomic Note Template",
+        kind: "template",
+        vaultPath: "900-Templates/atomic-note-template.md",
+        content: DEFAULT_ATOMIC_NOTE_TEMPLATE,
+        builtIn: true
+      },
+      {
+        id: "synthesize",
+        name: "Synthesize Takeaway",
+        kind: "prompt",
+        vaultPath: "900-Templates/prompt-synthesize.md",
+        content: DEFAULT_SYNTHESIZE_PROMPT,
+        builtIn: true
+      },
+      {
+        id: "report1",
+        name: "Report 1 (Deep Research)",
+        kind: "prompt",
+        vaultPath: "900-Templates/prompt-report1.md",
+        content: DEFAULT_REPORT1_PROMPT,
+        builtIn: true
+      },
+      {
+        id: "report2",
+        name: "Report 2 (External Landscape)",
+        kind: "prompt",
+        vaultPath: "900-Templates/prompt-report2.md",
+        content: DEFAULT_REPORT2_PROMPT,
+        builtIn: true
+      }
+    ];
+    DEFAULT_ASSISTANT_SCRIPT = `
+dv.table(["File"], dv.pages('"Fleeting Notes"')
+    .map(b => [b.file.link]))
+`;
+    DEFAULT_SETTINGS = {
+      zoteroPort: 23119,
+      fleetingNoteFolder: "Fleeting Notes",
+      metadataMapping: [
+        { label: "Title", zoteroProp: "title", noteProp: "title", enabled: true },
+        { label: "Date", zoteroProp: "date", noteProp: "date", enabled: true },
+        {
+          label: "Publication",
+          zoteroProp: "publication",
+          noteProp: "publication",
+          enabled: true
+        },
+        {
+          label: "Authors",
+          zoteroProp: "creators",
+          noteProp: "authors",
+          enabled: true
+        },
+        { label: "DOI", zoteroProp: "doi", noteProp: "doi", enabled: true }
+      ],
+      assistantScript: DEFAULT_ASSISTANT_SCRIPT,
+      enableLegacyAssistantScript: false,
+      sortProperty: "color",
+      webhooks: [],
+      annotationKeyName: "annotation-id",
+      citationKeyName: "citation-key",
+      projectsFolder: "Projects",
+      projectFrontmatterKey: "projects",
+      projectIdKey: "project_id",
+      paperWorkspace: { ...DEFAULT_PAPER_WORKSPACE },
+      prompts: DEFAULT_PROMPTS.map((p) => ({ ...p })),
+      zoteroTemplate: {
+        vaultPath: "900-Templates/zotero-note-template.md",
+        content: DEFAULT_ZOTERO_TEMPLATE
+      },
+      webhookShowInRibbon: false,
+      webhookDebugMode: false,
+      // CFP defaults
+      cfpNoteDir: "CFP",
+      cfpDefaultTags: ["cfp"],
+      cfpRefreshDays: 5,
+      cfpSeriesRefreshDays: 30,
+      cfpWikicfpUrls: [],
+      cfpCcfddlUrls: [],
+      cfpEasychairUrls: [],
+      cfpOpenresearchUrls: [],
+      cfpLastFetchTime: 0,
+      cfpLastSeriesFetchTime: 0,
+      cfpSeriesMap: {},
+      cfpLastDailyRun: 0,
+      cfpSeriesIndexLetters: [],
+      cfpAcronymKey: "conference-acronym",
+      cfpCoreCsvPath: "",
+      cfpCcfddlLocalPath: "",
+      cfpSeriesDataviewJSCode: `const cur = dv.current();
+if (cur && cur["series-url"]) {
+  const programUrl = cur["series-url"];
+  const seriesAcronym = (cur.file?.name || "").replace(/\\s+Series(\\.md)?$/i, "");
+  const btn = dv.el("button", "Refresh events");
+  btn.addEventListener("click", (e) => {
+    e.preventDefault();
+    if (window.__ZoteroAnnotationReviewerCFP)
+      window.__ZoteroAnnotationReviewerCFP.refreshSeries(programUrl, seriesAcronym);
+  });
+}`
+    };
+  }
+});
+
+// src/utils/paths.ts
+function normalizePath(path2) {
+  if (!path2) return "";
+  let normalized = path2.replace(/\\/g, "/");
+  normalized = normalized.replace(/\/+/g, "/");
+  if (normalized.startsWith("./")) {
+    normalized = normalized.slice(2);
+  }
+  if (normalized.startsWith("/")) {
+    normalized = normalized.slice(1);
+  }
+  return normalized;
+}
+var init_paths = __esm({
+  "src/utils/paths.ts"() {
+    "use strict";
+  }
+});
+
+// src/services/zotero-connector.ts
+var import_obsidian2, ZoteroConnectorService;
+var init_zotero_connector = __esm({
+  "src/services/zotero-connector.ts"() {
+    "use strict";
+    import_obsidian2 = require("obsidian");
+    init_types();
+    init_paths();
+    ZoteroConnectorService = class {
+      constructor(app, setting) {
+        this.app = app;
+        this.settings = setting;
+      }
+      getConnectorPlugin() {
+        var _a;
+        const plugins = this.app.plugins;
+        const raw = (_a = plugins == null ? void 0 : plugins.getPlugin) == null ? void 0 : _a.call(plugins, "obsidian-zotero-desktop-connector");
+        if (typeof raw === "object" && raw !== null) {
+          return raw;
+        }
+        return null;
+      }
+      async triggerZoteroIntegrationImport(citationKey) {
+        var _a, _b;
+        const plugin = this.getConnectorPlugin();
+        const fmt = (_b = (_a = plugin == null ? void 0 : plugin.settings) == null ? void 0 : _a.exportFormats) == null ? void 0 : _b[0];
+        if (plugin && fmt && fmt.name && plugin.runImport) {
+          await plugin.runImport(fmt.name, String(citationKey));
+          new import_obsidian2.Notice("Triggered Zotero Integration Import");
+        } else {
+          new import_obsidian2.Notice(
+            "Obsidian Zotero Desktop Connector plugin not found or configured."
+          );
+        }
+      }
+      async triggerInteractiveImport() {
+        var _a, _b;
+        const plugin = this.getConnectorPlugin();
+        const fmt = (_b = (_a = plugin == null ? void 0 : plugin.settings) == null ? void 0 : _a.exportFormats) == null ? void 0 : _b[0];
+        const commands = this.app.commands;
+        if ((commands == null ? void 0 : commands.executeCommandById) && commands.commands) {
+          if (fmt == null ? void 0 : fmt.name) {
+            const exactId = `obsidian-zotero-desktop-connector:zdc-exp-${fmt.name}`;
+            if (commands.commands[exactId]) {
+              commands.executeCommandById(exactId);
+              return true;
+            }
+          }
+          const found = Object.keys(commands.commands).find(
+            (k) => k.startsWith("obsidian-zotero-desktop-connector:zdc-exp-")
+          );
+          if (found) {
+            commands.executeCommandById(found);
+            return true;
+          }
+        }
+        if (plugin && (fmt == null ? void 0 : fmt.name) && plugin.runImport) {
+          await plugin.runImport(fmt.name);
+          return true;
+        }
+        new import_obsidian2.Notice("Obsidian Zotero Desktop Connector plugin not found or configured.");
+        return false;
+      }
+      detectTemplatePath() {
+        var _a, _b;
+        const plugin = this.getConnectorPlugin();
+        const fmt = (_b = (_a = plugin == null ? void 0 : plugin.settings) == null ? void 0 : _a.exportFormats) == null ? void 0 : _b[0];
+        const raw = (fmt == null ? void 0 : fmt.templatePath) || (fmt == null ? void 0 : fmt.templateFile);
+        if (typeof raw === "string" && raw.trim().length > 0) {
+          return normalizePath(raw.trim());
+        }
+        return null;
+      }
+      async loadTemplateContent(explicitPath) {
+        var _a, _b, _c;
+        const candidate = (explicitPath == null ? void 0 : explicitPath.trim()) || ((_b = (_a = this.settings.zoteroTemplate) == null ? void 0 : _a.vaultPath) == null ? void 0 : _b.trim()) || this.detectTemplatePath();
+        const resolvedPath = candidate ? normalizePath(candidate) : null;
+        if (resolvedPath) {
+          const existing = this.app.vault.getAbstractFileByPath(resolvedPath);
+          if (existing instanceof import_obsidian2.TFile) {
+            const content = await this.app.vault.read(existing);
+            return { path: resolvedPath, content, fromVault: true };
+          }
+        }
+        const fallback = ((_c = this.settings.zoteroTemplate) == null ? void 0 : _c.content) || DEFAULT_ZOTERO_TEMPLATE;
+        return { path: resolvedPath, content: fallback, fromVault: false };
+      }
+      async saveTemplateToVault(path2, content) {
+        const raw = path2.trim();
+        if (!raw) {
+          throw new Error("Template vault path cannot be empty.");
+        }
+        const withExt = /\.[^/\\]+$/.test(raw) ? raw : `${raw}.md`;
+        const normalized = normalizePath(withExt);
+        const folders = normalized.split("/").slice(0, -1).filter(Boolean);
+        let current = "";
+        for (const segment of folders) {
+          current = current ? `${current}/${segment}` : segment;
+          if (!this.app.vault.getAbstractFileByPath(current)) {
+            await this.app.vault.createFolder(current);
+          }
+        }
+        const existing = this.app.vault.getAbstractFileByPath(normalized);
+        if (existing instanceof import_obsidian2.TFile) {
+          await this.app.vault.modify(existing, content);
+        } else {
+          await this.app.vault.create(normalized, content);
+        }
+        return normalized;
+      }
+    };
+  }
+});
+
 // src/services/digest-types.ts
 function resolveDigestSettings(stored) {
   return { ...DEFAULT_DIGEST_SETTINGS, ...stored != null ? stored : {} };
@@ -800,6 +1323,5198 @@ var init_digest_zotero = __esm({
   }
 });
 
+// node_modules/js-yaml/dist/js-yaml.mjs
+function getDefaultExportFromCjs(x) {
+  return x && x.__esModule && Object.prototype.hasOwnProperty.call(x, "default") ? x["default"] : x;
+}
+function requireCommon() {
+  if (hasRequiredCommon) return common;
+  hasRequiredCommon = 1;
+  function isNothing(subject) {
+    return typeof subject === "undefined" || subject === null;
+  }
+  function isObject(subject) {
+    return typeof subject === "object" && subject !== null;
+  }
+  function toArray(sequence) {
+    if (Array.isArray(sequence)) return sequence;
+    else if (isNothing(sequence)) return [];
+    return [sequence];
+  }
+  function extend(target, source) {
+    if (source) {
+      const sourceKeys = Object.keys(source);
+      for (let index = 0, length = sourceKeys.length; index < length; index += 1) {
+        const key = sourceKeys[index];
+        target[key] = source[key];
+      }
+    }
+    return target;
+  }
+  function repeat(string, count) {
+    let result = "";
+    for (let cycle = 0; cycle < count; cycle += 1) {
+      result += string;
+    }
+    return result;
+  }
+  function isNegativeZero(number) {
+    return number === 0 && Number.NEGATIVE_INFINITY === 1 / number;
+  }
+  common.isNothing = isNothing;
+  common.isObject = isObject;
+  common.toArray = toArray;
+  common.repeat = repeat;
+  common.isNegativeZero = isNegativeZero;
+  common.extend = extend;
+  return common;
+}
+function requireException() {
+  if (hasRequiredException) return exception;
+  hasRequiredException = 1;
+  function formatError(exception2, compact) {
+    let where = "";
+    const message = exception2.reason || "(unknown reason)";
+    if (!exception2.mark) return message;
+    if (exception2.mark.name) {
+      where += 'in "' + exception2.mark.name + '" ';
+    }
+    where += "(" + (exception2.mark.line + 1) + ":" + (exception2.mark.column + 1) + ")";
+    if (!compact && exception2.mark.snippet) {
+      where += "\n\n" + exception2.mark.snippet;
+    }
+    return message + " " + where;
+  }
+  function YAMLException2(reason, mark) {
+    Error.call(this);
+    this.name = "YAMLException";
+    this.reason = reason;
+    this.mark = mark;
+    this.message = formatError(this, false);
+    if (Error.captureStackTrace) {
+      Error.captureStackTrace(this, this.constructor);
+    } else {
+      this.stack = new Error().stack || "";
+    }
+  }
+  YAMLException2.prototype = Object.create(Error.prototype);
+  YAMLException2.prototype.constructor = YAMLException2;
+  YAMLException2.prototype.toString = function toString(compact) {
+    return this.name + ": " + formatError(this, compact);
+  };
+  exception = YAMLException2;
+  return exception;
+}
+function requireSnippet() {
+  if (hasRequiredSnippet) return snippet;
+  hasRequiredSnippet = 1;
+  const common2 = requireCommon();
+  function getLine(buffer, lineStart, lineEnd, position, maxLineLength) {
+    let head = "";
+    let tail = "";
+    const maxHalfLength = Math.floor(maxLineLength / 2) - 1;
+    if (position - lineStart > maxHalfLength) {
+      head = " ... ";
+      lineStart = position - maxHalfLength + head.length;
+    }
+    if (lineEnd - position > maxHalfLength) {
+      tail = " ...";
+      lineEnd = position + maxHalfLength - tail.length;
+    }
+    return {
+      str: head + buffer.slice(lineStart, lineEnd).replace(/\t/g, "\u2192") + tail,
+      pos: position - lineStart + head.length
+      // relative position
+    };
+  }
+  function padStart(string, max) {
+    return common2.repeat(" ", max - string.length) + string;
+  }
+  function makeSnippet(mark, options) {
+    options = Object.create(options || null);
+    if (!mark.buffer) return null;
+    if (!options.maxLength) options.maxLength = 79;
+    if (typeof options.indent !== "number") options.indent = 1;
+    if (typeof options.linesBefore !== "number") options.linesBefore = 3;
+    if (typeof options.linesAfter !== "number") options.linesAfter = 2;
+    const re = /\r?\n|\r|\0/g;
+    const lineStarts = [0];
+    const lineEnds = [];
+    let match;
+    let foundLineNo = -1;
+    while (match = re.exec(mark.buffer)) {
+      lineEnds.push(match.index);
+      lineStarts.push(match.index + match[0].length);
+      if (mark.position <= match.index && foundLineNo < 0) {
+        foundLineNo = lineStarts.length - 2;
+      }
+    }
+    if (foundLineNo < 0) foundLineNo = lineStarts.length - 1;
+    let result = "";
+    const lineNoLength = Math.min(mark.line + options.linesAfter, lineEnds.length).toString().length;
+    const maxLineLength = options.maxLength - (options.indent + lineNoLength + 3);
+    for (let i = 1; i <= options.linesBefore; i++) {
+      if (foundLineNo - i < 0) break;
+      const line2 = getLine(
+        mark.buffer,
+        lineStarts[foundLineNo - i],
+        lineEnds[foundLineNo - i],
+        mark.position - (lineStarts[foundLineNo] - lineStarts[foundLineNo - i]),
+        maxLineLength
+      );
+      result = common2.repeat(" ", options.indent) + padStart((mark.line - i + 1).toString(), lineNoLength) + " | " + line2.str + "\n" + result;
+    }
+    const line = getLine(mark.buffer, lineStarts[foundLineNo], lineEnds[foundLineNo], mark.position, maxLineLength);
+    result += common2.repeat(" ", options.indent) + padStart((mark.line + 1).toString(), lineNoLength) + " | " + line.str + "\n";
+    result += common2.repeat("-", options.indent + lineNoLength + 3 + line.pos) + "^\n";
+    for (let i = 1; i <= options.linesAfter; i++) {
+      if (foundLineNo + i >= lineEnds.length) break;
+      const line2 = getLine(
+        mark.buffer,
+        lineStarts[foundLineNo + i],
+        lineEnds[foundLineNo + i],
+        mark.position - (lineStarts[foundLineNo] - lineStarts[foundLineNo + i]),
+        maxLineLength
+      );
+      result += common2.repeat(" ", options.indent) + padStart((mark.line + i + 1).toString(), lineNoLength) + " | " + line2.str + "\n";
+    }
+    return result.replace(/\n$/, "");
+  }
+  snippet = makeSnippet;
+  return snippet;
+}
+function requireType() {
+  if (hasRequiredType) return type;
+  hasRequiredType = 1;
+  const YAMLException2 = requireException();
+  const TYPE_CONSTRUCTOR_OPTIONS = [
+    "kind",
+    "multi",
+    "resolve",
+    "construct",
+    "instanceOf",
+    "predicate",
+    "represent",
+    "representName",
+    "defaultStyle",
+    "styleAliases"
+  ];
+  const YAML_NODE_KINDS = [
+    "scalar",
+    "sequence",
+    "mapping"
+  ];
+  function compileStyleAliases(map2) {
+    const result = {};
+    if (map2 !== null) {
+      Object.keys(map2).forEach(function(style) {
+        map2[style].forEach(function(alias) {
+          result[String(alias)] = style;
+        });
+      });
+    }
+    return result;
+  }
+  function Type2(tag, options) {
+    options = options || {};
+    Object.keys(options).forEach(function(name) {
+      if (TYPE_CONSTRUCTOR_OPTIONS.indexOf(name) === -1) {
+        throw new YAMLException2('Unknown option "' + name + '" is met in definition of "' + tag + '" YAML type.');
+      }
+    });
+    this.options = options;
+    this.tag = tag;
+    this.kind = options["kind"] || null;
+    this.resolve = options["resolve"] || function() {
+      return true;
+    };
+    this.construct = options["construct"] || function(data) {
+      return data;
+    };
+    this.instanceOf = options["instanceOf"] || null;
+    this.predicate = options["predicate"] || null;
+    this.represent = options["represent"] || null;
+    this.representName = options["representName"] || null;
+    this.defaultStyle = options["defaultStyle"] || null;
+    this.multi = options["multi"] || false;
+    this.styleAliases = compileStyleAliases(options["styleAliases"] || null);
+    if (YAML_NODE_KINDS.indexOf(this.kind) === -1) {
+      throw new YAMLException2('Unknown kind "' + this.kind + '" is specified for "' + tag + '" YAML type.');
+    }
+  }
+  type = Type2;
+  return type;
+}
+function requireSchema() {
+  if (hasRequiredSchema) return schema;
+  hasRequiredSchema = 1;
+  const YAMLException2 = requireException();
+  const Type2 = requireType();
+  function compileList(schema2, name) {
+    const result = [];
+    schema2[name].forEach(function(currentType) {
+      let newIndex = result.length;
+      result.forEach(function(previousType, previousIndex) {
+        if (previousType.tag === currentType.tag && previousType.kind === currentType.kind && previousType.multi === currentType.multi) {
+          newIndex = previousIndex;
+        }
+      });
+      result[newIndex] = currentType;
+    });
+    return result;
+  }
+  function compileMap() {
+    const result = {
+      scalar: {},
+      sequence: {},
+      mapping: {},
+      fallback: {},
+      multi: {
+        scalar: [],
+        sequence: [],
+        mapping: [],
+        fallback: []
+      }
+    };
+    function collectType(type2) {
+      if (type2.multi) {
+        result.multi[type2.kind].push(type2);
+        result.multi["fallback"].push(type2);
+      } else {
+        result[type2.kind][type2.tag] = result["fallback"][type2.tag] = type2;
+      }
+    }
+    for (let index = 0, length = arguments.length; index < length; index += 1) {
+      arguments[index].forEach(collectType);
+    }
+    return result;
+  }
+  function Schema2(definition) {
+    return this.extend(definition);
+  }
+  Schema2.prototype.extend = function extend(definition) {
+    let implicit = [];
+    let explicit = [];
+    if (definition instanceof Type2) {
+      explicit.push(definition);
+    } else if (Array.isArray(definition)) {
+      explicit = explicit.concat(definition);
+    } else if (definition && (Array.isArray(definition.implicit) || Array.isArray(definition.explicit))) {
+      if (definition.implicit) implicit = implicit.concat(definition.implicit);
+      if (definition.explicit) explicit = explicit.concat(definition.explicit);
+    } else {
+      throw new YAMLException2("Schema.extend argument should be a Type, [ Type ], or a schema definition ({ implicit: [...], explicit: [...] })");
+    }
+    implicit.forEach(function(type2) {
+      if (!(type2 instanceof Type2)) {
+        throw new YAMLException2("Specified list of YAML types (or a single Type object) contains a non-Type object.");
+      }
+      if (type2.loadKind && type2.loadKind !== "scalar") {
+        throw new YAMLException2("There is a non-scalar type in the implicit list of a schema. Implicit resolving of such types is not supported.");
+      }
+      if (type2.multi) {
+        throw new YAMLException2("There is a multi type in the implicit list of a schema. Multi tags can only be listed as explicit.");
+      }
+    });
+    explicit.forEach(function(type2) {
+      if (!(type2 instanceof Type2)) {
+        throw new YAMLException2("Specified list of YAML types (or a single Type object) contains a non-Type object.");
+      }
+    });
+    const result = Object.create(Schema2.prototype);
+    result.implicit = (this.implicit || []).concat(implicit);
+    result.explicit = (this.explicit || []).concat(explicit);
+    result.compiledImplicit = compileList(result, "implicit");
+    result.compiledExplicit = compileList(result, "explicit");
+    result.compiledTypeMap = compileMap(result.compiledImplicit, result.compiledExplicit);
+    return result;
+  };
+  schema = Schema2;
+  return schema;
+}
+function requireStr() {
+  if (hasRequiredStr) return str;
+  hasRequiredStr = 1;
+  const Type2 = requireType();
+  str = new Type2("tag:yaml.org,2002:str", {
+    kind: "scalar",
+    construct: function(data) {
+      return data !== null ? data : "";
+    }
+  });
+  return str;
+}
+function requireSeq() {
+  if (hasRequiredSeq) return seq;
+  hasRequiredSeq = 1;
+  const Type2 = requireType();
+  seq = new Type2("tag:yaml.org,2002:seq", {
+    kind: "sequence",
+    construct: function(data) {
+      return data !== null ? data : [];
+    }
+  });
+  return seq;
+}
+function requireMap() {
+  if (hasRequiredMap) return map;
+  hasRequiredMap = 1;
+  const Type2 = requireType();
+  map = new Type2("tag:yaml.org,2002:map", {
+    kind: "mapping",
+    construct: function(data) {
+      return data !== null ? data : {};
+    }
+  });
+  return map;
+}
+function requireFailsafe() {
+  if (hasRequiredFailsafe) return failsafe;
+  hasRequiredFailsafe = 1;
+  const Schema2 = requireSchema();
+  failsafe = new Schema2({
+    explicit: [
+      requireStr(),
+      requireSeq(),
+      requireMap()
+    ]
+  });
+  return failsafe;
+}
+function require_null() {
+  if (hasRequired_null) return _null;
+  hasRequired_null = 1;
+  const Type2 = requireType();
+  function resolveYamlNull(data) {
+    if (data === null) return true;
+    const max = data.length;
+    return max === 1 && data === "~" || max === 4 && (data === "null" || data === "Null" || data === "NULL");
+  }
+  function constructYamlNull() {
+    return null;
+  }
+  function isNull(object) {
+    return object === null;
+  }
+  _null = new Type2("tag:yaml.org,2002:null", {
+    kind: "scalar",
+    resolve: resolveYamlNull,
+    construct: constructYamlNull,
+    predicate: isNull,
+    represent: {
+      canonical: function() {
+        return "~";
+      },
+      lowercase: function() {
+        return "null";
+      },
+      uppercase: function() {
+        return "NULL";
+      },
+      camelcase: function() {
+        return "Null";
+      },
+      empty: function() {
+        return "";
+      }
+    },
+    defaultStyle: "lowercase"
+  });
+  return _null;
+}
+function requireBool() {
+  if (hasRequiredBool) return bool;
+  hasRequiredBool = 1;
+  const Type2 = requireType();
+  function resolveYamlBoolean(data) {
+    if (data === null) return false;
+    const max = data.length;
+    return max === 4 && (data === "true" || data === "True" || data === "TRUE") || max === 5 && (data === "false" || data === "False" || data === "FALSE");
+  }
+  function constructYamlBoolean(data) {
+    return data === "true" || data === "True" || data === "TRUE";
+  }
+  function isBoolean(object) {
+    return Object.prototype.toString.call(object) === "[object Boolean]";
+  }
+  bool = new Type2("tag:yaml.org,2002:bool", {
+    kind: "scalar",
+    resolve: resolveYamlBoolean,
+    construct: constructYamlBoolean,
+    predicate: isBoolean,
+    represent: {
+      lowercase: function(object) {
+        return object ? "true" : "false";
+      },
+      uppercase: function(object) {
+        return object ? "TRUE" : "FALSE";
+      },
+      camelcase: function(object) {
+        return object ? "True" : "False";
+      }
+    },
+    defaultStyle: "lowercase"
+  });
+  return bool;
+}
+function requireInt() {
+  if (hasRequiredInt) return int;
+  hasRequiredInt = 1;
+  const common2 = requireCommon();
+  const Type2 = requireType();
+  function isHexCode(c) {
+    return c >= 48 && c <= 57 || c >= 65 && c <= 70 || c >= 97 && c <= 102;
+  }
+  function isOctCode(c) {
+    return c >= 48 && c <= 55;
+  }
+  function isDecCode(c) {
+    return c >= 48 && c <= 57;
+  }
+  function resolveYamlInteger(data) {
+    if (data === null) return false;
+    const max = data.length;
+    let index = 0;
+    let hasDigits = false;
+    if (!max) return false;
+    let ch = data[index];
+    if (ch === "-" || ch === "+") {
+      ch = data[++index];
+    }
+    if (ch === "0") {
+      if (index + 1 === max) return true;
+      ch = data[++index];
+      if (ch === "b") {
+        index++;
+        for (; index < max; index++) {
+          ch = data[index];
+          if (ch !== "0" && ch !== "1") return false;
+          hasDigits = true;
+        }
+        return hasDigits && isFinite(parseYamlInteger(data));
+      }
+      if (ch === "x") {
+        index++;
+        for (; index < max; index++) {
+          if (!isHexCode(data.charCodeAt(index))) return false;
+          hasDigits = true;
+        }
+        return hasDigits && isFinite(parseYamlInteger(data));
+      }
+      if (ch === "o") {
+        index++;
+        for (; index < max; index++) {
+          if (!isOctCode(data.charCodeAt(index))) return false;
+          hasDigits = true;
+        }
+        return hasDigits && isFinite(parseYamlInteger(data));
+      }
+    }
+    for (; index < max; index++) {
+      if (!isDecCode(data.charCodeAt(index))) {
+        return false;
+      }
+      hasDigits = true;
+    }
+    if (!hasDigits) return false;
+    return isFinite(parseYamlInteger(data));
+  }
+  function parseYamlInteger(data) {
+    let value = data;
+    let sign = 1;
+    let ch = value[0];
+    if (ch === "-" || ch === "+") {
+      if (ch === "-") sign = -1;
+      value = value.slice(1);
+      ch = value[0];
+    }
+    if (value === "0") return 0;
+    if (ch === "0") {
+      if (value[1] === "b") return sign * parseInt(value.slice(2), 2);
+      if (value[1] === "x") return sign * parseInt(value.slice(2), 16);
+      if (value[1] === "o") return sign * parseInt(value.slice(2), 8);
+    }
+    return sign * parseInt(value, 10);
+  }
+  function constructYamlInteger(data) {
+    return parseYamlInteger(data);
+  }
+  function isInteger(object) {
+    return Object.prototype.toString.call(object) === "[object Number]" && (object % 1 === 0 && !common2.isNegativeZero(object));
+  }
+  int = new Type2("tag:yaml.org,2002:int", {
+    kind: "scalar",
+    resolve: resolveYamlInteger,
+    construct: constructYamlInteger,
+    predicate: isInteger,
+    represent: {
+      binary: function(obj) {
+        return obj >= 0 ? "0b" + obj.toString(2) : "-0b" + obj.toString(2).slice(1);
+      },
+      octal: function(obj) {
+        return obj >= 0 ? "0o" + obj.toString(8) : "-0o" + obj.toString(8).slice(1);
+      },
+      decimal: function(obj) {
+        return obj.toString(10);
+      },
+      hexadecimal: function(obj) {
+        return obj >= 0 ? "0x" + obj.toString(16).toUpperCase() : "-0x" + obj.toString(16).toUpperCase().slice(1);
+      }
+    },
+    defaultStyle: "decimal",
+    styleAliases: {
+      binary: [2, "bin"],
+      octal: [8, "oct"],
+      decimal: [10, "dec"],
+      hexadecimal: [16, "hex"]
+    }
+  });
+  return int;
+}
+function requireFloat() {
+  if (hasRequiredFloat) return float;
+  hasRequiredFloat = 1;
+  const common2 = requireCommon();
+  const Type2 = requireType();
+  const YAML_FLOAT_PATTERN = new RegExp(
+    // 2.5e4, 2.5 and integers
+    "^(?:[-+]?(?:[0-9]+)(?:\\.[0-9]*)?(?:[eE][-+]?[0-9]+)?|\\.[0-9]+(?:[eE][-+]?[0-9]+)?|[-+]?\\.(?:inf|Inf|INF)|\\.(?:nan|NaN|NAN))$"
+  );
+  const YAML_FLOAT_SPECIAL_PATTERN = new RegExp(
+    "^(?:[-+]?\\.(?:inf|Inf|INF)|\\.(?:nan|NaN|NAN))$"
+  );
+  function resolveYamlFloat(data) {
+    if (data === null) return false;
+    if (!YAML_FLOAT_PATTERN.test(data)) {
+      return false;
+    }
+    if (isFinite(parseFloat(data, 10))) {
+      return true;
+    }
+    return YAML_FLOAT_SPECIAL_PATTERN.test(data);
+  }
+  function constructYamlFloat(data) {
+    let value = data.toLowerCase();
+    const sign = value[0] === "-" ? -1 : 1;
+    if ("+-".indexOf(value[0]) >= 0) {
+      value = value.slice(1);
+    }
+    if (value === ".inf") {
+      return sign === 1 ? Number.POSITIVE_INFINITY : Number.NEGATIVE_INFINITY;
+    } else if (value === ".nan") {
+      return NaN;
+    }
+    return sign * parseFloat(value, 10);
+  }
+  const SCIENTIFIC_WITHOUT_DOT = /^[-+]?[0-9]+e/;
+  function representYamlFloat(object, style) {
+    if (isNaN(object)) {
+      switch (style) {
+        case "lowercase":
+          return ".nan";
+        case "uppercase":
+          return ".NAN";
+        case "camelcase":
+          return ".NaN";
+      }
+    } else if (Number.POSITIVE_INFINITY === object) {
+      switch (style) {
+        case "lowercase":
+          return ".inf";
+        case "uppercase":
+          return ".INF";
+        case "camelcase":
+          return ".Inf";
+      }
+    } else if (Number.NEGATIVE_INFINITY === object) {
+      switch (style) {
+        case "lowercase":
+          return "-.inf";
+        case "uppercase":
+          return "-.INF";
+        case "camelcase":
+          return "-.Inf";
+      }
+    } else if (common2.isNegativeZero(object)) {
+      return "-0.0";
+    }
+    const res = object.toString(10);
+    return SCIENTIFIC_WITHOUT_DOT.test(res) ? res.replace("e", ".e") : res;
+  }
+  function isFloat(object) {
+    return Object.prototype.toString.call(object) === "[object Number]" && (object % 1 !== 0 || common2.isNegativeZero(object));
+  }
+  float = new Type2("tag:yaml.org,2002:float", {
+    kind: "scalar",
+    resolve: resolveYamlFloat,
+    construct: constructYamlFloat,
+    predicate: isFloat,
+    represent: representYamlFloat,
+    defaultStyle: "lowercase"
+  });
+  return float;
+}
+function requireJson() {
+  if (hasRequiredJson) return json2;
+  hasRequiredJson = 1;
+  json2 = requireFailsafe().extend({
+    implicit: [
+      require_null(),
+      requireBool(),
+      requireInt(),
+      requireFloat()
+    ]
+  });
+  return json2;
+}
+function requireCore() {
+  if (hasRequiredCore) return core;
+  hasRequiredCore = 1;
+  core = requireJson();
+  return core;
+}
+function requireTimestamp() {
+  if (hasRequiredTimestamp) return timestamp;
+  hasRequiredTimestamp = 1;
+  const Type2 = requireType();
+  const YAML_DATE_REGEXP = new RegExp(
+    "^([0-9][0-9][0-9][0-9])-([0-9][0-9])-([0-9][0-9])$"
+  );
+  const YAML_TIMESTAMP_REGEXP = new RegExp(
+    "^([0-9][0-9][0-9][0-9])-([0-9][0-9]?)-([0-9][0-9]?)(?:[Tt]|[ \\t]+)([0-9][0-9]?):([0-9][0-9]):([0-9][0-9])(?:\\.([0-9]*))?(?:[ \\t]*(Z|([-+])([0-9][0-9]?)(?::([0-9][0-9]))?))?$"
+  );
+  function resolveYamlTimestamp(data) {
+    if (data === null) return false;
+    if (YAML_DATE_REGEXP.exec(data) !== null) return true;
+    if (YAML_TIMESTAMP_REGEXP.exec(data) !== null) return true;
+    return false;
+  }
+  function constructYamlTimestamp(data) {
+    let fraction = 0;
+    let delta = null;
+    let match = YAML_DATE_REGEXP.exec(data);
+    if (match === null) match = YAML_TIMESTAMP_REGEXP.exec(data);
+    if (match === null) throw new Error("Date resolve error");
+    const year = +match[1];
+    const month = +match[2] - 1;
+    const day = +match[3];
+    if (!match[4]) {
+      return new Date(Date.UTC(year, month, day));
+    }
+    const hour = +match[4];
+    const minute = +match[5];
+    const second = +match[6];
+    if (match[7]) {
+      fraction = match[7].slice(0, 3);
+      while (fraction.length < 3) {
+        fraction += "0";
+      }
+      fraction = +fraction;
+    }
+    if (match[9]) {
+      const tzHour = +match[10];
+      const tzMinute = +(match[11] || 0);
+      delta = (tzHour * 60 + tzMinute) * 6e4;
+      if (match[9] === "-") delta = -delta;
+    }
+    const date = new Date(Date.UTC(year, month, day, hour, minute, second, fraction));
+    if (delta) date.setTime(date.getTime() - delta);
+    return date;
+  }
+  function representYamlTimestamp(object) {
+    return object.toISOString();
+  }
+  timestamp = new Type2("tag:yaml.org,2002:timestamp", {
+    kind: "scalar",
+    resolve: resolveYamlTimestamp,
+    construct: constructYamlTimestamp,
+    instanceOf: Date,
+    represent: representYamlTimestamp
+  });
+  return timestamp;
+}
+function requireMerge() {
+  if (hasRequiredMerge) return merge;
+  hasRequiredMerge = 1;
+  const Type2 = requireType();
+  function resolveYamlMerge(data) {
+    return data === "<<" || data === null;
+  }
+  merge = new Type2("tag:yaml.org,2002:merge", {
+    kind: "scalar",
+    resolve: resolveYamlMerge
+  });
+  return merge;
+}
+function requireBinary() {
+  if (hasRequiredBinary) return binary;
+  hasRequiredBinary = 1;
+  const Type2 = requireType();
+  const BASE64_MAP = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=\n\r";
+  function resolveYamlBinary(data) {
+    if (data === null) return false;
+    let bitlen = 0;
+    const max = data.length;
+    const map2 = BASE64_MAP;
+    for (let idx = 0; idx < max; idx++) {
+      const code = map2.indexOf(data.charAt(idx));
+      if (code > 64) continue;
+      if (code < 0) return false;
+      bitlen += 6;
+    }
+    return bitlen % 8 === 0;
+  }
+  function constructYamlBinary(data) {
+    const input = data.replace(/[\r\n=]/g, "");
+    const max = input.length;
+    const map2 = BASE64_MAP;
+    let bits = 0;
+    const result = [];
+    for (let idx = 0; idx < max; idx++) {
+      if (idx % 4 === 0 && idx) {
+        result.push(bits >> 16 & 255);
+        result.push(bits >> 8 & 255);
+        result.push(bits & 255);
+      }
+      bits = bits << 6 | map2.indexOf(input.charAt(idx));
+    }
+    const tailbits = max % 4 * 6;
+    if (tailbits === 0) {
+      result.push(bits >> 16 & 255);
+      result.push(bits >> 8 & 255);
+      result.push(bits & 255);
+    } else if (tailbits === 18) {
+      result.push(bits >> 10 & 255);
+      result.push(bits >> 2 & 255);
+    } else if (tailbits === 12) {
+      result.push(bits >> 4 & 255);
+    }
+    return new Uint8Array(result);
+  }
+  function representYamlBinary(object) {
+    let result = "";
+    let bits = 0;
+    const max = object.length;
+    const map2 = BASE64_MAP;
+    for (let idx = 0; idx < max; idx++) {
+      if (idx % 3 === 0 && idx) {
+        result += map2[bits >> 18 & 63];
+        result += map2[bits >> 12 & 63];
+        result += map2[bits >> 6 & 63];
+        result += map2[bits & 63];
+      }
+      bits = (bits << 8) + object[idx];
+    }
+    const tail = max % 3;
+    if (tail === 0) {
+      result += map2[bits >> 18 & 63];
+      result += map2[bits >> 12 & 63];
+      result += map2[bits >> 6 & 63];
+      result += map2[bits & 63];
+    } else if (tail === 2) {
+      result += map2[bits >> 10 & 63];
+      result += map2[bits >> 4 & 63];
+      result += map2[bits << 2 & 63];
+      result += map2[64];
+    } else if (tail === 1) {
+      result += map2[bits >> 2 & 63];
+      result += map2[bits << 4 & 63];
+      result += map2[64];
+      result += map2[64];
+    }
+    return result;
+  }
+  function isBinary(obj) {
+    return Object.prototype.toString.call(obj) === "[object Uint8Array]";
+  }
+  binary = new Type2("tag:yaml.org,2002:binary", {
+    kind: "scalar",
+    resolve: resolveYamlBinary,
+    construct: constructYamlBinary,
+    predicate: isBinary,
+    represent: representYamlBinary
+  });
+  return binary;
+}
+function requireOmap() {
+  if (hasRequiredOmap) return omap;
+  hasRequiredOmap = 1;
+  const Type2 = requireType();
+  const _hasOwnProperty = Object.prototype.hasOwnProperty;
+  const _toString = Object.prototype.toString;
+  function resolveYamlOmap(data) {
+    if (data === null) return true;
+    const objectKeys = {};
+    const object = data;
+    for (let index = 0, length = object.length; index < length; index += 1) {
+      const pair = object[index];
+      let pairHasKey = false;
+      if (_toString.call(pair) !== "[object Object]") return false;
+      let pairKey;
+      for (pairKey in pair) {
+        if (_hasOwnProperty.call(pair, pairKey)) {
+          if (!pairHasKey) pairHasKey = true;
+          else return false;
+        }
+      }
+      if (!pairHasKey) return false;
+      if (_hasOwnProperty.call(objectKeys, pairKey)) return false;
+      Object.defineProperty(objectKeys, pairKey, { value: true });
+    }
+    return true;
+  }
+  function constructYamlOmap(data) {
+    return data !== null ? data : [];
+  }
+  omap = new Type2("tag:yaml.org,2002:omap", {
+    kind: "sequence",
+    resolve: resolveYamlOmap,
+    construct: constructYamlOmap
+  });
+  return omap;
+}
+function requirePairs() {
+  if (hasRequiredPairs) return pairs;
+  hasRequiredPairs = 1;
+  const Type2 = requireType();
+  const _toString = Object.prototype.toString;
+  function resolveYamlPairs(data) {
+    if (data === null) return true;
+    const object = data;
+    const result = new Array(object.length);
+    for (let index = 0, length = object.length; index < length; index += 1) {
+      const pair = object[index];
+      if (_toString.call(pair) !== "[object Object]") return false;
+      const keys = Object.keys(pair);
+      if (keys.length !== 1) return false;
+      result[index] = [keys[0], pair[keys[0]]];
+    }
+    return true;
+  }
+  function constructYamlPairs(data) {
+    if (data === null) return [];
+    const object = data;
+    const result = new Array(object.length);
+    for (let index = 0, length = object.length; index < length; index += 1) {
+      const pair = object[index];
+      const keys = Object.keys(pair);
+      result[index] = [keys[0], pair[keys[0]]];
+    }
+    return result;
+  }
+  pairs = new Type2("tag:yaml.org,2002:pairs", {
+    kind: "sequence",
+    resolve: resolveYamlPairs,
+    construct: constructYamlPairs
+  });
+  return pairs;
+}
+function requireSet() {
+  if (hasRequiredSet) return set;
+  hasRequiredSet = 1;
+  const Type2 = requireType();
+  const _hasOwnProperty = Object.prototype.hasOwnProperty;
+  function resolveYamlSet(data) {
+    if (data === null) return true;
+    const object = data;
+    for (const key in object) {
+      if (_hasOwnProperty.call(object, key)) {
+        if (object[key] !== null) return false;
+      }
+    }
+    return true;
+  }
+  function constructYamlSet(data) {
+    return data !== null ? data : {};
+  }
+  set = new Type2("tag:yaml.org,2002:set", {
+    kind: "mapping",
+    resolve: resolveYamlSet,
+    construct: constructYamlSet
+  });
+  return set;
+}
+function require_default() {
+  if (hasRequired_default) return _default;
+  hasRequired_default = 1;
+  _default = requireCore().extend({
+    implicit: [
+      requireTimestamp(),
+      requireMerge()
+    ],
+    explicit: [
+      requireBinary(),
+      requireOmap(),
+      requirePairs(),
+      requireSet()
+    ]
+  });
+  return _default;
+}
+function requireLoader() {
+  if (hasRequiredLoader) return loader;
+  hasRequiredLoader = 1;
+  const common2 = requireCommon();
+  const YAMLException2 = requireException();
+  const makeSnippet = requireSnippet();
+  const DEFAULT_SCHEMA2 = require_default();
+  const _hasOwnProperty = Object.prototype.hasOwnProperty;
+  const CONTEXT_FLOW_IN = 1;
+  const CONTEXT_FLOW_OUT = 2;
+  const CONTEXT_BLOCK_IN = 3;
+  const CONTEXT_BLOCK_OUT = 4;
+  const CHOMPING_CLIP = 1;
+  const CHOMPING_STRIP = 2;
+  const CHOMPING_KEEP = 3;
+  const PATTERN_NON_PRINTABLE = /[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x84\x86-\x9F\uFFFE\uFFFF]|[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?:[^\uD800-\uDBFF]|^)[\uDC00-\uDFFF]/;
+  const PATTERN_NON_ASCII_LINE_BREAKS = /[\x85\u2028\u2029]/;
+  const PATTERN_FLOW_INDICATORS = /[,\[\]{}]/;
+  const PATTERN_TAG_HANDLE = /^(?:!|!!|![0-9A-Za-z-]+!)$/;
+  const PATTERN_TAG_URI = /^(?:!|[^,\[\]{}])(?:%[0-9a-f]{2}|[0-9a-z\-#;/?:@&=+$,_.!~*'()\[\]])*$/i;
+  function _class(obj) {
+    return Object.prototype.toString.call(obj);
+  }
+  function isEol(c) {
+    return c === 10 || c === 13;
+  }
+  function isWhiteSpace(c) {
+    return c === 9 || c === 32;
+  }
+  function isWsOrEol(c) {
+    return c === 9 || c === 32 || c === 10 || c === 13;
+  }
+  function isFlowIndicator(c) {
+    return c === 44 || c === 91 || c === 93 || c === 123 || c === 125;
+  }
+  function fromHexCode(c) {
+    if (c >= 48 && c <= 57) {
+      return c - 48;
+    }
+    const lc = c | 32;
+    if (lc >= 97 && lc <= 102) {
+      return lc - 97 + 10;
+    }
+    return -1;
+  }
+  function escapedHexLen(c) {
+    if (c === 120) {
+      return 2;
+    }
+    if (c === 117) {
+      return 4;
+    }
+    if (c === 85) {
+      return 8;
+    }
+    return 0;
+  }
+  function fromDecimalCode(c) {
+    if (c >= 48 && c <= 57) {
+      return c - 48;
+    }
+    return -1;
+  }
+  function simpleEscapeSequence(c) {
+    switch (c) {
+      case 48:
+        return "\0";
+      case 97:
+        return "\x07";
+      case 98:
+        return "\b";
+      case 116:
+        return "	";
+      case 9:
+        return "	";
+      case 110:
+        return "\n";
+      case 118:
+        return "\v";
+      case 102:
+        return "\f";
+      case 114:
+        return "\r";
+      case 101:
+        return "\x1B";
+      case 32:
+        return " ";
+      case 34:
+        return '"';
+      case 47:
+        return "/";
+      case 92:
+        return "\\";
+      case 78:
+        return "\x85";
+      case 95:
+        return "\xA0";
+      case 76:
+        return "\u2028";
+      case 80:
+        return "\u2029";
+      default:
+        return "";
+    }
+  }
+  function charFromCodepoint(c) {
+    if (c <= 65535) {
+      return String.fromCharCode(c);
+    }
+    return String.fromCharCode(
+      (c - 65536 >> 10) + 55296,
+      (c - 65536 & 1023) + 56320
+    );
+  }
+  function setProperty(object, key, value) {
+    if (key === "__proto__") {
+      Object.defineProperty(object, key, {
+        configurable: true,
+        enumerable: true,
+        writable: true,
+        value
+      });
+    } else {
+      object[key] = value;
+    }
+  }
+  const simpleEscapeCheck = new Array(256);
+  const simpleEscapeMap = new Array(256);
+  for (let i = 0; i < 256; i++) {
+    simpleEscapeCheck[i] = simpleEscapeSequence(i) ? 1 : 0;
+    simpleEscapeMap[i] = simpleEscapeSequence(i);
+  }
+  function State(input, options) {
+    this.input = input;
+    this.filename = options["filename"] || null;
+    this.schema = options["schema"] || DEFAULT_SCHEMA2;
+    this.onWarning = options["onWarning"] || null;
+    this.legacy = options["legacy"] || false;
+    this.json = options["json"] || false;
+    this.listener = options["listener"] || null;
+    this.maxDepth = typeof options["maxDepth"] === "number" ? options["maxDepth"] : 100;
+    this.maxTotalMergeKeys = typeof options["maxTotalMergeKeys"] === "number" ? options["maxTotalMergeKeys"] : 1e4;
+    this.implicitTypes = this.schema.compiledImplicit;
+    this.typeMap = this.schema.compiledTypeMap;
+    this.length = input.length;
+    this.position = 0;
+    this.line = 0;
+    this.lineStart = 0;
+    this.lineIndent = 0;
+    this.depth = 0;
+    this.totalMergeKeys = 0;
+    this.firstTabInLine = -1;
+    this.documents = [];
+    this.anchorMapTransactions = [];
+  }
+  function generateError(state, message) {
+    const mark = {
+      name: state.filename,
+      buffer: state.input.slice(0, -1),
+      // omit trailing \0
+      position: state.position,
+      line: state.line,
+      column: state.position - state.lineStart
+    };
+    mark.snippet = makeSnippet(mark);
+    return new YAMLException2(message, mark);
+  }
+  function throwError(state, message) {
+    throw generateError(state, message);
+  }
+  function throwWarning(state, message) {
+    if (state.onWarning) {
+      state.onWarning.call(null, generateError(state, message));
+    }
+  }
+  function storeAnchor(state, name, value) {
+    const transactions = state.anchorMapTransactions;
+    if (transactions.length !== 0) {
+      const transaction = transactions[transactions.length - 1];
+      if (!_hasOwnProperty.call(transaction, name)) {
+        transaction[name] = {
+          existed: _hasOwnProperty.call(state.anchorMap, name),
+          value: state.anchorMap[name]
+        };
+      }
+    }
+    state.anchorMap[name] = value;
+  }
+  function beginAnchorTransaction(state) {
+    state.anchorMapTransactions.push(/* @__PURE__ */ Object.create(null));
+  }
+  function commitAnchorTransaction(state) {
+    const transaction = state.anchorMapTransactions.pop();
+    const transactions = state.anchorMapTransactions;
+    if (transactions.length === 0) return;
+    const parent = transactions[transactions.length - 1];
+    const names = Object.keys(transaction);
+    for (let index = 0, length = names.length; index < length; index += 1) {
+      const name = names[index];
+      if (!_hasOwnProperty.call(parent, name)) {
+        parent[name] = transaction[name];
+      }
+    }
+  }
+  function rollbackAnchorTransaction(state) {
+    const transaction = state.anchorMapTransactions.pop();
+    const names = Object.keys(transaction);
+    for (let index = names.length - 1; index >= 0; index -= 1) {
+      const entry = transaction[names[index]];
+      if (entry.existed) {
+        state.anchorMap[names[index]] = entry.value;
+      } else {
+        delete state.anchorMap[names[index]];
+      }
+    }
+  }
+  function snapshotState(state) {
+    return {
+      position: state.position,
+      line: state.line,
+      lineStart: state.lineStart,
+      lineIndent: state.lineIndent,
+      firstTabInLine: state.firstTabInLine,
+      tag: state.tag,
+      anchor: state.anchor,
+      kind: state.kind,
+      result: state.result
+    };
+  }
+  function restoreState(state, snapshot) {
+    state.position = snapshot.position;
+    state.line = snapshot.line;
+    state.lineStart = snapshot.lineStart;
+    state.lineIndent = snapshot.lineIndent;
+    state.firstTabInLine = snapshot.firstTabInLine;
+    state.tag = snapshot.tag;
+    state.anchor = snapshot.anchor;
+    state.kind = snapshot.kind;
+    state.result = snapshot.result;
+  }
+  const directiveHandlers = {
+    YAML: function handleYamlDirective(state, name, args) {
+      if (state.version !== null) {
+        throwError(state, "duplication of %YAML directive");
+      }
+      if (args.length !== 1) {
+        throwError(state, "YAML directive accepts exactly one argument");
+      }
+      const match = /^([0-9]+)\.([0-9]+)$/.exec(args[0]);
+      if (match === null) {
+        throwError(state, "ill-formed argument of the YAML directive");
+      }
+      const major = parseInt(match[1], 10);
+      const minor = parseInt(match[2], 10);
+      if (major !== 1) {
+        throwError(state, "unacceptable YAML version of the document");
+      }
+      state.version = args[0];
+      state.checkLineBreaks = minor < 2;
+      if (minor !== 1 && minor !== 2) {
+        throwWarning(state, "unsupported YAML version of the document");
+      }
+    },
+    TAG: function handleTagDirective(state, name, args) {
+      let prefix;
+      if (args.length !== 2) {
+        throwError(state, "TAG directive accepts exactly two arguments");
+      }
+      const handle = args[0];
+      prefix = args[1];
+      if (!PATTERN_TAG_HANDLE.test(handle)) {
+        throwError(state, "ill-formed tag handle (first argument) of the TAG directive");
+      }
+      if (_hasOwnProperty.call(state.tagMap, handle)) {
+        throwError(state, 'there is a previously declared suffix for "' + handle + '" tag handle');
+      }
+      if (!PATTERN_TAG_URI.test(prefix)) {
+        throwError(state, "ill-formed tag prefix (second argument) of the TAG directive");
+      }
+      try {
+        prefix = decodeURIComponent(prefix);
+      } catch (err) {
+        throwError(state, "tag prefix is malformed: " + prefix);
+      }
+      state.tagMap[handle] = prefix;
+    }
+  };
+  function captureSegment(state, start, end, checkJson) {
+    if (start < end) {
+      const _result = state.input.slice(start, end);
+      if (checkJson) {
+        for (let _position = 0, _length = _result.length; _position < _length; _position += 1) {
+          const _character = _result.charCodeAt(_position);
+          if (!(_character === 9 || _character >= 32 && _character <= 1114111)) {
+            throwError(state, "expected valid JSON character");
+          }
+        }
+      } else if (PATTERN_NON_PRINTABLE.test(_result)) {
+        throwError(state, "the stream contains non-printable characters");
+      }
+      state.result += _result;
+    }
+  }
+  function chargeMergeWork(state) {
+    state.totalMergeKeys++;
+    if (state.maxTotalMergeKeys !== -1 && state.totalMergeKeys > state.maxTotalMergeKeys) {
+      throwError(state, "merge keys exceeded maxTotalMergeKeys (" + state.maxTotalMergeKeys + ")");
+    }
+  }
+  function mergeMappings(state, destination, source, overridableKeys) {
+    if (!common2.isObject(source)) {
+      throwError(state, "cannot merge mappings; the provided source object is unacceptable");
+    }
+    chargeMergeWork(state);
+    const sourceKeys = Object.keys(source);
+    for (let index = 0, quantity = sourceKeys.length; index < quantity; index += 1) {
+      const key = sourceKeys[index];
+      chargeMergeWork(state);
+      if (!_hasOwnProperty.call(destination, key)) {
+        setProperty(destination, key, source[key]);
+        overridableKeys[key] = true;
+      }
+    }
+  }
+  function storeMappingPair(state, _result, overridableKeys, keyTag, keyNode, valueNode, startLine, startLineStart, startPos) {
+    if (Array.isArray(keyNode)) {
+      keyNode = Array.prototype.slice.call(keyNode);
+      for (let index = 0, quantity = keyNode.length; index < quantity; index += 1) {
+        if (Array.isArray(keyNode[index])) {
+          throwError(state, "nested arrays are not supported inside keys");
+        }
+        if (typeof keyNode === "object" && _class(keyNode[index]) === "[object Object]") {
+          keyNode[index] = "[object Object]";
+        }
+      }
+    }
+    if (typeof keyNode === "object" && _class(keyNode) === "[object Object]") {
+      keyNode = "[object Object]";
+    }
+    keyNode = String(keyNode);
+    if (_result === null) {
+      _result = {};
+    }
+    if (keyTag === "tag:yaml.org,2002:merge") {
+      if (Array.isArray(valueNode)) {
+        if (valueNode.length > 100) {
+          throwError(state, "abnormal merge sequence size");
+        }
+        for (let index = 0, quantity = valueNode.length; index < quantity; index += 1) {
+          mergeMappings(state, _result, valueNode[index], overridableKeys);
+        }
+      } else {
+        mergeMappings(state, _result, valueNode, overridableKeys);
+      }
+    } else {
+      if (!state.json && !_hasOwnProperty.call(overridableKeys, keyNode) && _hasOwnProperty.call(_result, keyNode)) {
+        state.line = startLine || state.line;
+        state.lineStart = startLineStart || state.lineStart;
+        state.position = startPos || state.position;
+        throwError(state, "duplicated mapping key");
+      }
+      setProperty(_result, keyNode, valueNode);
+      delete overridableKeys[keyNode];
+    }
+    return _result;
+  }
+  function readLineBreak(state) {
+    const ch = state.input.charCodeAt(state.position);
+    if (ch === 10) {
+      state.position++;
+    } else if (ch === 13) {
+      state.position++;
+      if (state.input.charCodeAt(state.position) === 10) {
+        state.position++;
+      }
+    } else {
+      throwError(state, "a line break is expected");
+    }
+    state.line += 1;
+    state.lineStart = state.position;
+    state.firstTabInLine = -1;
+  }
+  function skipSeparationSpace(state, allowComments, checkIndent) {
+    let lineBreaks = 0;
+    let ch = state.input.charCodeAt(state.position);
+    while (ch !== 0) {
+      while (isWhiteSpace(ch)) {
+        if (ch === 9 && state.firstTabInLine === -1) {
+          state.firstTabInLine = state.position;
+        }
+        ch = state.input.charCodeAt(++state.position);
+      }
+      if (allowComments && ch === 35) {
+        do {
+          ch = state.input.charCodeAt(++state.position);
+        } while (ch !== 10 && ch !== 13 && ch !== 0);
+      }
+      if (isEol(ch)) {
+        readLineBreak(state);
+        ch = state.input.charCodeAt(state.position);
+        lineBreaks++;
+        state.lineIndent = 0;
+        while (ch === 32) {
+          state.lineIndent++;
+          ch = state.input.charCodeAt(++state.position);
+        }
+      } else {
+        break;
+      }
+    }
+    if (checkIndent !== -1 && lineBreaks !== 0 && state.lineIndent < checkIndent) {
+      throwWarning(state, "deficient indentation");
+    }
+    return lineBreaks;
+  }
+  function testDocumentSeparator(state) {
+    let _position = state.position;
+    let ch = state.input.charCodeAt(_position);
+    if ((ch === 45 || ch === 46) && ch === state.input.charCodeAt(_position + 1) && ch === state.input.charCodeAt(_position + 2)) {
+      _position += 3;
+      ch = state.input.charCodeAt(_position);
+      if (ch === 0 || isWsOrEol(ch)) {
+        return true;
+      }
+    }
+    return false;
+  }
+  function writeFoldedLines(state, count) {
+    if (count === 1) {
+      state.result += " ";
+    } else if (count > 1) {
+      state.result += common2.repeat("\n", count - 1);
+    }
+  }
+  function readPlainScalar(state, nodeIndent, withinFlowCollection) {
+    let captureStart;
+    let captureEnd;
+    let hasPendingContent;
+    let _line;
+    let _lineStart;
+    let _lineIndent;
+    const _kind = state.kind;
+    const _result = state.result;
+    let ch = state.input.charCodeAt(state.position);
+    if (isWsOrEol(ch) || isFlowIndicator(ch) || ch === 35 || ch === 38 || ch === 42 || ch === 33 || ch === 124 || ch === 62 || ch === 39 || ch === 34 || ch === 37 || ch === 64 || ch === 96) {
+      return false;
+    }
+    if (ch === 63 || ch === 45) {
+      const following = state.input.charCodeAt(state.position + 1);
+      if (isWsOrEol(following) || withinFlowCollection && isFlowIndicator(following)) {
+        return false;
+      }
+    }
+    state.kind = "scalar";
+    state.result = "";
+    captureStart = captureEnd = state.position;
+    hasPendingContent = false;
+    while (ch !== 0) {
+      if (ch === 58) {
+        const following = state.input.charCodeAt(state.position + 1);
+        if (isWsOrEol(following) || withinFlowCollection && isFlowIndicator(following)) {
+          break;
+        }
+      } else if (ch === 35) {
+        const preceding = state.input.charCodeAt(state.position - 1);
+        if (isWsOrEol(preceding)) {
+          break;
+        }
+      } else if (state.position === state.lineStart && testDocumentSeparator(state) || withinFlowCollection && isFlowIndicator(ch)) {
+        break;
+      } else if (isEol(ch)) {
+        _line = state.line;
+        _lineStart = state.lineStart;
+        _lineIndent = state.lineIndent;
+        skipSeparationSpace(state, false, -1);
+        if (state.lineIndent >= nodeIndent) {
+          hasPendingContent = true;
+          ch = state.input.charCodeAt(state.position);
+          continue;
+        } else {
+          state.position = captureEnd;
+          state.line = _line;
+          state.lineStart = _lineStart;
+          state.lineIndent = _lineIndent;
+          break;
+        }
+      }
+      if (hasPendingContent) {
+        captureSegment(state, captureStart, captureEnd, false);
+        writeFoldedLines(state, state.line - _line);
+        captureStart = captureEnd = state.position;
+        hasPendingContent = false;
+      }
+      if (!isWhiteSpace(ch)) {
+        captureEnd = state.position + 1;
+      }
+      ch = state.input.charCodeAt(++state.position);
+    }
+    captureSegment(state, captureStart, captureEnd, false);
+    if (state.result) {
+      return true;
+    }
+    state.kind = _kind;
+    state.result = _result;
+    return false;
+  }
+  function readSingleQuotedScalar(state, nodeIndent) {
+    let captureStart;
+    let captureEnd;
+    let ch = state.input.charCodeAt(state.position);
+    if (ch !== 39) {
+      return false;
+    }
+    state.kind = "scalar";
+    state.result = "";
+    state.position++;
+    captureStart = captureEnd = state.position;
+    while ((ch = state.input.charCodeAt(state.position)) !== 0) {
+      if (ch === 39) {
+        captureSegment(state, captureStart, state.position, true);
+        ch = state.input.charCodeAt(++state.position);
+        if (ch === 39) {
+          captureStart = state.position;
+          state.position++;
+          captureEnd = state.position;
+        } else {
+          return true;
+        }
+      } else if (isEol(ch)) {
+        captureSegment(state, captureStart, captureEnd, true);
+        writeFoldedLines(state, skipSeparationSpace(state, false, nodeIndent));
+        captureStart = captureEnd = state.position;
+      } else if (state.position === state.lineStart && testDocumentSeparator(state)) {
+        throwError(state, "unexpected end of the document within a single quoted scalar");
+      } else {
+        state.position++;
+        if (!isWhiteSpace(ch)) {
+          captureEnd = state.position;
+        }
+      }
+    }
+    throwError(state, "unexpected end of the stream within a single quoted scalar");
+  }
+  function readDoubleQuotedScalar(state, nodeIndent) {
+    let captureStart;
+    let captureEnd;
+    let tmp;
+    let ch = state.input.charCodeAt(state.position);
+    if (ch !== 34) {
+      return false;
+    }
+    state.kind = "scalar";
+    state.result = "";
+    state.position++;
+    captureStart = captureEnd = state.position;
+    while ((ch = state.input.charCodeAt(state.position)) !== 0) {
+      if (ch === 34) {
+        captureSegment(state, captureStart, state.position, true);
+        state.position++;
+        return true;
+      } else if (ch === 92) {
+        captureSegment(state, captureStart, state.position, true);
+        ch = state.input.charCodeAt(++state.position);
+        if (isEol(ch)) {
+          skipSeparationSpace(state, false, nodeIndent);
+        } else if (ch < 256 && simpleEscapeCheck[ch]) {
+          state.result += simpleEscapeMap[ch];
+          state.position++;
+        } else if ((tmp = escapedHexLen(ch)) > 0) {
+          let hexLength = tmp;
+          let hexResult = 0;
+          for (; hexLength > 0; hexLength--) {
+            ch = state.input.charCodeAt(++state.position);
+            if ((tmp = fromHexCode(ch)) >= 0) {
+              hexResult = (hexResult << 4) + tmp;
+            } else {
+              throwError(state, "expected hexadecimal character");
+            }
+          }
+          state.result += charFromCodepoint(hexResult);
+          state.position++;
+        } else {
+          throwError(state, "unknown escape sequence");
+        }
+        captureStart = captureEnd = state.position;
+      } else if (isEol(ch)) {
+        captureSegment(state, captureStart, captureEnd, true);
+        writeFoldedLines(state, skipSeparationSpace(state, false, nodeIndent));
+        captureStart = captureEnd = state.position;
+      } else if (state.position === state.lineStart && testDocumentSeparator(state)) {
+        throwError(state, "unexpected end of the document within a double quoted scalar");
+      } else {
+        state.position++;
+        if (!isWhiteSpace(ch)) {
+          captureEnd = state.position;
+        }
+      }
+    }
+    throwError(state, "unexpected end of the stream within a double quoted scalar");
+  }
+  function readFlowCollection(state, nodeIndent) {
+    let readNext = true;
+    let _line;
+    let _lineStart;
+    let _pos;
+    const _tag = state.tag;
+    let _result;
+    const _anchor = state.anchor;
+    let terminator;
+    let isPair;
+    let isExplicitPair;
+    let isMapping;
+    const overridableKeys = /* @__PURE__ */ Object.create(null);
+    let keyNode;
+    let keyTag;
+    let valueNode;
+    let ch = state.input.charCodeAt(state.position);
+    if (ch === 91) {
+      terminator = 93;
+      isMapping = false;
+      _result = [];
+    } else if (ch === 123) {
+      terminator = 125;
+      isMapping = true;
+      _result = {};
+    } else {
+      return false;
+    }
+    if (state.anchor !== null) {
+      storeAnchor(state, state.anchor, _result);
+    }
+    ch = state.input.charCodeAt(++state.position);
+    while (ch !== 0) {
+      skipSeparationSpace(state, true, nodeIndent);
+      ch = state.input.charCodeAt(state.position);
+      if (ch === terminator) {
+        state.position++;
+        state.tag = _tag;
+        state.anchor = _anchor;
+        state.kind = isMapping ? "mapping" : "sequence";
+        state.result = _result;
+        return true;
+      } else if (!readNext) {
+        throwError(state, "missed comma between flow collection entries");
+      } else if (ch === 44) {
+        throwError(state, "expected the node content, but found ','");
+      }
+      keyTag = keyNode = valueNode = null;
+      isPair = isExplicitPair = false;
+      if (ch === 63) {
+        const following = state.input.charCodeAt(state.position + 1);
+        if (isWsOrEol(following)) {
+          isPair = isExplicitPair = true;
+          state.position++;
+          skipSeparationSpace(state, true, nodeIndent);
+        }
+      }
+      _line = state.line;
+      _lineStart = state.lineStart;
+      _pos = state.position;
+      composeNode(state, nodeIndent, CONTEXT_FLOW_IN, false, true);
+      keyTag = state.tag;
+      keyNode = state.result;
+      skipSeparationSpace(state, true, nodeIndent);
+      ch = state.input.charCodeAt(state.position);
+      if ((isExplicitPair || state.line === _line) && ch === 58) {
+        isPair = true;
+        ch = state.input.charCodeAt(++state.position);
+        skipSeparationSpace(state, true, nodeIndent);
+        composeNode(state, nodeIndent, CONTEXT_FLOW_IN, false, true);
+        valueNode = state.result;
+      }
+      if (isMapping) {
+        storeMappingPair(state, _result, overridableKeys, keyTag, keyNode, valueNode, _line, _lineStart, _pos);
+      } else if (isPair) {
+        _result.push(storeMappingPair(state, null, overridableKeys, keyTag, keyNode, valueNode, _line, _lineStart, _pos));
+      } else {
+        _result.push(keyNode);
+      }
+      skipSeparationSpace(state, true, nodeIndent);
+      ch = state.input.charCodeAt(state.position);
+      if (ch === 44) {
+        readNext = true;
+        ch = state.input.charCodeAt(++state.position);
+      } else {
+        readNext = false;
+      }
+    }
+    throwError(state, "unexpected end of the stream within a flow collection");
+  }
+  function readBlockScalar(state, nodeIndent) {
+    let folding;
+    let chomping = CHOMPING_CLIP;
+    let didReadContent = false;
+    let detectedIndent = false;
+    let textIndent = nodeIndent;
+    let emptyLines = 0;
+    let atMoreIndented = false;
+    let tmp;
+    let ch = state.input.charCodeAt(state.position);
+    if (ch === 124) {
+      folding = false;
+    } else if (ch === 62) {
+      folding = true;
+    } else {
+      return false;
+    }
+    state.kind = "scalar";
+    state.result = "";
+    while (ch !== 0) {
+      ch = state.input.charCodeAt(++state.position);
+      if (ch === 43 || ch === 45) {
+        if (CHOMPING_CLIP === chomping) {
+          chomping = ch === 43 ? CHOMPING_KEEP : CHOMPING_STRIP;
+        } else {
+          throwError(state, "repeat of a chomping mode identifier");
+        }
+      } else if ((tmp = fromDecimalCode(ch)) >= 0) {
+        if (tmp === 0) {
+          throwError(state, "bad explicit indentation width of a block scalar; it cannot be less than one");
+        } else if (!detectedIndent) {
+          textIndent = nodeIndent + tmp - 1;
+          detectedIndent = true;
+        } else {
+          throwError(state, "repeat of an indentation width identifier");
+        }
+      } else {
+        break;
+      }
+    }
+    if (isWhiteSpace(ch)) {
+      do {
+        ch = state.input.charCodeAt(++state.position);
+      } while (isWhiteSpace(ch));
+      if (ch === 35) {
+        do {
+          ch = state.input.charCodeAt(++state.position);
+        } while (!isEol(ch) && ch !== 0);
+      }
+    }
+    while (ch !== 0) {
+      readLineBreak(state);
+      state.lineIndent = 0;
+      ch = state.input.charCodeAt(state.position);
+      while ((!detectedIndent || state.lineIndent < textIndent) && ch === 32) {
+        state.lineIndent++;
+        ch = state.input.charCodeAt(++state.position);
+      }
+      if (!detectedIndent && state.lineIndent > textIndent) {
+        textIndent = state.lineIndent;
+      }
+      if (isEol(ch)) {
+        emptyLines++;
+        continue;
+      }
+      if (!detectedIndent && textIndent === 0) {
+        throwError(state, "missing indentation for block scalar");
+      }
+      if (state.lineIndent < textIndent) {
+        if (chomping === CHOMPING_KEEP) {
+          state.result += common2.repeat("\n", didReadContent ? 1 + emptyLines : emptyLines);
+        } else if (chomping === CHOMPING_CLIP) {
+          if (didReadContent) {
+            state.result += "\n";
+          }
+        }
+        break;
+      }
+      if (folding) {
+        if (isWhiteSpace(ch)) {
+          atMoreIndented = true;
+          state.result += common2.repeat("\n", didReadContent ? 1 + emptyLines : emptyLines);
+        } else if (atMoreIndented) {
+          atMoreIndented = false;
+          state.result += common2.repeat("\n", emptyLines + 1);
+        } else if (emptyLines === 0) {
+          if (didReadContent) {
+            state.result += " ";
+          }
+        } else {
+          state.result += common2.repeat("\n", emptyLines);
+        }
+      } else {
+        state.result += common2.repeat("\n", didReadContent ? 1 + emptyLines : emptyLines);
+      }
+      didReadContent = true;
+      detectedIndent = true;
+      emptyLines = 0;
+      const captureStart = state.position;
+      while (!isEol(ch) && ch !== 0) {
+        ch = state.input.charCodeAt(++state.position);
+      }
+      captureSegment(state, captureStart, state.position, false);
+    }
+    return true;
+  }
+  function readBlockSequence(state, nodeIndent) {
+    const _tag = state.tag;
+    const _anchor = state.anchor;
+    const _result = [];
+    let detected = false;
+    if (state.firstTabInLine !== -1) return false;
+    if (state.anchor !== null) {
+      storeAnchor(state, state.anchor, _result);
+    }
+    let ch = state.input.charCodeAt(state.position);
+    while (ch !== 0) {
+      if (state.firstTabInLine !== -1) {
+        state.position = state.firstTabInLine;
+        throwError(state, "tab characters must not be used in indentation");
+      }
+      if (ch !== 45) {
+        break;
+      }
+      const following = state.input.charCodeAt(state.position + 1);
+      if (!isWsOrEol(following)) {
+        break;
+      }
+      detected = true;
+      state.position++;
+      if (skipSeparationSpace(state, true, -1)) {
+        if (state.lineIndent <= nodeIndent) {
+          _result.push(null);
+          ch = state.input.charCodeAt(state.position);
+          continue;
+        }
+      }
+      const _line = state.line;
+      composeNode(state, nodeIndent, CONTEXT_BLOCK_IN, false, true);
+      _result.push(state.result);
+      skipSeparationSpace(state, true, -1);
+      ch = state.input.charCodeAt(state.position);
+      if ((state.line === _line || state.lineIndent > nodeIndent) && ch !== 0) {
+        throwError(state, "bad indentation of a sequence entry");
+      } else if (state.lineIndent < nodeIndent) {
+        break;
+      }
+    }
+    if (detected) {
+      state.tag = _tag;
+      state.anchor = _anchor;
+      state.kind = "sequence";
+      state.result = _result;
+      return true;
+    }
+    return false;
+  }
+  function readBlockMapping(state, nodeIndent, flowIndent) {
+    let allowCompact;
+    let _keyLine;
+    let _keyLineStart;
+    let _keyPos;
+    const _tag = state.tag;
+    const _anchor = state.anchor;
+    const _result = {};
+    const overridableKeys = /* @__PURE__ */ Object.create(null);
+    let keyTag = null;
+    let keyNode = null;
+    let valueNode = null;
+    let atExplicitKey = false;
+    let detected = false;
+    if (state.firstTabInLine !== -1) return false;
+    if (state.anchor !== null) {
+      storeAnchor(state, state.anchor, _result);
+    }
+    let ch = state.input.charCodeAt(state.position);
+    while (ch !== 0) {
+      if (!atExplicitKey && state.firstTabInLine !== -1) {
+        state.position = state.firstTabInLine;
+        throwError(state, "tab characters must not be used in indentation");
+      }
+      const following = state.input.charCodeAt(state.position + 1);
+      const _line = state.line;
+      if ((ch === 63 || ch === 58) && isWsOrEol(following)) {
+        if (ch === 63) {
+          if (atExplicitKey) {
+            storeMappingPair(state, _result, overridableKeys, keyTag, keyNode, null, _keyLine, _keyLineStart, _keyPos);
+            keyTag = keyNode = valueNode = null;
+          }
+          detected = true;
+          atExplicitKey = true;
+          allowCompact = true;
+        } else if (atExplicitKey) {
+          atExplicitKey = false;
+          allowCompact = true;
+        } else {
+          throwError(state, "incomplete explicit mapping pair; a key node is missed; or followed by a non-tabulated empty line");
+        }
+        state.position += 1;
+        ch = following;
+      } else {
+        _keyLine = state.line;
+        _keyLineStart = state.lineStart;
+        _keyPos = state.position;
+        if (!composeNode(state, flowIndent, CONTEXT_FLOW_OUT, false, true)) {
+          break;
+        }
+        if (state.line === _line) {
+          ch = state.input.charCodeAt(state.position);
+          while (isWhiteSpace(ch)) {
+            ch = state.input.charCodeAt(++state.position);
+          }
+          if (ch === 58) {
+            ch = state.input.charCodeAt(++state.position);
+            if (!isWsOrEol(ch)) {
+              throwError(state, "a whitespace character is expected after the key-value separator within a block mapping");
+            }
+            if (atExplicitKey) {
+              storeMappingPair(state, _result, overridableKeys, keyTag, keyNode, null, _keyLine, _keyLineStart, _keyPos);
+              keyTag = keyNode = valueNode = null;
+            }
+            detected = true;
+            atExplicitKey = false;
+            allowCompact = false;
+            keyTag = state.tag;
+            keyNode = state.result;
+          } else if (detected) {
+            throwError(state, "can not read an implicit mapping pair; a colon is missed");
+          } else {
+            state.tag = _tag;
+            state.anchor = _anchor;
+            return true;
+          }
+        } else if (detected) {
+          throwError(state, "can not read a block mapping entry; a multiline key may not be an implicit key");
+        } else {
+          state.tag = _tag;
+          state.anchor = _anchor;
+          return true;
+        }
+      }
+      if (state.line === _line || state.lineIndent > nodeIndent) {
+        if (atExplicitKey) {
+          _keyLine = state.line;
+          _keyLineStart = state.lineStart;
+          _keyPos = state.position;
+        }
+        if (composeNode(state, nodeIndent, CONTEXT_BLOCK_OUT, true, allowCompact)) {
+          if (atExplicitKey) {
+            keyNode = state.result;
+          } else {
+            valueNode = state.result;
+          }
+        }
+        if (!atExplicitKey) {
+          storeMappingPair(state, _result, overridableKeys, keyTag, keyNode, valueNode, _keyLine, _keyLineStart, _keyPos);
+          keyTag = keyNode = valueNode = null;
+        }
+        skipSeparationSpace(state, true, -1);
+        ch = state.input.charCodeAt(state.position);
+      }
+      if ((state.line === _line || state.lineIndent > nodeIndent) && ch !== 0) {
+        throwError(state, "bad indentation of a mapping entry");
+      } else if (state.lineIndent < nodeIndent) {
+        break;
+      }
+    }
+    if (atExplicitKey) {
+      storeMappingPair(state, _result, overridableKeys, keyTag, keyNode, null, _keyLine, _keyLineStart, _keyPos);
+    }
+    if (detected) {
+      state.tag = _tag;
+      state.anchor = _anchor;
+      state.kind = "mapping";
+      state.result = _result;
+    }
+    return detected;
+  }
+  function readTagProperty(state) {
+    let isVerbatim = false;
+    let isNamed = false;
+    let tagHandle;
+    let tagName;
+    let ch = state.input.charCodeAt(state.position);
+    if (ch !== 33) return false;
+    if (state.tag !== null) {
+      throwError(state, "duplication of a tag property");
+    }
+    ch = state.input.charCodeAt(++state.position);
+    if (ch === 60) {
+      isVerbatim = true;
+      ch = state.input.charCodeAt(++state.position);
+    } else if (ch === 33) {
+      isNamed = true;
+      tagHandle = "!!";
+      ch = state.input.charCodeAt(++state.position);
+    } else {
+      tagHandle = "!";
+    }
+    let _position = state.position;
+    if (isVerbatim) {
+      do {
+        ch = state.input.charCodeAt(++state.position);
+      } while (ch !== 0 && ch !== 62);
+      if (state.position < state.length) {
+        tagName = state.input.slice(_position, state.position);
+        ch = state.input.charCodeAt(++state.position);
+      } else {
+        throwError(state, "unexpected end of the stream within a verbatim tag");
+      }
+    } else {
+      while (ch !== 0 && !isWsOrEol(ch)) {
+        if (ch === 33) {
+          if (!isNamed) {
+            tagHandle = state.input.slice(_position - 1, state.position + 1);
+            if (!PATTERN_TAG_HANDLE.test(tagHandle)) {
+              throwError(state, "named tag handle cannot contain such characters");
+            }
+            isNamed = true;
+            _position = state.position + 1;
+          } else {
+            throwError(state, "tag suffix cannot contain exclamation marks");
+          }
+        }
+        ch = state.input.charCodeAt(++state.position);
+      }
+      tagName = state.input.slice(_position, state.position);
+      if (PATTERN_FLOW_INDICATORS.test(tagName)) {
+        throwError(state, "tag suffix cannot contain flow indicator characters");
+      }
+    }
+    if (tagName && !PATTERN_TAG_URI.test(tagName)) {
+      throwError(state, "tag name cannot contain such characters: " + tagName);
+    }
+    try {
+      tagName = decodeURIComponent(tagName);
+    } catch (err) {
+      throwError(state, "tag name is malformed: " + tagName);
+    }
+    if (isVerbatim) {
+      state.tag = tagName;
+    } else if (_hasOwnProperty.call(state.tagMap, tagHandle)) {
+      state.tag = state.tagMap[tagHandle] + tagName;
+    } else if (tagHandle === "!") {
+      state.tag = "!" + tagName;
+    } else if (tagHandle === "!!") {
+      state.tag = "tag:yaml.org,2002:" + tagName;
+    } else {
+      throwError(state, 'undeclared tag handle "' + tagHandle + '"');
+    }
+    return true;
+  }
+  function readAnchorProperty(state) {
+    let ch = state.input.charCodeAt(state.position);
+    if (ch !== 38) return false;
+    if (state.anchor !== null) {
+      throwError(state, "duplication of an anchor property");
+    }
+    ch = state.input.charCodeAt(++state.position);
+    const _position = state.position;
+    while (ch !== 0 && !isWsOrEol(ch) && !isFlowIndicator(ch)) {
+      ch = state.input.charCodeAt(++state.position);
+    }
+    if (state.position === _position) {
+      throwError(state, "name of an anchor node must contain at least one character");
+    }
+    state.anchor = state.input.slice(_position, state.position);
+    return true;
+  }
+  function readAlias(state) {
+    let ch = state.input.charCodeAt(state.position);
+    if (ch !== 42) return false;
+    ch = state.input.charCodeAt(++state.position);
+    const _position = state.position;
+    while (ch !== 0 && !isWsOrEol(ch) && !isFlowIndicator(ch)) {
+      ch = state.input.charCodeAt(++state.position);
+    }
+    if (state.position === _position) {
+      throwError(state, "name of an alias node must contain at least one character");
+    }
+    const alias = state.input.slice(_position, state.position);
+    if (!_hasOwnProperty.call(state.anchorMap, alias)) {
+      throwError(state, 'unidentified alias "' + alias + '"');
+    }
+    state.result = state.anchorMap[alias];
+    skipSeparationSpace(state, true, -1);
+    return true;
+  }
+  function tryReadBlockMappingFromProperty(state, propertyStart, nodeIndent, flowIndent) {
+    const fallbackState = snapshotState(state);
+    beginAnchorTransaction(state);
+    restoreState(state, propertyStart);
+    state.tag = null;
+    state.anchor = null;
+    state.kind = null;
+    state.result = null;
+    if (readBlockMapping(state, nodeIndent, flowIndent) && state.kind === "mapping") {
+      commitAnchorTransaction(state);
+      return true;
+    }
+    rollbackAnchorTransaction(state);
+    restoreState(state, fallbackState);
+    return false;
+  }
+  function composeNode(state, parentIndent, nodeContext, allowToSeek, allowCompact) {
+    let allowBlockScalars;
+    let allowBlockCollections;
+    let indentStatus = 1;
+    let atNewLine = false;
+    let hasContent = false;
+    let propertyStart = null;
+    let type2;
+    let flowIndent;
+    let blockIndent;
+    if (state.depth >= state.maxDepth) {
+      throwError(state, "nesting exceeded maxDepth (" + state.maxDepth + ")");
+    }
+    state.depth += 1;
+    if (state.listener !== null) {
+      state.listener("open", state);
+    }
+    state.tag = null;
+    state.anchor = null;
+    state.kind = null;
+    state.result = null;
+    const allowBlockStyles = allowBlockScalars = allowBlockCollections = CONTEXT_BLOCK_OUT === nodeContext || CONTEXT_BLOCK_IN === nodeContext;
+    if (allowToSeek) {
+      if (skipSeparationSpace(state, true, -1)) {
+        atNewLine = true;
+        if (state.lineIndent > parentIndent) {
+          indentStatus = 1;
+        } else if (state.lineIndent === parentIndent) {
+          indentStatus = 0;
+        } else if (state.lineIndent < parentIndent) {
+          indentStatus = -1;
+        }
+      }
+    }
+    if (indentStatus === 1) {
+      while (true) {
+        const ch = state.input.charCodeAt(state.position);
+        const propertyState = snapshotState(state);
+        if (atNewLine && (ch === 33 && state.tag !== null || ch === 38 && state.anchor !== null)) {
+          break;
+        }
+        if (!readTagProperty(state) && !readAnchorProperty(state)) {
+          break;
+        }
+        if (propertyStart === null) {
+          propertyStart = propertyState;
+        }
+        if (skipSeparationSpace(state, true, -1)) {
+          atNewLine = true;
+          allowBlockCollections = allowBlockStyles;
+          if (state.lineIndent > parentIndent) {
+            indentStatus = 1;
+          } else if (state.lineIndent === parentIndent) {
+            indentStatus = 0;
+          } else if (state.lineIndent < parentIndent) {
+            indentStatus = -1;
+          }
+        } else {
+          allowBlockCollections = false;
+        }
+      }
+    }
+    if (allowBlockCollections) {
+      allowBlockCollections = atNewLine || allowCompact;
+    }
+    if (indentStatus === 1 || CONTEXT_BLOCK_OUT === nodeContext) {
+      if (CONTEXT_FLOW_IN === nodeContext || CONTEXT_FLOW_OUT === nodeContext) {
+        flowIndent = parentIndent;
+      } else {
+        flowIndent = parentIndent + 1;
+      }
+      blockIndent = state.position - state.lineStart;
+      if (indentStatus === 1) {
+        if (allowBlockCollections && (readBlockSequence(state, blockIndent) || readBlockMapping(state, blockIndent, flowIndent)) || readFlowCollection(state, flowIndent)) {
+          hasContent = true;
+        } else {
+          const ch = state.input.charCodeAt(state.position);
+          if (propertyStart !== null && allowBlockStyles && !allowBlockCollections && ch !== 124 && ch !== 62 && tryReadBlockMappingFromProperty(
+            state,
+            propertyStart,
+            propertyStart.position - propertyStart.lineStart,
+            flowIndent
+          )) {
+            hasContent = true;
+          } else if (allowBlockScalars && readBlockScalar(state, flowIndent) || readSingleQuotedScalar(state, flowIndent) || readDoubleQuotedScalar(state, flowIndent)) {
+            hasContent = true;
+          } else if (readAlias(state)) {
+            hasContent = true;
+            if (state.tag !== null || state.anchor !== null) {
+              throwError(state, "alias node should not have any properties");
+            }
+          } else if (readPlainScalar(state, flowIndent, CONTEXT_FLOW_IN === nodeContext)) {
+            hasContent = true;
+            if (state.tag === null) {
+              state.tag = "?";
+            }
+          }
+          if (state.anchor !== null) {
+            storeAnchor(state, state.anchor, state.result);
+          }
+        }
+      } else if (indentStatus === 0) {
+        hasContent = allowBlockCollections && readBlockSequence(state, blockIndent);
+      }
+    }
+    if (state.tag === null) {
+      if (state.anchor !== null) {
+        storeAnchor(state, state.anchor, state.result);
+      }
+    } else if (state.tag === "?") {
+      if (state.result !== null && state.kind !== "scalar") {
+        throwError(state, 'unacceptable node kind for !<?> tag; it should be "scalar", not "' + state.kind + '"');
+      }
+      for (let typeIndex = 0, typeQuantity = state.implicitTypes.length; typeIndex < typeQuantity; typeIndex += 1) {
+        type2 = state.implicitTypes[typeIndex];
+        if (type2.resolve(state.result)) {
+          state.result = type2.construct(state.result);
+          state.tag = type2.tag;
+          if (state.anchor !== null) {
+            storeAnchor(state, state.anchor, state.result);
+          }
+          break;
+        }
+      }
+    } else if (state.tag !== "!") {
+      if (_hasOwnProperty.call(state.typeMap[state.kind || "fallback"], state.tag)) {
+        type2 = state.typeMap[state.kind || "fallback"][state.tag];
+      } else {
+        type2 = null;
+        const typeList = state.typeMap.multi[state.kind || "fallback"];
+        for (let typeIndex = 0, typeQuantity = typeList.length; typeIndex < typeQuantity; typeIndex += 1) {
+          if (state.tag.slice(0, typeList[typeIndex].tag.length) === typeList[typeIndex].tag) {
+            type2 = typeList[typeIndex];
+            break;
+          }
+        }
+      }
+      if (!type2) {
+        throwError(state, "unknown tag !<" + state.tag + ">");
+      }
+      if (state.result !== null && type2.kind !== state.kind) {
+        throwError(state, "unacceptable node kind for !<" + state.tag + '> tag; it should be "' + type2.kind + '", not "' + state.kind + '"');
+      }
+      if (!type2.resolve(state.result, state.tag)) {
+        throwError(state, "cannot resolve a node with !<" + state.tag + "> explicit tag");
+      } else {
+        state.result = type2.construct(state.result, state.tag);
+        if (state.anchor !== null) {
+          storeAnchor(state, state.anchor, state.result);
+        }
+      }
+    }
+    if (state.listener !== null) {
+      state.listener("close", state);
+    }
+    state.depth -= 1;
+    return state.tag !== null || state.anchor !== null || hasContent;
+  }
+  function readDocument(state) {
+    const documentStart = state.position;
+    let hasDirectives = false;
+    let ch;
+    state.version = null;
+    state.checkLineBreaks = state.legacy;
+    state.tagMap = /* @__PURE__ */ Object.create(null);
+    state.anchorMap = /* @__PURE__ */ Object.create(null);
+    while ((ch = state.input.charCodeAt(state.position)) !== 0) {
+      skipSeparationSpace(state, true, -1);
+      ch = state.input.charCodeAt(state.position);
+      if (state.lineIndent > 0 || ch !== 37) {
+        break;
+      }
+      hasDirectives = true;
+      ch = state.input.charCodeAt(++state.position);
+      let _position = state.position;
+      while (ch !== 0 && !isWsOrEol(ch)) {
+        ch = state.input.charCodeAt(++state.position);
+      }
+      const directiveName = state.input.slice(_position, state.position);
+      const directiveArgs = [];
+      if (directiveName.length < 1) {
+        throwError(state, "directive name must not be less than one character in length");
+      }
+      while (ch !== 0) {
+        while (isWhiteSpace(ch)) {
+          ch = state.input.charCodeAt(++state.position);
+        }
+        if (ch === 35) {
+          do {
+            ch = state.input.charCodeAt(++state.position);
+          } while (ch !== 0 && !isEol(ch));
+          break;
+        }
+        if (isEol(ch)) break;
+        _position = state.position;
+        while (ch !== 0 && !isWsOrEol(ch)) {
+          ch = state.input.charCodeAt(++state.position);
+        }
+        directiveArgs.push(state.input.slice(_position, state.position));
+      }
+      if (ch !== 0) readLineBreak(state);
+      if (_hasOwnProperty.call(directiveHandlers, directiveName)) {
+        directiveHandlers[directiveName](state, directiveName, directiveArgs);
+      } else {
+        throwWarning(state, 'unknown document directive "' + directiveName + '"');
+      }
+    }
+    skipSeparationSpace(state, true, -1);
+    if (state.lineIndent === 0 && state.input.charCodeAt(state.position) === 45 && state.input.charCodeAt(state.position + 1) === 45 && state.input.charCodeAt(state.position + 2) === 45) {
+      state.position += 3;
+      skipSeparationSpace(state, true, -1);
+    } else if (hasDirectives) {
+      throwError(state, "directives end mark is expected");
+    }
+    composeNode(state, state.lineIndent - 1, CONTEXT_BLOCK_OUT, false, true);
+    skipSeparationSpace(state, true, -1);
+    if (state.checkLineBreaks && PATTERN_NON_ASCII_LINE_BREAKS.test(state.input.slice(documentStart, state.position))) {
+      throwWarning(state, "non-ASCII line breaks are interpreted as content");
+    }
+    state.documents.push(state.result);
+    if (state.position === state.lineStart && testDocumentSeparator(state)) {
+      if (state.input.charCodeAt(state.position) === 46) {
+        state.position += 3;
+        skipSeparationSpace(state, true, -1);
+      }
+      return;
+    }
+    if (state.position < state.length - 1) {
+      throwError(state, "end of the stream or a document separator is expected");
+    }
+  }
+  function loadDocuments(input, options) {
+    input = String(input);
+    options = options || {};
+    if (input.length !== 0) {
+      if (input.charCodeAt(input.length - 1) !== 10 && input.charCodeAt(input.length - 1) !== 13) {
+        input += "\n";
+      }
+      if (input.charCodeAt(0) === 65279) {
+        input = input.slice(1);
+      }
+    }
+    const state = new State(input, options);
+    const nullpos = input.indexOf("\0");
+    if (nullpos !== -1) {
+      state.position = nullpos;
+      throwError(state, "null byte is not allowed in input");
+    }
+    state.input += "\0";
+    while (state.input.charCodeAt(state.position) === 32) {
+      state.lineIndent += 1;
+      state.position += 1;
+    }
+    while (state.position < state.length - 1) {
+      readDocument(state);
+    }
+    return state.documents;
+  }
+  function loadAll2(input, iterator, options) {
+    if (iterator !== null && typeof iterator === "object" && typeof options === "undefined") {
+      options = iterator;
+      iterator = null;
+    }
+    const documents = loadDocuments(input, options);
+    if (typeof iterator !== "function") {
+      return documents;
+    }
+    for (let index = 0, length = documents.length; index < length; index += 1) {
+      iterator(documents[index]);
+    }
+  }
+  function load2(input, options) {
+    const documents = loadDocuments(input, options);
+    if (documents.length === 0) {
+      return void 0;
+    } else if (documents.length === 1) {
+      return documents[0];
+    }
+    throw new YAMLException2("expected a single document in the stream, but found more");
+  }
+  loader.loadAll = loadAll2;
+  loader.load = load2;
+  return loader;
+}
+function requireDumper() {
+  if (hasRequiredDumper) return dumper;
+  hasRequiredDumper = 1;
+  const common2 = requireCommon();
+  const YAMLException2 = requireException();
+  const DEFAULT_SCHEMA2 = require_default();
+  const _toString = Object.prototype.toString;
+  const _hasOwnProperty = Object.prototype.hasOwnProperty;
+  const CHAR_BOM = 65279;
+  const CHAR_TAB = 9;
+  const CHAR_LINE_FEED = 10;
+  const CHAR_CARRIAGE_RETURN = 13;
+  const CHAR_SPACE = 32;
+  const CHAR_EXCLAMATION = 33;
+  const CHAR_DOUBLE_QUOTE = 34;
+  const CHAR_SHARP = 35;
+  const CHAR_PERCENT = 37;
+  const CHAR_AMPERSAND = 38;
+  const CHAR_SINGLE_QUOTE = 39;
+  const CHAR_ASTERISK = 42;
+  const CHAR_COMMA = 44;
+  const CHAR_MINUS = 45;
+  const CHAR_COLON = 58;
+  const CHAR_EQUALS = 61;
+  const CHAR_GREATER_THAN = 62;
+  const CHAR_QUESTION = 63;
+  const CHAR_COMMERCIAL_AT = 64;
+  const CHAR_LEFT_SQUARE_BRACKET = 91;
+  const CHAR_RIGHT_SQUARE_BRACKET = 93;
+  const CHAR_GRAVE_ACCENT = 96;
+  const CHAR_LEFT_CURLY_BRACKET = 123;
+  const CHAR_VERTICAL_LINE = 124;
+  const CHAR_RIGHT_CURLY_BRACKET = 125;
+  const ESCAPE_SEQUENCES = {};
+  ESCAPE_SEQUENCES[0] = "\\0";
+  ESCAPE_SEQUENCES[7] = "\\a";
+  ESCAPE_SEQUENCES[8] = "\\b";
+  ESCAPE_SEQUENCES[9] = "\\t";
+  ESCAPE_SEQUENCES[10] = "\\n";
+  ESCAPE_SEQUENCES[11] = "\\v";
+  ESCAPE_SEQUENCES[12] = "\\f";
+  ESCAPE_SEQUENCES[13] = "\\r";
+  ESCAPE_SEQUENCES[27] = "\\e";
+  ESCAPE_SEQUENCES[34] = '\\"';
+  ESCAPE_SEQUENCES[92] = "\\\\";
+  ESCAPE_SEQUENCES[133] = "\\N";
+  ESCAPE_SEQUENCES[160] = "\\_";
+  ESCAPE_SEQUENCES[8232] = "\\L";
+  ESCAPE_SEQUENCES[8233] = "\\P";
+  const DEPRECATED_BOOLEANS_SYNTAX = [
+    "y",
+    "Y",
+    "yes",
+    "Yes",
+    "YES",
+    "on",
+    "On",
+    "ON",
+    "n",
+    "N",
+    "no",
+    "No",
+    "NO",
+    "off",
+    "Off",
+    "OFF"
+  ];
+  const DEPRECATED_BASE60_SYNTAX = /^[-+]?[0-9_]+(?::[0-9_]+)+(?:\.[0-9_]*)?$/;
+  function compileStyleMap(schema2, map2) {
+    if (map2 === null) return {};
+    const result = {};
+    const keys = Object.keys(map2);
+    for (let index = 0, length = keys.length; index < length; index += 1) {
+      let tag = keys[index];
+      let style = String(map2[tag]);
+      if (tag.slice(0, 2) === "!!") {
+        tag = "tag:yaml.org,2002:" + tag.slice(2);
+      }
+      const type2 = schema2.compiledTypeMap["fallback"][tag];
+      if (type2 && _hasOwnProperty.call(type2.styleAliases, style)) {
+        style = type2.styleAliases[style];
+      }
+      result[tag] = style;
+    }
+    return result;
+  }
+  function encodeHex(character) {
+    let handle;
+    let length;
+    const string = character.toString(16).toUpperCase();
+    if (character <= 255) {
+      handle = "x";
+      length = 2;
+    } else if (character <= 65535) {
+      handle = "u";
+      length = 4;
+    } else if (character <= 4294967295) {
+      handle = "U";
+      length = 8;
+    } else {
+      throw new YAMLException2("code point within a string may not be greater than 0xFFFFFFFF");
+    }
+    return "\\" + handle + common2.repeat("0", length - string.length) + string;
+  }
+  const QUOTING_TYPE_SINGLE = 1;
+  const QUOTING_TYPE_DOUBLE = 2;
+  function State(options) {
+    this.schema = options["schema"] || DEFAULT_SCHEMA2;
+    this.indent = Math.max(1, options["indent"] || 2);
+    this.noArrayIndent = options["noArrayIndent"] || false;
+    this.skipInvalid = options["skipInvalid"] || false;
+    this.flowLevel = common2.isNothing(options["flowLevel"]) ? -1 : options["flowLevel"];
+    this.styleMap = compileStyleMap(this.schema, options["styles"] || null);
+    this.sortKeys = options["sortKeys"] || false;
+    this.lineWidth = options["lineWidth"] || 80;
+    this.noRefs = options["noRefs"] || false;
+    this.noCompatMode = options["noCompatMode"] || false;
+    this.condenseFlow = options["condenseFlow"] || false;
+    this.quotingType = options["quotingType"] === '"' ? QUOTING_TYPE_DOUBLE : QUOTING_TYPE_SINGLE;
+    this.forceQuotes = options["forceQuotes"] || false;
+    this.replacer = typeof options["replacer"] === "function" ? options["replacer"] : null;
+    this.implicitTypes = this.schema.compiledImplicit;
+    this.explicitTypes = this.schema.compiledExplicit;
+    this.tag = null;
+    this.result = "";
+    this.duplicates = [];
+    this.usedDuplicates = null;
+  }
+  function indentString(string, spaces2) {
+    const ind = common2.repeat(" ", spaces2);
+    let position = 0;
+    let result = "";
+    const length = string.length;
+    while (position < length) {
+      let line;
+      const next = string.indexOf("\n", position);
+      if (next === -1) {
+        line = string.slice(position);
+        position = length;
+      } else {
+        line = string.slice(position, next + 1);
+        position = next + 1;
+      }
+      if (line.length && line !== "\n") result += ind;
+      result += line;
+    }
+    return result;
+  }
+  function generateNextLine(state, level) {
+    return "\n" + common2.repeat(" ", state.indent * level);
+  }
+  function testImplicitResolving(state, str2) {
+    for (let index = 0, length = state.implicitTypes.length; index < length; index += 1) {
+      const type2 = state.implicitTypes[index];
+      if (type2.resolve(str2)) {
+        return true;
+      }
+    }
+    return false;
+  }
+  function isWhitespace(c) {
+    return c === CHAR_SPACE || c === CHAR_TAB;
+  }
+  function isPrintable(c) {
+    return c >= 32 && c <= 126 || c >= 161 && c <= 55295 && c !== 8232 && c !== 8233 || c >= 57344 && c <= 65533 && c !== CHAR_BOM || c >= 65536 && c <= 1114111;
+  }
+  function isNsCharOrWhitespace(c) {
+    return isPrintable(c) && c !== CHAR_BOM && // - b-char
+    c !== CHAR_CARRIAGE_RETURN && c !== CHAR_LINE_FEED;
+  }
+  function isPlainSafe(c, prev, inblock) {
+    const cIsNsCharOrWhitespace = isNsCharOrWhitespace(c);
+    const cIsNsChar = cIsNsCharOrWhitespace && !isWhitespace(c);
+    return (
+      // ns-plain-safe
+      (inblock ? cIsNsCharOrWhitespace : cIsNsCharOrWhitespace && // - c-flow-indicator
+      c !== CHAR_COMMA && c !== CHAR_LEFT_SQUARE_BRACKET && c !== CHAR_RIGHT_SQUARE_BRACKET && c !== CHAR_LEFT_CURLY_BRACKET && c !== CHAR_RIGHT_CURLY_BRACKET) && // ns-plain-char
+      c !== CHAR_SHARP && // false on '#'
+      !(prev === CHAR_COLON && !cIsNsChar) || // false on ': '
+      isNsCharOrWhitespace(prev) && !isWhitespace(prev) && c === CHAR_SHARP || // change to true on '[^ ]#'
+      prev === CHAR_COLON && cIsNsChar
+    );
+  }
+  function isPlainSafeFirst(c) {
+    return isPrintable(c) && c !== CHAR_BOM && !isWhitespace(c) && // - s-white
+    // - (c-indicator ::=
+    // “-” | “?” | “:” | “,” | “[” | “]” | “{” | “}”
+    c !== CHAR_MINUS && c !== CHAR_QUESTION && c !== CHAR_COLON && c !== CHAR_COMMA && c !== CHAR_LEFT_SQUARE_BRACKET && c !== CHAR_RIGHT_SQUARE_BRACKET && c !== CHAR_LEFT_CURLY_BRACKET && c !== CHAR_RIGHT_CURLY_BRACKET && // | “#” | “&” | “*” | “!” | “|” | “=” | “>” | “'” | “"”
+    c !== CHAR_SHARP && c !== CHAR_AMPERSAND && c !== CHAR_ASTERISK && c !== CHAR_EXCLAMATION && c !== CHAR_VERTICAL_LINE && c !== CHAR_EQUALS && c !== CHAR_GREATER_THAN && c !== CHAR_SINGLE_QUOTE && c !== CHAR_DOUBLE_QUOTE && // | “%” | “@” | “`”)
+    c !== CHAR_PERCENT && c !== CHAR_COMMERCIAL_AT && c !== CHAR_GRAVE_ACCENT;
+  }
+  function isPlainSafeLast(c) {
+    return !isWhitespace(c) && c !== CHAR_COLON;
+  }
+  function codePointAt(string, pos) {
+    const first = string.charCodeAt(pos);
+    let second;
+    if (first >= 55296 && first <= 56319 && pos + 1 < string.length) {
+      second = string.charCodeAt(pos + 1);
+      if (second >= 56320 && second <= 57343) {
+        return (first - 55296) * 1024 + second - 56320 + 65536;
+      }
+    }
+    return first;
+  }
+  function needIndentIndicator(string) {
+    const leadingSpaceRe = /^\n* /;
+    return leadingSpaceRe.test(string);
+  }
+  const STYLE_PLAIN = 1;
+  const STYLE_SINGLE = 2;
+  const STYLE_LITERAL = 3;
+  const STYLE_FOLDED = 4;
+  const STYLE_DOUBLE = 5;
+  function chooseScalarStyle(string, singleLineOnly, indentPerLevel, lineWidth, testAmbiguousType, quotingType, forceQuotes, inblock) {
+    let i;
+    let char = 0;
+    let prevChar = null;
+    let hasLineBreak = false;
+    let hasFoldableLine = false;
+    const shouldTrackWidth = lineWidth !== -1;
+    let previousLineBreak = -1;
+    let plain = isPlainSafeFirst(codePointAt(string, 0)) && isPlainSafeLast(codePointAt(string, string.length - 1));
+    if (singleLineOnly || forceQuotes) {
+      for (i = 0; i < string.length; char >= 65536 ? i += 2 : i++) {
+        char = codePointAt(string, i);
+        if (!isPrintable(char)) {
+          return STYLE_DOUBLE;
+        }
+        plain = plain && isPlainSafe(char, prevChar, inblock);
+        prevChar = char;
+      }
+    } else {
+      for (i = 0; i < string.length; char >= 65536 ? i += 2 : i++) {
+        char = codePointAt(string, i);
+        if (char === CHAR_LINE_FEED) {
+          hasLineBreak = true;
+          if (shouldTrackWidth) {
+            hasFoldableLine = hasFoldableLine || // Foldable line = too long, and not more-indented.
+            i - previousLineBreak - 1 > lineWidth && string[previousLineBreak + 1] !== " ";
+            previousLineBreak = i;
+          }
+        } else if (!isPrintable(char)) {
+          return STYLE_DOUBLE;
+        }
+        plain = plain && isPlainSafe(char, prevChar, inblock);
+        prevChar = char;
+      }
+      hasFoldableLine = hasFoldableLine || shouldTrackWidth && (i - previousLineBreak - 1 > lineWidth && string[previousLineBreak + 1] !== " ");
+    }
+    if (!hasLineBreak && !hasFoldableLine) {
+      if (plain && !forceQuotes && !testAmbiguousType(string)) {
+        return STYLE_PLAIN;
+      }
+      return quotingType === QUOTING_TYPE_DOUBLE ? STYLE_DOUBLE : STYLE_SINGLE;
+    }
+    if (indentPerLevel > 9 && needIndentIndicator(string)) {
+      return STYLE_DOUBLE;
+    }
+    if (!forceQuotes) {
+      return hasFoldableLine ? STYLE_FOLDED : STYLE_LITERAL;
+    }
+    return quotingType === QUOTING_TYPE_DOUBLE ? STYLE_DOUBLE : STYLE_SINGLE;
+  }
+  function writeScalar(state, string, level, iskey, inblock) {
+    state.dump = (function() {
+      if (string.length === 0) {
+        return state.quotingType === QUOTING_TYPE_DOUBLE ? '""' : "''";
+      }
+      if (!state.noCompatMode) {
+        if (DEPRECATED_BOOLEANS_SYNTAX.indexOf(string) !== -1 || DEPRECATED_BASE60_SYNTAX.test(string)) {
+          return state.quotingType === QUOTING_TYPE_DOUBLE ? '"' + string + '"' : "'" + string + "'";
+        }
+      }
+      const indent = state.indent * Math.max(1, level);
+      const lineWidth = state.lineWidth === -1 ? -1 : Math.max(Math.min(state.lineWidth, 40), state.lineWidth - indent);
+      const singleLineOnly = iskey || // No block styles in flow mode.
+      state.flowLevel > -1 && level >= state.flowLevel;
+      function testAmbiguity(string2) {
+        return testImplicitResolving(state, string2);
+      }
+      switch (chooseScalarStyle(
+        string,
+        singleLineOnly,
+        state.indent,
+        lineWidth,
+        testAmbiguity,
+        state.quotingType,
+        state.forceQuotes && !iskey,
+        inblock
+      )) {
+        case STYLE_PLAIN:
+          return string;
+        case STYLE_SINGLE:
+          return "'" + string.replace(/'/g, "''") + "'";
+        case STYLE_LITERAL:
+          return "|" + blockHeader(string, state.indent) + dropEndingNewline(indentString(string, indent));
+        case STYLE_FOLDED:
+          return ">" + blockHeader(string, state.indent) + dropEndingNewline(indentString(foldString(string, lineWidth), indent));
+        case STYLE_DOUBLE:
+          return '"' + escapeString(string) + '"';
+        default:
+          throw new YAMLException2("impossible error: invalid scalar style");
+      }
+    })();
+  }
+  function blockHeader(string, indentPerLevel) {
+    const indentIndicator = needIndentIndicator(string) ? String(indentPerLevel) : "";
+    const clip = string[string.length - 1] === "\n";
+    const keep = clip && (string[string.length - 2] === "\n" || string === "\n");
+    const chomp = keep ? "+" : clip ? "" : "-";
+    return indentIndicator + chomp + "\n";
+  }
+  function dropEndingNewline(string) {
+    return string[string.length - 1] === "\n" ? string.slice(0, -1) : string;
+  }
+  function foldString(string, width) {
+    const lineRe = /(\n+)([^\n]*)/g;
+    let result = (function() {
+      let nextLF = string.indexOf("\n");
+      nextLF = nextLF !== -1 ? nextLF : string.length;
+      lineRe.lastIndex = nextLF;
+      return foldLine(string.slice(0, nextLF), width);
+    })();
+    let prevMoreIndented = string[0] === "\n" || string[0] === " ";
+    let moreIndented;
+    let match;
+    while (match = lineRe.exec(string)) {
+      const prefix = match[1];
+      const line = match[2];
+      moreIndented = line[0] === " ";
+      result += prefix + (!prevMoreIndented && !moreIndented && line !== "" ? "\n" : "") + foldLine(line, width);
+      prevMoreIndented = moreIndented;
+    }
+    return result;
+  }
+  function foldLine(line, width) {
+    if (line === "" || line[0] === " ") return line;
+    const breakRe = / [^ ]/g;
+    let match;
+    let start = 0;
+    let end;
+    let curr = 0;
+    let next = 0;
+    let result = "";
+    while (match = breakRe.exec(line)) {
+      next = match.index;
+      if (next - start > width) {
+        end = curr > start ? curr : next;
+        result += "\n" + line.slice(start, end);
+        start = end + 1;
+      }
+      curr = next;
+    }
+    result += "\n";
+    if (line.length - start > width && curr > start) {
+      result += line.slice(start, curr) + "\n" + line.slice(curr + 1);
+    } else {
+      result += line.slice(start);
+    }
+    return result.slice(1);
+  }
+  function escapeString(string) {
+    let result = "";
+    let char = 0;
+    for (let i = 0; i < string.length; char >= 65536 ? i += 2 : i++) {
+      char = codePointAt(string, i);
+      const escapeSeq = ESCAPE_SEQUENCES[char];
+      if (!escapeSeq && isPrintable(char)) {
+        result += string[i];
+        if (char >= 65536) result += string[i + 1];
+      } else {
+        result += escapeSeq || encodeHex(char);
+      }
+    }
+    return result;
+  }
+  function writeFlowSequence(state, level, object) {
+    let _result = "";
+    const _tag = state.tag;
+    for (let index = 0, length = object.length; index < length; index += 1) {
+      let value = object[index];
+      if (state.replacer) {
+        value = state.replacer.call(object, String(index), value);
+      }
+      if (writeNode(state, level, value, false, false) || typeof value === "undefined" && writeNode(state, level, null, false, false)) {
+        if (_result !== "") _result += "," + (!state.condenseFlow ? " " : "");
+        _result += state.dump;
+      }
+    }
+    state.tag = _tag;
+    state.dump = "[" + _result + "]";
+  }
+  function writeBlockSequence(state, level, object, compact) {
+    let _result = "";
+    const _tag = state.tag;
+    for (let index = 0, length = object.length; index < length; index += 1) {
+      let value = object[index];
+      if (state.replacer) {
+        value = state.replacer.call(object, String(index), value);
+      }
+      if (writeNode(state, level + 1, value, true, true, false, true) || typeof value === "undefined" && writeNode(state, level + 1, null, true, true, false, true)) {
+        if (!compact || _result !== "") {
+          _result += generateNextLine(state, level);
+        }
+        if (state.dump && CHAR_LINE_FEED === state.dump.charCodeAt(0)) {
+          _result += "-";
+        } else {
+          _result += "- ";
+        }
+        _result += state.dump;
+      }
+    }
+    state.tag = _tag;
+    state.dump = _result || "[]";
+  }
+  function writeFlowMapping(state, level, object) {
+    let _result = "";
+    const _tag = state.tag;
+    const objectKeyList = Object.keys(object);
+    for (let index = 0, length = objectKeyList.length; index < length; index += 1) {
+      let pairBuffer = "";
+      if (_result !== "") pairBuffer += ", ";
+      if (state.condenseFlow) pairBuffer += '"';
+      const objectKey = objectKeyList[index];
+      let objectValue = object[objectKey];
+      if (state.replacer) {
+        objectValue = state.replacer.call(object, objectKey, objectValue);
+      }
+      if (!writeNode(state, level, objectKey, false, false)) {
+        continue;
+      }
+      if (state.dump.length > 1024) pairBuffer += "? ";
+      pairBuffer += state.dump + (state.condenseFlow ? '"' : "") + ":" + (state.condenseFlow ? "" : " ");
+      if (!writeNode(state, level, objectValue, false, false)) {
+        continue;
+      }
+      pairBuffer += state.dump;
+      _result += pairBuffer;
+    }
+    state.tag = _tag;
+    state.dump = "{" + _result + "}";
+  }
+  function writeBlockMapping(state, level, object, compact) {
+    let _result = "";
+    const _tag = state.tag;
+    const objectKeyList = Object.keys(object);
+    if (state.sortKeys === true) {
+      objectKeyList.sort();
+    } else if (typeof state.sortKeys === "function") {
+      objectKeyList.sort(state.sortKeys);
+    } else if (state.sortKeys) {
+      throw new YAMLException2("sortKeys must be a boolean or a function");
+    }
+    for (let index = 0, length = objectKeyList.length; index < length; index += 1) {
+      let pairBuffer = "";
+      if (!compact || _result !== "") {
+        pairBuffer += generateNextLine(state, level);
+      }
+      const objectKey = objectKeyList[index];
+      let objectValue = object[objectKey];
+      if (state.replacer) {
+        objectValue = state.replacer.call(object, objectKey, objectValue);
+      }
+      if (!writeNode(state, level + 1, objectKey, true, true, true)) {
+        continue;
+      }
+      const explicitPair = state.tag !== null && state.tag !== "?" || state.dump && state.dump.length > 1024;
+      if (explicitPair) {
+        if (state.dump && CHAR_LINE_FEED === state.dump.charCodeAt(0)) {
+          pairBuffer += "?";
+        } else {
+          pairBuffer += "? ";
+        }
+      }
+      pairBuffer += state.dump;
+      if (explicitPair) {
+        pairBuffer += generateNextLine(state, level);
+      }
+      if (!writeNode(state, level + 1, objectValue, true, explicitPair)) {
+        continue;
+      }
+      if (state.dump && CHAR_LINE_FEED === state.dump.charCodeAt(0)) {
+        pairBuffer += ":";
+      } else {
+        pairBuffer += ": ";
+      }
+      pairBuffer += state.dump;
+      _result += pairBuffer;
+    }
+    state.tag = _tag;
+    state.dump = _result || "{}";
+  }
+  function detectType(state, object, explicit) {
+    const typeList = explicit ? state.explicitTypes : state.implicitTypes;
+    for (let index = 0, length = typeList.length; index < length; index += 1) {
+      const type2 = typeList[index];
+      if ((type2.instanceOf || type2.predicate) && (!type2.instanceOf || typeof object === "object" && object instanceof type2.instanceOf) && (!type2.predicate || type2.predicate(object))) {
+        if (explicit) {
+          if (type2.multi && type2.representName) {
+            state.tag = type2.representName(object);
+          } else {
+            state.tag = type2.tag;
+          }
+        } else {
+          state.tag = "?";
+        }
+        if (type2.represent) {
+          const style = state.styleMap[type2.tag] || type2.defaultStyle;
+          let _result;
+          if (_toString.call(type2.represent) === "[object Function]") {
+            _result = type2.represent(object, style);
+          } else if (_hasOwnProperty.call(type2.represent, style)) {
+            _result = type2.represent[style](object, style);
+          } else {
+            throw new YAMLException2("!<" + type2.tag + '> tag resolver accepts not "' + style + '" style');
+          }
+          state.dump = _result;
+        }
+        return true;
+      }
+    }
+    return false;
+  }
+  function writeNode(state, level, object, block, compact, iskey, isblockseq) {
+    state.tag = null;
+    state.dump = object;
+    if (!detectType(state, object, false)) {
+      detectType(state, object, true);
+    }
+    const type2 = _toString.call(state.dump);
+    const inblock = block;
+    if (block) {
+      block = state.flowLevel < 0 || state.flowLevel > level;
+    }
+    const objectOrArray = type2 === "[object Object]" || type2 === "[object Array]";
+    let duplicateIndex;
+    let duplicate;
+    if (objectOrArray) {
+      duplicateIndex = state.duplicates.indexOf(object);
+      duplicate = duplicateIndex !== -1;
+    }
+    if (state.tag !== null && state.tag !== "?" || duplicate || state.indent !== 2 && level > 0) {
+      compact = false;
+    }
+    if (duplicate && state.usedDuplicates[duplicateIndex]) {
+      state.dump = "*ref_" + duplicateIndex;
+    } else {
+      if (objectOrArray && duplicate && !state.usedDuplicates[duplicateIndex]) {
+        state.usedDuplicates[duplicateIndex] = true;
+      }
+      if (type2 === "[object Object]") {
+        if (block && Object.keys(state.dump).length !== 0) {
+          writeBlockMapping(state, level, state.dump, compact);
+          if (duplicate) {
+            state.dump = "&ref_" + duplicateIndex + state.dump;
+          }
+        } else {
+          writeFlowMapping(state, level, state.dump);
+          if (duplicate) {
+            state.dump = "&ref_" + duplicateIndex + " " + state.dump;
+          }
+        }
+      } else if (type2 === "[object Array]") {
+        if (block && state.dump.length !== 0) {
+          if (state.noArrayIndent && !isblockseq && level > 0) {
+            writeBlockSequence(state, level - 1, state.dump, compact);
+          } else {
+            writeBlockSequence(state, level, state.dump, compact);
+          }
+          if (duplicate) {
+            state.dump = "&ref_" + duplicateIndex + state.dump;
+          }
+        } else {
+          writeFlowSequence(state, level, state.dump);
+          if (duplicate) {
+            state.dump = "&ref_" + duplicateIndex + " " + state.dump;
+          }
+        }
+      } else if (type2 === "[object String]") {
+        if (state.tag !== "?") {
+          writeScalar(state, state.dump, level, iskey, inblock);
+        }
+      } else if (type2 === "[object Undefined]") {
+        return false;
+      } else {
+        if (state.skipInvalid) return false;
+        throw new YAMLException2("unacceptable kind of an object to dump " + type2);
+      }
+      if (state.tag !== null && state.tag !== "?") {
+        let tagStr = encodeURI(
+          state.tag[0] === "!" ? state.tag.slice(1) : state.tag
+        ).replace(/!/g, "%21");
+        if (state.tag[0] === "!") {
+          tagStr = "!" + tagStr;
+        } else if (tagStr.slice(0, 18) === "tag:yaml.org,2002:") {
+          tagStr = "!!" + tagStr.slice(18);
+        } else {
+          tagStr = "!<" + tagStr + ">";
+        }
+        state.dump = tagStr + " " + state.dump;
+      }
+    }
+    return true;
+  }
+  function getDuplicateReferences(object, state) {
+    const objects = [];
+    const duplicatesIndexes = [];
+    inspectNode(object, objects, duplicatesIndexes);
+    const length = duplicatesIndexes.length;
+    for (let index = 0; index < length; index += 1) {
+      state.duplicates.push(objects[duplicatesIndexes[index]]);
+    }
+    state.usedDuplicates = new Array(length);
+  }
+  function inspectNode(object, objects, duplicatesIndexes) {
+    if (object !== null && typeof object === "object") {
+      const index = objects.indexOf(object);
+      if (index !== -1) {
+        if (duplicatesIndexes.indexOf(index) === -1) {
+          duplicatesIndexes.push(index);
+        }
+      } else {
+        objects.push(object);
+        if (Array.isArray(object)) {
+          for (let i = 0, length = object.length; i < length; i += 1) {
+            inspectNode(object[i], objects, duplicatesIndexes);
+          }
+        } else {
+          const objectKeyList = Object.keys(object);
+          for (let i = 0, length = objectKeyList.length; i < length; i += 1) {
+            inspectNode(object[objectKeyList[i]], objects, duplicatesIndexes);
+          }
+        }
+      }
+    }
+  }
+  function dump2(input, options) {
+    options = options || {};
+    const state = new State(options);
+    if (!state.noRefs) getDuplicateReferences(input, state);
+    let value = input;
+    if (state.replacer) {
+      value = state.replacer.call({ "": value }, "", value);
+    }
+    if (writeNode(state, 0, value, true, true)) return state.dump + "\n";
+    return "";
+  }
+  dumper.dump = dump2;
+  return dumper;
+}
+function requireJsYaml() {
+  if (hasRequiredJsYaml) return jsYaml;
+  hasRequiredJsYaml = 1;
+  const loader2 = requireLoader();
+  const dumper2 = requireDumper();
+  function renamed(from, to) {
+    return function() {
+      throw new Error("Function yaml." + from + " is removed in js-yaml 4. Use yaml." + to + " instead, which is now safe by default.");
+    };
+  }
+  jsYaml.Type = requireType();
+  jsYaml.Schema = requireSchema();
+  jsYaml.FAILSAFE_SCHEMA = requireFailsafe();
+  jsYaml.JSON_SCHEMA = requireJson();
+  jsYaml.CORE_SCHEMA = requireCore();
+  jsYaml.DEFAULT_SCHEMA = require_default();
+  jsYaml.load = loader2.load;
+  jsYaml.loadAll = loader2.loadAll;
+  jsYaml.dump = dumper2.dump;
+  jsYaml.YAMLException = requireException();
+  jsYaml.types = {
+    binary: requireBinary(),
+    float: requireFloat(),
+    map: requireMap(),
+    null: require_null(),
+    pairs: requirePairs(),
+    set: requireSet(),
+    timestamp: requireTimestamp(),
+    bool: requireBool(),
+    int: requireInt(),
+    merge: requireMerge(),
+    omap: requireOmap(),
+    seq: requireSeq(),
+    str: requireStr()
+  };
+  jsYaml.safeLoad = renamed("safeLoad", "load");
+  jsYaml.safeLoadAll = renamed("safeLoadAll", "loadAll");
+  jsYaml.safeDump = renamed("safeDump", "dump");
+  return jsYaml;
+}
+var jsYaml, loader, common, hasRequiredCommon, exception, hasRequiredException, snippet, hasRequiredSnippet, type, hasRequiredType, schema, hasRequiredSchema, str, hasRequiredStr, seq, hasRequiredSeq, map, hasRequiredMap, failsafe, hasRequiredFailsafe, _null, hasRequired_null, bool, hasRequiredBool, int, hasRequiredInt, float, hasRequiredFloat, json2, hasRequiredJson, core, hasRequiredCore, timestamp, hasRequiredTimestamp, merge, hasRequiredMerge, binary, hasRequiredBinary, omap, hasRequiredOmap, pairs, hasRequiredPairs, set, hasRequiredSet, _default, hasRequired_default, hasRequiredLoader, dumper, hasRequiredDumper, hasRequiredJsYaml, jsYamlExports, yaml, Type, Schema, FAILSAFE_SCHEMA, JSON_SCHEMA, CORE_SCHEMA, DEFAULT_SCHEMA, load, loadAll, dump, YAMLException, types, safeLoad, safeLoadAll, safeDump;
+var init_js_yaml = __esm({
+  "node_modules/js-yaml/dist/js-yaml.mjs"() {
+    jsYaml = {};
+    loader = {};
+    common = {};
+    dumper = {};
+    jsYamlExports = requireJsYaml();
+    yaml = /* @__PURE__ */ getDefaultExportFromCjs(jsYamlExports);
+    ({
+      Type,
+      Schema,
+      FAILSAFE_SCHEMA,
+      JSON_SCHEMA,
+      CORE_SCHEMA,
+      DEFAULT_SCHEMA,
+      load,
+      loadAll,
+      dump,
+      YAMLException,
+      types,
+      safeLoad,
+      safeLoadAll,
+      safeDump
+    } = yaml);
+  }
+});
+
+// src/services/paper-hub.ts
+function normalizeHttpUrl(raw) {
+  if (typeof raw !== "string") return null;
+  const trimmed = raw.trim();
+  if (!trimmed || INVALID_URL_TOKENS.has(trimmed.toLowerCase())) return null;
+  return /^https?:\/\/\S+$/i.test(trimmed) ? trimmed : null;
+}
+function toStringList(value) {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item != null ? item : "").trim()).filter(Boolean);
+  }
+  if (typeof value === "string" && value.trim()) {
+    return [value.trim()];
+  }
+  return [];
+}
+function extractThoughtSnippet(markdown) {
+  const thoughtSection = markdown.match(
+    /(?:^|\r?\n)##\s+Thoughts\s*\r?\n([\s\S]*?)(?=\r?\n##\s+|$)/i
+  );
+  if (thoughtSection) {
+    const cleaned = thoughtSection[1].split(/\r?\n/).map((line) => line.trim()).filter((line) => line.length > 0 && !/^Comment at\s+/i.test(line)).join(" ");
+    if (cleaned) return cleaned;
+  }
+  const highlightSection = markdown.match(
+    /```ad-quote\s*\r?\n(?:title:[^\r\n]*\r?\n)?([\s\S]*?)```/i
+  );
+  if (highlightSection) {
+    return highlightSection[1].trim().replace(/\s+/g, " ").slice(0, 180);
+  }
+  return "";
+}
+function resolveCitekeyTemplate(pattern, citekey) {
+  const cleanKey = citekey.trim().replace(/^@/, "");
+  const replaced = pattern.replace(
+    /\{\{\s*(?:citekey|citation-key)\s*\}\}|\$\{\s*citekey\s*\}/gi,
+    () => cleanKey
+  );
+  const normalized = normalizePath(replaced);
+  if (pattern.trim().toLowerCase().endsWith(".md") && !normalized.toLowerCase().endsWith(".md")) {
+    return `${normalized}.md`;
+  }
+  return normalized;
+}
+function resolvePaperPaths(workspace, citekey) {
+  const cleanKey = citekey.trim().replace(/^@/, "");
+  const literatureNote = resolveCitekeyTemplate(
+    workspace.literatureNotePath,
+    cleanKey
+  );
+  const report1 = resolveCitekeyTemplate(workspace.report1Path, cleanKey);
+  const report2 = resolveCitekeyTemplate(workspace.report2Path, cleanKey);
+  const takeaway = resolveCitekeyTemplate(workspace.takeawayPath, cleanKey);
+  const coreNote = resolveCitekeyTemplate(workspace.coreNotePath, cleanKey);
+  return {
+    citekey: cleanKey,
+    literatureNote,
+    report1,
+    report2,
+    takeaway,
+    coreNote
+  };
+}
+function extractCodeUrlFromReport(markdown) {
+  if (!markdown) return null;
+  const fenceRegex = /```(?:json)?\s*([\s\S]*?)```/gi;
+  let fenceMatch;
+  while ((fenceMatch = fenceRegex.exec(markdown)) !== null) {
+    try {
+      const parsed = JSON.parse(fenceMatch[1].trim());
+      const fromJson = normalizeHttpUrl(parsed == null ? void 0 : parsed.code_url);
+      if (fromJson) return fromJson;
+    } catch (e) {
+    }
+  }
+  const inlineMatch = markdown.match(/"code_url"\s*:\s*"([^"]*)"/i);
+  if (inlineMatch) {
+    return normalizeHttpUrl(inlineMatch[1]);
+  }
+  return null;
+}
+function unwrapTakeawayMarkdown(raw) {
+  const trimmed = raw.trim();
+  if (trimmed.startsWith("{")) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (parsed && typeof parsed.markdown_body === "string") {
+        return parsed.markdown_body;
+      }
+    } catch (e) {
+      return raw;
+    }
+  }
+  return raw;
+}
+function matchInlineField(markdown, fieldPattern) {
+  const lhsRe = new RegExp(`(?:^|[^a-zA-Z0-9])(?:${fieldPattern})$`, "i");
+  for (const line of markdown.split(/\r?\n/)) {
+    const sepIdx = line.indexOf("::");
+    if (sepIdx < 0) continue;
+    let lhs = line.slice(0, sepIdx).trimEnd();
+    if (lhs.endsWith("**")) {
+      lhs = lhs.slice(0, -2).trimEnd();
+    }
+    const rhs = line.slice(sepIdx + 2).trim();
+    if (rhs && lhsRe.test(lhs)) {
+      return rhs;
+    }
+  }
+  return "";
+}
+function isHeadingDelimiter(ch) {
+  return ch === " " || ch === "	" || ch === "\r" || ch === "\n" || ch === ":" || ch === "-" || ch === "\u2013" || ch === "\u2014";
+}
+function trimHeadingDelimiters(str2) {
+  let start = 0;
+  let end = str2.length;
+  while (start < end && isHeadingDelimiter(str2[start])) {
+    start++;
+  }
+  while (end > start && isHeadingDelimiter(str2[end - 1])) {
+    end--;
+  }
+  return str2.slice(start, end);
+}
+function extractTakeawaySummary(raw) {
+  const md = unwrapTakeawayMarkdown(raw);
+  return {
+    tldr: matchInlineField(md, "TL;DR"),
+    topic: matchInlineField(md, "topic"),
+    position: matchInlineField(md, "position"),
+    contributions: matchInlineField(md, "contributions"),
+    novelty: matchInlineField(md, "novelty"),
+    limitation: matchInlineField(md, "limitation")
+  };
+}
+function extractBulletValue(block, label) {
+  const re = new RegExp(
+    `^[ \\t]*[-*][ \\t]*(?:\\*\\*)?${label}(?:\\*\\*)?[ \\t]*[:\uFF1A][ \\t]*(.+)$`,
+    "im"
+  );
+  const match = block.match(re);
+  return match ? match[1].trim() : "";
+}
+function parseWikiLinkParts(text) {
+  var _a;
+  const match = text.match(/\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|([^\]]+))?\]\]/);
+  if (!match) return null;
+  return {
+    target: match[1].trim(),
+    alias: ((_a = match[2]) != null ? _a : "").trim()
+  };
+}
+function parseTakeawayCandidates(raw) {
+  const md = unwrapTakeawayMarkdown(raw);
+  const headingRegex = /^###[ \t]+Candidate[ \t]+(\d+)[ \t]*(?:[:\-–—][ \t]*)?(.*)$/gim;
+  const matches = [];
+  let match;
+  while ((match = headingRegex.exec(md)) !== null) {
+    matches.push({
+      index: Number(match[1]),
+      heading: match[2].trim(),
+      start: match.index,
+      bodyStart: headingRegex.lastIndex
+    });
+  }
+  return matches.map((item, idx) => {
+    const nextStart = idx + 1 < matches.length ? matches[idx + 1].start : md.length;
+    const rawSlice = md.slice(item.bodyStart, nextStart);
+    const nextSectionIdx = rawSlice.search(/\r?\n##\s+/);
+    const block = nextSectionIdx >= 0 ? rawSlice.slice(0, nextSectionIdx) : rawSlice;
+    const headingWithoutWiki = item.heading.replace(/\[\[[^\]]*\]\]/g, "");
+    const typeMatch = headingWithoutWiki.match(/\[([^[\]]+)\]/);
+    const typeLabel = typeMatch ? typeMatch[1].trim() : "";
+    let linkTitle = "";
+    let linkPath = "";
+    const rawLinkBullet = extractBulletValue(block, "Link");
+    if (rawLinkBullet) {
+      const bulletWiki = parseWikiLinkParts(rawLinkBullet);
+      if (bulletWiki) {
+        linkTitle = (bulletWiki.alias || bulletWiki.target.split("/").pop() || bulletWiki.target).trim();
+        linkPath = bulletWiki.target.includes("/") ? bulletWiki.target.trim() : "";
+      } else {
+        const plainBulletLink = rawLinkBullet.replace(/\[\[|\]\]/g, "").trim();
+        if (plainBulletLink) {
+          linkTitle = plainBulletLink;
+          linkPath = plainBulletLink.includes("/") ? plainBulletLink : "";
+        }
+      }
+    }
+    if (!linkTitle) {
+      const headingWiki = parseWikiLinkParts(item.heading);
+      if (headingWiki) {
+        linkTitle = (headingWiki.target.split("/").pop() || headingWiki.alias || headingWiki.target).trim();
+        linkPath = headingWiki.target.includes("/") ? headingWiki.target.trim() : "";
+      }
+    }
+    if (!linkTitle) {
+      const strippedHeading = trimHeadingDelimiters(
+        item.heading.replace(/\[([^[\]]+)\]/g, "").replace(/\[\[|\]\]/g, "")
+      );
+      linkTitle = strippedHeading || `A - Concept - Candidate ${item.index}`;
+    }
+    const rawTags = extractBulletValue(block, "Potential Tags") || extractBulletValue(block, "Tags");
+    const tags4 = rawTags ? rawTags.split(/[,;]+|\s+(?=#)/).map((t) => t.trim().replace(/^#/, "")).filter(
+      (t) => Boolean(t) && t !== "-" && !["none", "n/a"].includes(t.toLowerCase())
+    ) : [];
+    return {
+      index: item.index,
+      heading: item.heading,
+      typeLabel,
+      linkTitle,
+      linkPath,
+      source: extractBulletValue(block, "Source"),
+      linkStatus: extractBulletValue(block, "Link Status"),
+      storyline: extractBulletValue(block, "Storyline"),
+      answers: extractBulletValue(block, "Answers"),
+      validation: extractBulletValue(block, "Validation"),
+      evidence: extractBulletValue(block, "Evidence"),
+      brief: extractBulletValue(block, "Brief"),
+      relatedPapers: extractBulletValue(block, "Related Papers"),
+      tags: tags4
+    };
+  });
+}
+function formatTodayIso() {
+  return (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+}
+function escapeYamlDoubleQuoted(val) {
+  return val.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\r?\n/g, " ");
+}
+function generateNoteId() {
+  return (Date.now().toString(36) + Math.random().toString(36).slice(2, 12)).toLowerCase().replace(/[^a-z0-9]/g, "").padEnd(16, "0").slice(0, 16);
+}
+function renderNoteTemplateString(template, vars) {
+  var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k;
+  const cleanCitekey = vars.citekey.trim().replace(/^@/, "");
+  const rawTitle = (vars.title !== void 0 && vars.title.trim() ? vars.title : cleanCitekey).trim();
+  const escapedTitle = escapeYamlDoubleQuoted(rawTitle);
+  const cleanSourcePath = (vars.sourcePath !== void 0 && vars.sourcePath.trim() ? vars.sourcePath : cleanCitekey).trim().replace(/\.md$/i, "");
+  const cleanSourceName = (vars.sourceName !== void 0 && vars.sourceName.trim() ? vars.sourceName : cleanSourcePath.split("/").pop() || cleanCitekey).trim().replace(/\.md$/i, "");
+  const sanitizedCustomId = ((_b = (_a = vars.id) == null ? void 0 : _a.trim()) != null ? _b : "").replace(/[^a-zA-Z0-9_-]/g, "");
+  const cleanId = sanitizedCustomId || generateNoteId();
+  const cleanReport1Name = (((_c = vars.report1Name) == null ? void 0 : _c.trim()) || `Deep Research-${cleanCitekey}`).replace(/\.md$/i, "");
+  const cleanReport2Name = (((_d = vars.report2Name) == null ? void 0 : _d.trim()) || `External Research-${cleanCitekey}`).replace(/\.md$/i, "");
+  const cleanDate = ((_e = vars.date) == null ? void 0 : _e.trim()) || formatTodayIso();
+  const cleanAtomicTitle = ((_f = vars.atomicTitle) != null ? _f : "").trim();
+  const escapedDoiOrUrl = escapeYamlDoubleQuoted(((_g = vars.doiOrUrl) != null ? _g : "").trim());
+  const escapedShortName = escapeYamlDoubleQuoted(((_h = vars.shortName) != null ? _h : "").trim());
+  const escapedVenue = escapeYamlDoubleQuoted(((_i = vars.venue) != null ? _i : "").trim());
+  const escapedPaperType = escapeYamlDoubleQuoted(((_j = vars.paperType) != null ? _j : "").trim());
+  const authorsList = ((_k = vars.authors) != null ? _k : []).map((a) => a.trim()).filter(Boolean);
+  const authorsYaml = authorsList.length > 0 ? "\n" + authorsList.map((a) => `  - "${escapeYamlDoubleQuoted(a)}"`).join("\n") : "[]";
+  return template.replace(/\{\{\s*citekey\s*\}\}/g, () => cleanCitekey).replace(/\{\{\s*id\s*\}\}/g, () => cleanId).replace(/\{\{\s*title\s*\}\}/g, () => escapedTitle).replace(/\{\{\s*source_path\s*\}\}/g, () => cleanSourcePath).replace(/\{\{\s*source_name\s*\}\}/g, () => cleanSourceName).replace(/\{\{\s*report1_name\s*\}\}/g, () => cleanReport1Name).replace(/\{\{\s*report2_name\s*\}\}/g, () => cleanReport2Name).replace(/\{\{\s*date\s*\}\}/g, () => cleanDate).replace(/\{\{\s*atomic_title\s*\}\}/g, () => cleanAtomicTitle).replace(/\{\{\s*doi_or_url\s*\}\}/g, () => escapedDoiOrUrl).replace(/\{\{\s*short_name\s*\}\}/g, () => escapedShortName).replace(/\{\{\s*authors_yaml\s*\}\}/g, () => authorsYaml).replace(/\{\{\s*venue\s*\}\}/g, () => escapedVenue).replace(/\{\{\s*paper_type\s*\}\}/g, () => escapedPaperType);
+}
+function normalizeYamlScalar(val) {
+  if (val instanceof Date && !isNaN(val.getTime())) {
+    return val.toISOString().slice(0, 10);
+  }
+  if (Array.isArray(val)) {
+    return val.map(normalizeYamlScalar);
+  }
+  if (val && typeof val === "object") {
+    const out = {};
+    for (const [k, v] of Object.entries(val)) {
+      out[k] = normalizeYamlScalar(v);
+    }
+    return out;
+  }
+  return val;
+}
+function parseCoreNoteContent(raw, fallbackCitekey = "") {
+  var _a, _b, _c, _d;
+  const fmMatch = raw.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/);
+  if (!fmMatch) {
+    const cleanFallback = fallbackCitekey.trim();
+    return {
+      citekey: cleanFallback,
+      source: cleanFallback ? `[[${cleanFallback}]]` : "",
+      projects: [],
+      linkedNotes: [],
+      body: raw.trim()
+    };
+  }
+  let fm = {};
+  try {
+    const loaded = yaml.load(fmMatch[1]);
+    if (loaded && typeof loaded === "object" && !Array.isArray(loaded)) {
+      fm = loaded;
+    }
+  } catch (e) {
+    fm = {};
+  }
+  const citekey = String(
+    (_b = (_a = fm["citation-key"]) != null ? _a : fm["citekey"]) != null ? _b : fallbackCitekey
+  ).trim();
+  const source = String((_c = fm["source"]) != null ? _c : citekey ? `[[${citekey}]]` : "").trim();
+  const projects = toStringList(fm["projects"]);
+  const linkedNotes = toStringList((_d = fm["linked-notes"]) != null ? _d : fm["linkedNotes"]);
+  const extra = {};
+  for (const [key, value] of Object.entries(fm)) {
+    if (key === "citation-key" || key === "citekey" || key === "source" || key === "projects" || key === "linked-notes" || key === "linkedNotes" || key === "type" && (value === "literature" || value === "paper-note")) {
+      continue;
+    }
+    extra[key] = normalizeYamlScalar(value);
+  }
+  return {
+    citekey,
+    source,
+    projects,
+    linkedNotes,
+    body: fmMatch[2].trim(),
+    ...Object.keys(extra).length > 0 ? { extraFrontmatter: extra } : {}
+  };
+}
+function serializeCoreNoteContent(data) {
+  var _a;
+  const extra = (_a = data.extraFrontmatter) != null ? _a : {};
+  const fmObj = {
+    "citation-key": data.citekey,
+    type: typeof extra["type"] === "string" && extra["type"].trim() ? extra["type"].trim() : "literature",
+    source: data.source || (data.citekey ? `[[${data.citekey}]]` : "")
+  };
+  for (const [key, value] of Object.entries(extra)) {
+    if (key === "citation-key" || key === "citekey" || key === "type" || key === "source" || key === "projects" || key === "linked-notes" || key === "linkedNotes" || key === "tags") {
+      continue;
+    }
+    fmObj[key] = value;
+  }
+  fmObj["projects"] = data.projects;
+  fmObj["linked-notes"] = data.linkedNotes;
+  if ("tags" in extra && extra["tags"] !== void 0) {
+    fmObj["tags"] = extra["tags"];
+  }
+  const yamlBlock = yaml.dump(fmObj, { lineWidth: -1 }).trimEnd();
+  const body = data.body.trim();
+  return body ? `---
+${yamlBlock}
+---
+
+${body}
+` : `---
+${yamlBlock}
+---
+`;
+}
+var import_obsidian3, INVALID_URL_TOKENS, PaperHubService;
+var init_paper_hub = __esm({
+  "src/services/paper-hub.ts"() {
+    "use strict";
+    import_obsidian3 = require("obsidian");
+    init_js_yaml();
+    init_types();
+    init_paths();
+    INVALID_URL_TOKENS = /* @__PURE__ */ new Set([
+      "null",
+      "none",
+      "n/a",
+      "na",
+      "unknown",
+      "tbd",
+      "-"
+    ]);
+    PaperHubService = class {
+      constructor(app, getSettings) {
+        this.app = app;
+        this.getSettings = getSettings;
+      }
+      getCitekeyForFile(file) {
+        var _a, _b, _c, _d;
+        const fm = (_a = this.app.metadataCache.getFileCache(file)) == null ? void 0 : _a.frontmatter;
+        if (!fm) return null;
+        const keyName = this.getSettings().citationKeyName || "citation-key";
+        const raw = (_d = (_c = (_b = fm[keyName]) != null ? _b : fm["citation-key"]) != null ? _c : fm["citekey"]) != null ? _d : fm["zotero-key"];
+        if (raw === void 0 || raw === null) return null;
+        const trimmed = String(raw).trim();
+        return trimmed.length > 0 ? trimmed : null;
+      }
+      async ensureFolderExists(folderPath) {
+        var _a;
+        const normalized = normalizePath(folderPath).replace(/\/+$/, "");
+        if (!normalized) return;
+        const segments = normalized.split("/").filter(Boolean);
+        let current = "";
+        for (const segment of segments) {
+          current = current ? `${current}/${segment}` : segment;
+          if (!this.app.vault.getAbstractFileByPath(current)) {
+            try {
+              await this.app.vault.createFolder(current);
+            } catch (e) {
+              const msg = (_a = e == null ? void 0 : e.message) != null ? _a : "";
+              if (!msg.toLowerCase().includes("already exists")) throw e;
+            }
+          }
+        }
+      }
+      async ensureParentFolder(filePath) {
+        const normalized = normalizePath(filePath);
+        const parentFolder = normalized.split("/").slice(0, -1).filter(Boolean).join("/");
+        await this.ensureFolderExists(parentFolder);
+      }
+      getVaultFile(path2) {
+        const f = this.app.vault.getAbstractFileByPath(normalizePath(path2));
+        return f instanceof import_obsidian3.TFile ? f : null;
+      }
+      async writeVaultFile(filePath, content) {
+        const normalized = normalizePath(filePath);
+        await this.ensureParentFolder(normalized);
+        const existing = this.getVaultFile(normalized);
+        if (existing) {
+          await this.app.vault.modify(existing, content);
+          return existing;
+        }
+        return await this.app.vault.create(normalized, content);
+      }
+      async getPaperState(file) {
+        var _a, _b, _c, _d;
+        const citekey = this.getCitekeyForFile(file);
+        if (!citekey) return null;
+        const settings = this.getSettings();
+        const paths = resolvePaperPaths(settings.paperWorkspace, citekey);
+        const takeawayFile = this.getVaultFile(paths.takeaway);
+        const report1File = this.getVaultFile(paths.report1);
+        const report2File = this.getVaultFile(paths.report2);
+        const coreNoteFile = this.getVaultFile(paths.coreNote);
+        const cleanCitekey = citekey.replace(/^@/, "").toLowerCase();
+        const highlightFolder = normalizePath(
+          settings.paperWorkspace.highlightNotesFolder || settings.fleetingNoteFolder || ""
+        );
+        const highlightPrefix = highlightFolder ? `${highlightFolder}/` : "";
+        const companionPaths = new Set(
+          [paths.takeaway, paths.report1, paths.report2, paths.coreNote].map(
+            normalizePath
+          )
+        );
+        const fleetingFiles = this.app.vault.getMarkdownFiles().filter((candidate) => {
+          if (candidate.path === file.path) return false;
+          if (companionPaths.has(normalizePath(candidate.path))) return false;
+          if (highlightPrefix && !candidate.path.startsWith(highlightPrefix))
+            return false;
+          const candKey = this.getCitekeyForFile(candidate);
+          return Boolean(
+            candKey && candKey.replace(/^@/, "").toLowerCase() === cleanCitekey
+          );
+        });
+        const [coreNoteRaw, takeawayRaw, report2Raw, fleetingContents] = await Promise.all([
+          coreNoteFile ? this.app.vault.read(coreNoteFile) : Promise.resolve(""),
+          takeawayFile ? this.app.vault.read(takeawayFile) : Promise.resolve(""),
+          report2File ? this.app.vault.read(report2File) : Promise.resolve(""),
+          Promise.all(fleetingFiles.map((fl) => this.app.vault.read(fl)))
+        ]);
+        const litPathNoExt = file.path.replace(/\.md$/i, "");
+        const coreNote = coreNoteFile ? parseCoreNoteContent(coreNoteRaw, citekey) : {
+          citekey,
+          source: `[[${litPathNoExt}|${citekey}]]`,
+          projects: [],
+          linkedNotes: [],
+          body: ""
+        };
+        const fm = (_b = (_a = this.app.metadataCache.getFileCache(file)) == null ? void 0 : _a.frontmatter) != null ? _b : {};
+        const litProjects = toStringList(
+          fm[settings.projectFrontmatterKey || "projects"]
+        );
+        const projects = Array.from(/* @__PURE__ */ new Set([...litProjects, ...coreNote.projects]));
+        const fmCodeUrl = normalizeHttpUrl(fm["code"]);
+        const report2CodeUrl = report2Raw ? extractCodeUrlFromReport(report2Raw) : null;
+        const codeUrl = fmCodeUrl != null ? fmCodeUrl : report2CodeUrl;
+        if (!fmCodeUrl && report2CodeUrl && (!fm["code"] || !String(fm["code"]).trim()) && ((_c = this.app.fileManager) == null ? void 0 : _c.processFrontMatter)) {
+          await this.app.fileManager.processFrontMatter(file, (frontmatter) => {
+            if (!frontmatter["code"] || !String(frontmatter["code"]).trim()) {
+              frontmatter["code"] = report2CodeUrl;
+            }
+          });
+        }
+        const deepReportUrl = normalizeHttpUrl(fm["deep-report"]);
+        const externalReportUrl = normalizeHttpUrl(fm["external-report"]);
+        const rawDoi = String((_d = fm["doi"]) != null ? _d : "").trim();
+        const doiUrl = rawDoi ? /^https?:\/\//i.test(rawDoi) ? rawDoi : `https://doi.org/${rawDoi.replace(/^doi:\s*/i, "")}` : normalizeHttpUrl(fm["url"]);
+        const fleetingNotes = fleetingFiles.map((fl, idx) => {
+          var _a2, _b2;
+          const flFm = (_b2 = (_a2 = this.app.metadataCache.getFileCache(fl)) == null ? void 0 : _a2.frontmatter) != null ? _b2 : {};
+          const flTags = toStringList(flFm["tags"]);
+          const isRead = Boolean(
+            flFm["read"] === true || flFm["status"] === "read" || flTags.includes("status/read")
+          );
+          return {
+            file: fl,
+            thought: extractThoughtSnippet(fleetingContents[idx]),
+            read: isRead
+          };
+        });
+        return {
+          citekey,
+          literatureFile: file,
+          paths,
+          takeawayFile,
+          report1File,
+          report2File,
+          coreNoteFile,
+          coreNote,
+          takeawaySummary: takeawayRaw ? extractTakeawaySummary(takeawayRaw) : {
+            tldr: "",
+            topic: "",
+            position: "",
+            contributions: "",
+            novelty: "",
+            limitation: ""
+          },
+          takeawayCandidates: takeawayRaw ? parseTakeawayCandidates(takeawayRaw) : [],
+          takeawayRaw,
+          report2Raw,
+          projects,
+          codeUrl,
+          doiUrl,
+          deepReportUrl,
+          externalReportUrl,
+          fleetingNotes
+        };
+      }
+      async createOrOpenReportFile(citekey, kind, literatureFile) {
+        var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m;
+        const cleanKey = citekey.trim().replace(/^@/, "");
+        const paths = resolvePaperPaths(this.getSettings().paperWorkspace, cleanKey);
+        const targetPath = normalizePath(paths[kind]);
+        const existing = this.getVaultFile(targetPath);
+        if (existing) return existing;
+        const tplMap = {
+          report1: { id: "tpl-report1", fallback: DEFAULT_REPORT1_NOTE_TEMPLATE },
+          report2: { id: "tpl-report2", fallback: DEFAULT_REPORT2_NOTE_TEMPLATE },
+          takeaway: { id: "tpl-takeaway", fallback: DEFAULT_TAKEAWAY_NOTE_TEMPLATE },
+          coreNote: { id: "tpl-core-note", fallback: DEFAULT_CORE_NOTE_TEMPLATE }
+        };
+        const { id: tplId, fallback } = tplMap[kind];
+        const rawTemplate = await this.getPromptContent(tplId) || fallback;
+        const resolvedLitFile = literatureFile != null ? literatureFile : this.getVaultFile(paths.literatureNote);
+        const fm = resolvedLitFile ? (_a = this.app.metadataCache.getFileCache(resolvedLitFile)) == null ? void 0 : _a.frontmatter : void 0;
+        const rawTitle = (fm == null ? void 0 : fm["title"]) !== void 0 && (fm == null ? void 0 : fm["title"]) !== null ? String(fm["title"]).trim() : "";
+        const litPath = (_b = literatureFile == null ? void 0 : literatureFile.path) != null ? _b : paths.literatureNote;
+        const sourcePath = litPath.replace(/\.md$/i, "");
+        const sourceName = (litPath.split("/").pop() || cleanKey).replace(/\.md$/i, "");
+        const report1Name = (_c = paths.report1.split("/").pop()) == null ? void 0 : _c.replace(/\.md$/i, "");
+        const report2Name = (_d = paths.report2.split("/").pop()) == null ? void 0 : _d.replace(/\.md$/i, "");
+        const doiOrUrl = String((_e = fm == null ? void 0 : fm["doi"]) != null ? _e : "").trim() || String((_f = fm == null ? void 0 : fm["url"]) != null ? _f : "").trim();
+        const shortName = String((_g = fm == null ? void 0 : fm["short-name"]) != null ? _g : "").trim() || String((_h = fm == null ? void 0 : fm["shortName"]) != null ? _h : "").trim();
+        const authors = toStringList((_i = fm == null ? void 0 : fm["authors"]) != null ? _i : fm == null ? void 0 : fm["author"]);
+        const venue = (String((_j = fm == null ? void 0 : fm["publication"]) != null ? _j : "").trim() || String((_k = fm == null ? void 0 : fm["venue"]) != null ? _k : "").trim()).replace(/^\[\[|\]\]$/g, "").trim();
+        const paperType = String((_l = fm == null ? void 0 : fm["publish-type"]) != null ? _l : "").trim() || String((_m = fm == null ? void 0 : fm["paper-type"]) != null ? _m : "").trim();
+        const initialContent = renderNoteTemplateString(rawTemplate, {
+          citekey: cleanKey,
+          title: rawTitle || cleanKey,
+          sourcePath,
+          sourceName,
+          report1Name,
+          report2Name,
+          doiOrUrl,
+          shortName,
+          authors,
+          venue,
+          paperType
+        });
+        await this.ensureParentFolder(targetPath);
+        return await this.app.vault.create(targetPath, initialContent);
+      }
+      async rewriteCandidateLinkInTakeaway(citekey, candidateIndex, newWikiLink) {
+        const paths = resolvePaperPaths(this.getSettings().paperWorkspace, citekey);
+        const takeawayFile = this.getVaultFile(paths.takeaway);
+        if (!takeawayFile) return false;
+        const raw = await this.app.vault.read(takeawayFile);
+        let isJsonEnvelope = false;
+        let parsedJson = null;
+        let md = raw;
+        const trimmed = raw.trim();
+        if (trimmed.startsWith("{")) {
+          try {
+            const parsed = JSON.parse(trimmed);
+            if (parsed && typeof parsed.markdown_body === "string") {
+              isJsonEnvelope = true;
+              parsedJson = parsed;
+              md = parsed.markdown_body;
+            }
+          } catch (e) {
+          }
+        }
+        const headingRe = new RegExp(
+          `^###\\s+Candidate\\s+${candidateIndex}\\b[^\\r\\n]*`,
+          "im"
+        );
+        const headingMatch = headingRe.exec(md);
+        if (!headingMatch) return false;
+        const sectionBodyStart = headingMatch.index + headingMatch[0].length;
+        const afterHeading = md.slice(sectionBodyStart);
+        const nextBoundary = afterHeading.match(
+          /\r?\n(?:###\s+Candidate\s+\d+\b|##\s+)/i
+        );
+        const sectionBodyEnd = nextBoundary && nextBoundary.index !== void 0 ? sectionBodyStart + nextBoundary.index : md.length;
+        let sectionBody = md.slice(sectionBodyStart, sectionBodyEnd);
+        const linkLineRe = /^[ \t]*[-*][ \t]*(?:\*\*)?Link(?:\*\*)?[ \t]*[:：][ \t]*.+$/im;
+        if (linkLineRe.test(sectionBody)) {
+          sectionBody = sectionBody.replace(linkLineRe, `- **Link**: ${newWikiLink}`);
+        } else {
+          sectionBody = `
+- **Link**: ${newWikiLink}${sectionBody}`;
+        }
+        const statusLineRe = /^[ \t]*[-*][ \t]*(?:\*\*)?Link Status(?:\*\*)?[ \t]*[:：][ \t]*.+$/im;
+        if (statusLineRe.test(sectionBody)) {
+          sectionBody = sectionBody.replace(
+            statusLineRe,
+            "- **Link Status**: Existing \u2014 Linked in Vault"
+          );
+        }
+        const updatedMd = md.slice(0, sectionBodyStart) + sectionBody + md.slice(sectionBodyEnd);
+        const finalContent = isJsonEnvelope && parsedJson ? JSON.stringify({ ...parsedJson, markdown_body: updatedMd }, null, 2) : updatedMd;
+        await this.app.vault.modify(takeawayFile, finalContent);
+        return true;
+      }
+      async saveReportMarkdown(citekey, kind, rawContent, literatureFile) {
+        var _a;
+        const settings = this.getSettings();
+        const paths = resolvePaperPaths(settings.paperWorkspace, citekey);
+        const targetPath = paths[kind];
+        const markdown = kind === "takeaway" ? unwrapTakeawayMarkdown(rawContent) : rawContent;
+        const savedFile = await this.writeVaultFile(targetPath, markdown);
+        const extractedCodeUrl = kind === "report2" ? extractCodeUrlFromReport(markdown) : null;
+        if (extractedCodeUrl && literatureFile && ((_a = this.app.fileManager) == null ? void 0 : _a.processFrontMatter)) {
+          await this.app.fileManager.processFrontMatter(
+            literatureFile,
+            (frontmatter) => {
+              if (!frontmatter["code"] || !String(frontmatter["code"]).trim()) {
+                frontmatter["code"] = extractedCodeUrl;
+              }
+            }
+          );
+        }
+        return { file: savedFile, extractedCodeUrl };
+      }
+      async saveCoreNote(citekey, patch, literatureFile) {
+        var _a;
+        const settings = this.getSettings();
+        const paths = resolvePaperPaths(settings.paperWorkspace, citekey);
+        const existingFile = this.getVaultFile(paths.coreNote);
+        const defaultSource = literatureFile ? `[[${literatureFile.path.replace(/\.md$/i, "")}|${citekey}]]` : `[[${citekey}]]`;
+        const current = existingFile ? parseCoreNoteContent(await this.app.vault.read(existingFile), citekey) : {
+          citekey,
+          source: defaultSource,
+          projects: [],
+          linkedNotes: [],
+          body: ""
+        };
+        const nextExtra = patch.extraFrontmatter !== void 0 ? patch.extraFrontmatter : current.extraFrontmatter;
+        const merged = {
+          citekey,
+          source: patch.source !== void 0 ? patch.source : current.source || defaultSource,
+          projects: patch.projects !== void 0 ? [...patch.projects] : current.projects,
+          linkedNotes: patch.linkedNotes !== void 0 ? [...patch.linkedNotes] : current.linkedNotes,
+          body: patch.body !== void 0 ? patch.body : current.body,
+          ...nextExtra && Object.keys(nextExtra).length > 0 ? { extraFrontmatter: nextExtra } : {}
+        };
+        const saved = await this.writeVaultFile(
+          paths.coreNote,
+          serializeCoreNoteContent(merged)
+        );
+        if (patch.projects !== void 0 && literatureFile && ((_a = this.app.fileManager) == null ? void 0 : _a.processFrontMatter)) {
+          const projKey = settings.projectFrontmatterKey || "projects";
+          await this.app.fileManager.processFrontMatter(
+            literatureFile,
+            (frontmatter) => {
+              frontmatter[projKey] = [...merged.projects];
+            }
+          );
+        }
+        return saved;
+      }
+      async updateLiteratureCodeUrl(literatureFile, codeUrl) {
+        var _a;
+        const trimmed = codeUrl.trim();
+        const processFm = (_a = this.app.fileManager) == null ? void 0 : _a.processFrontMatter;
+        if (typeof processFm === "function") {
+          await processFm.call(this.app.fileManager, literatureFile, (fm) => {
+            fm["code"] = trimmed;
+          });
+          return;
+        }
+        const escaped = trimmed.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+        const raw = await this.app.vault.read(literatureFile);
+        const fmMatch = raw.match(/^---\r?\n([\s\S]*?)\r?\n---(\r?\n?[\s\S]*)$/);
+        if (fmMatch) {
+          const fmBody = fmMatch[1];
+          const rest = fmMatch[2];
+          const codeLineRe = /^code[ \t]*:.*$/m;
+          const nextFmBody = codeLineRe.test(fmBody) ? fmBody.replace(codeLineRe, () => `code: "${escaped}"`) : `${fmBody}
+code: "${escaped}"`;
+          await this.app.vault.modify(
+            literatureFile,
+            `---
+${nextFmBody}
+---${rest}`
+          );
+        } else {
+          await this.app.vault.modify(
+            literatureFile,
+            `---
+code: "${escaped}"
+---
+
+${raw}`
+          );
+        }
+      }
+      getBuiltInDefaultContent(id) {
+        switch (id) {
+          case "zotero-template":
+            return DEFAULT_ZOTERO_TEMPLATE;
+          case "tpl-report1":
+            return DEFAULT_REPORT1_NOTE_TEMPLATE;
+          case "tpl-report2":
+            return DEFAULT_REPORT2_NOTE_TEMPLATE;
+          case "tpl-takeaway":
+            return DEFAULT_TAKEAWAY_NOTE_TEMPLATE;
+          case "tpl-core-note":
+            return DEFAULT_CORE_NOTE_TEMPLATE;
+          case "tpl-atomic-note":
+            return DEFAULT_ATOMIC_NOTE_TEMPLATE;
+          case "synthesize":
+            return DEFAULT_SYNTHESIZE_PROMPT;
+          case "report1":
+            return DEFAULT_REPORT1_PROMPT;
+          case "report2":
+            return DEFAULT_REPORT2_PROMPT;
+          default:
+            return null;
+        }
+      }
+      async ensureBuiltinTemplatesInVault() {
+        var _a, _b, _c, _d, _e, _f, _g, _h;
+        if (typeof this.app.vault.create !== "function") return 0;
+        const settings = this.getSettings();
+        const templatesFolder = normalizePath(
+          ((_b = (_a = settings.paperWorkspace) == null ? void 0 : _a.templatesFolder) == null ? void 0 : _b.trim()) || DEFAULT_PAPER_WORKSPACE.templatesFolder
+        ).replace(/\/+$/, "");
+        await this.ensureFolderExists(templatesFolder);
+        let createdCount = 0;
+        const rawZotPath = ((_d = (_c = settings.zoteroTemplate) == null ? void 0 : _c.vaultPath) == null ? void 0 : _d.trim()) || `${templatesFolder}/zotero-note-template.md`;
+        const zotPath = normalizePath(
+          /\.[^/\\]+$/.test(rawZotPath) ? rawZotPath : `${rawZotPath}.md`
+        );
+        if (settings.zoteroTemplate && !((_e = settings.zoteroTemplate.vaultPath) == null ? void 0 : _e.trim())) {
+          settings.zoteroTemplate.vaultPath = zotPath;
+        }
+        if (!this.getVaultFile(zotPath) && !this.app.vault.getAbstractFileByPath(zotPath)) {
+          await this.ensureParentFolder(zotPath);
+          const zotContent = ((_f = settings.zoteroTemplate) == null ? void 0 : _f.content) || DEFAULT_ZOTERO_TEMPLATE;
+          await this.app.vault.create(zotPath, zotContent);
+          createdCount += 1;
+        }
+        for (const entry of settings.prompts || []) {
+          const defaultFilename = entry.kind === "template" ? `${entry.id.replace(/^tpl-/, "")}-note-template.md` : `prompt-${entry.id}.md`;
+          const rawEntryPath = ((_g = entry.vaultPath) == null ? void 0 : _g.trim()) || `${templatesFolder}/${defaultFilename}`;
+          const entryPath = normalizePath(
+            rawEntryPath.toLowerCase().endsWith(".md") ? rawEntryPath : `${rawEntryPath}.md`
+          );
+          if (!((_h = entry.vaultPath) == null ? void 0 : _h.trim())) {
+            entry.vaultPath = entryPath;
+          }
+          if (!this.getVaultFile(entryPath) && !this.app.vault.getAbstractFileByPath(entryPath)) {
+            await this.ensureParentFolder(entryPath);
+            const initialContent = entry.content || this.getBuiltInDefaultContent(entry.id) || "";
+            await this.app.vault.create(entryPath, initialContent);
+            createdCount += 1;
+          }
+        }
+        return createdCount;
+      }
+      async moveTemplatesFolder(oldFolder, newFolder) {
+        var _a;
+        const oldNorm = normalizePath(oldFolder.trim()).replace(/\/+$/, "");
+        const newNorm = normalizePath(newFolder.trim()).replace(/\/+$/, "");
+        if (!oldNorm || !newNorm || oldNorm === newNorm) return 0;
+        await this.ensureFolderExists(newNorm);
+        const settings = this.getSettings();
+        const oldPrefix = `${oldNorm}/`;
+        let movedCount = 0;
+        const relocateVaultPath = async (currentRawPath) => {
+          var _a2, _b, _c;
+          const trimmed = currentRawPath.trim();
+          if (!trimmed) return null;
+          const currentNorm = normalizePath(trimmed);
+          if (!currentNorm.startsWith(oldPrefix)) return null;
+          const relSubpath = currentNorm.slice(oldPrefix.length);
+          if (!relSubpath) return null;
+          const destPath = normalizePath(`${newNorm}/${relSubpath}`);
+          await this.ensureParentFolder(destPath);
+          const srcFile = this.getVaultFile(currentNorm);
+          const destExisting = this.app.vault.getAbstractFileByPath(destPath);
+          if (srcFile && !destExisting) {
+            const renameFn = (_a2 = this.app.fileManager) == null ? void 0 : _a2.renameFile;
+            if (typeof renameFn === "function") {
+              await renameFn.call(this.app.fileManager, srcFile, destPath);
+            } else if (typeof this.app.vault.create === "function") {
+              const content = await this.app.vault.read(srcFile);
+              await this.app.vault.create(destPath, content);
+              await ((_c = (_b = this.app.vault).delete) == null ? void 0 : _c.call(_b, srcFile));
+            }
+          }
+          return destPath;
+        };
+        if ((_a = settings.zoteroTemplate) == null ? void 0 : _a.vaultPath) {
+          const nextZot = await relocateVaultPath(settings.zoteroTemplate.vaultPath);
+          if (nextZot) {
+            settings.zoteroTemplate.vaultPath = nextZot;
+            movedCount += 1;
+          }
+        }
+        for (const entry of settings.prompts || []) {
+          if (!entry.vaultPath) continue;
+          const nextPath = await relocateVaultPath(entry.vaultPath);
+          if (nextPath) {
+            entry.vaultPath = nextPath;
+            movedCount += 1;
+          }
+        }
+        return movedCount;
+      }
+      async getPromptContent(promptId) {
+        var _a;
+        const entry = this.getSettings().prompts.find((p) => p.id === promptId);
+        if (!entry) return "";
+        if ((_a = entry.vaultPath) == null ? void 0 : _a.trim()) {
+          const vaultFile = this.getVaultFile(entry.vaultPath.trim());
+          if (vaultFile) {
+            return await this.app.vault.read(vaultFile);
+          }
+        }
+        return entry.content;
+      }
+      async savePromptToVault(entry, content) {
+        var _a, _b;
+        const folder = normalizePath(
+          ((_b = (_a = this.getSettings().paperWorkspace) == null ? void 0 : _a.templatesFolder) == null ? void 0 : _b.trim()) || DEFAULT_PAPER_WORKSPACE.templatesFolder
+        ).replace(/\/+$/, "");
+        const defaultFile = entry.kind === "template" ? `${entry.id.replace(/^tpl-/, "")}-note-template.md` : `prompt-${entry.id}.md`;
+        const rawPath = (entry.vaultPath || `${folder}/${defaultFile}`).trim();
+        const targetPath = normalizePath(
+          rawPath.endsWith(".md") ? rawPath : `${rawPath}.md`
+        );
+        await this.writeVaultFile(targetPath, content);
+        return targetPath;
+      }
+    };
+  }
+});
+
+// src/utils/series.ts
+function pureSeriesFromAcronym(acronym) {
+  if (!acronym || !acronym.trim()) return "";
+  let s = acronym.trim().replace(/\s+/g, " ");
+  s = s.replace(/ (?:1st|2nd|3rd|\d+th)$/i, "");
+  s = s.replace(/ \d{2,4}$/, "");
+  s = s.replace(/\d{2,4}$/, "");
+  return s.trim() || acronym.trim();
+}
+var init_series = __esm({
+  "src/utils/series.ts"() {
+    "use strict";
+  }
+});
+
+// src/services/vault-library.ts
+function fileBasename(file) {
+  if (file.basename) return file.basename;
+  const rawName = file.name || file.path.split("/").pop() || "";
+  return rawName.replace(/\.md$/i, "");
+}
+function extractWikiBasename(raw) {
+  var _a;
+  const inner = raw.replace(/\[\[|\]\]/g, "").trim();
+  if (!inner) return "";
+  const target = inner.split("|")[0].split("#")[0].trim();
+  if (!target) return "";
+  const base = (_a = target.split("/").pop()) != null ? _a : "";
+  return base.replace(/\.md$/i, "").trim().toLowerCase();
+}
+function toStringArray(value) {
+  if (Array.isArray(value)) {
+    return value.map((v) => String(v != null ? v : "").trim()).filter(Boolean);
+  }
+  if (typeof value === "string" && value.trim()) {
+    return [value.trim()];
+  }
+  return [];
+}
+function folderPrefixFromPattern(pattern) {
+  const normalized = normalizePath(pattern.trim());
+  if (!normalized) return "";
+  const placeholderIdx = normalized.search(/\{\{|\$\{/);
+  const beforePlaceholder = placeholderIdx >= 0 ? normalized.slice(0, placeholderIdx) : normalized;
+  const hasFileExt = /\.[^/]+$/.test(beforePlaceholder);
+  if (!hasFileExt && placeholderIdx < 0) {
+    return `${beforePlaceholder.replace(/\/+$/, "")}/`;
+  }
+  const slashIdx = beforePlaceholder.lastIndexOf("/");
+  return slashIdx >= 0 ? beforePlaceholder.slice(0, slashIdx + 1) : "";
+}
+function tokenizeConcept(label) {
+  var _a;
+  const parts = label.replace(/\.md$/i, "").split(/\s+-\s+/).map((s) => s.trim()).filter(Boolean);
+  const relevant = ((_a = parts[0]) == null ? void 0 : _a.toUpperCase()) === "A" && parts.length >= 3 ? parts.slice(2) : parts;
+  return Array.from(
+    new Set(
+      relevant.join(" ").toLowerCase().split(/[^a-z0-9]+/).filter((tok) => tok.length >= 3)
+    )
+  );
+}
+function trimEdgeQuotes(str2) {
+  let start = 0;
+  let end = str2.length;
+  while (start < end && (str2[start] === '"' || str2[start] === "'")) {
+    start++;
+  }
+  while (end > start && (str2[end - 1] === '"' || str2[end - 1] === "'")) {
+    end--;
+  }
+  return str2.slice(start, end);
+}
+function isVenueDelimiter(ch) {
+  return ch === " " || ch === "	" || ch === "\r" || ch === "\n" || ch === "," || ch === "." || ch === ":" || ch === ";" || ch === "-" || ch === "\u2013" || ch === "\u2014" || ch === "/";
+}
+function trimVenueDelimiters(str2) {
+  let start = 0;
+  let end = str2.length;
+  while (start < end && isVenueDelimiter(str2[start])) {
+    start++;
+  }
+  while (end > start && isVenueDelimiter(str2[end - 1])) {
+    end--;
+  }
+  return str2.slice(start, end);
+}
+function normalizeVenueSeries(rawVenue) {
+  if (!rawVenue) return "";
+  let text = trimEdgeQuotes(rawVenue.trim());
+  if (!text) return "";
+  const wiki = text.match(/^\[\[([^\]|]+)(?:\|([^\]]+))?\]\]$/);
+  if (wiki) {
+    text = (wiki[2] || wiki[1]).trim();
+  } else {
+    text = text.replace(/\[\[|\]\]/g, "").trim();
+  }
+  const parenMatch = text.match(
+    /\((?:ACM\s+|IEEE\s+|USENIX\s+)?([A-Z][A-Za-z0-9/-]{1,14})(?:\s*['’]?\d{2,4})?\)/
+  );
+  if (parenMatch) {
+    return pureSeriesFromAcronym(parenMatch[1]);
+  }
+  let cleaned = trimVenueDelimiters(
+    text.replace(/\bSeries\b/gi, "").replace(/\b\d+(?:st|nd|rd|th)\b/gi, "").replace(/\b(?:19|20)\d{2}\b/g, "").replace(/['’]\d{2}\b/g, "").replace(/\s+/g, " ")
+  );
+  const orgPrefix = cleaned.match(
+    /^(?:ACM|IEEE|USENIX)\s+([A-Z][A-Za-z0-9-]{1,14})$/
+  );
+  if (orgPrefix) {
+    cleaned = orgPrefix[1];
+  }
+  if (!cleaned.includes(" ")) {
+    return pureSeriesFromAcronym(cleaned);
+  }
+  return cleaned;
+}
+function scoreLibraryMatch(entry, query) {
+  var _a;
+  const tokens = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  if (tokens.length === 0) return 1;
+  const citekey = entry.citekey.toLowerCase();
+  const title = entry.title.toLowerCase();
+  const venue = `${entry.venue} ${entry.venueSeries}`.toLowerCase();
+  const authors = entry.authors.join(" ").toLowerCase();
+  const year = entry.year.toLowerCase();
+  const meta = [...entry.projects, ...entry.tags].join(" ").toLowerCase();
+  const notes = `${entry.coreNoteBody} ${entry.tldr} ${(_a = entry.contributions) != null ? _a : ""} ${entry.novelty} ${entry.limitation}`.toLowerCase();
+  let total = 0;
+  for (const token of tokens) {
+    let tokenScore = 0;
+    if (citekey === token) tokenScore += 15;
+    else if (citekey.includes(token)) tokenScore += 10;
+    if (title.includes(token)) tokenScore += 8;
+    if (venue.includes(token)) tokenScore += 6;
+    if (authors.includes(token)) tokenScore += 4;
+    if (year.includes(token)) tokenScore += 3;
+    if (meta.includes(token)) tokenScore += 3;
+    if (notes.includes(token)) tokenScore += 2;
+    if (tokenScore === 0) return 0;
+    total += tokenScore;
+  }
+  return total;
+}
+var import_obsidian4, VaultLibraryService;
+var init_vault_library = __esm({
+  "src/services/vault-library.ts"() {
+    "use strict";
+    import_obsidian4 = require("obsidian");
+    init_types();
+    init_paths();
+    init_series();
+    init_paper_hub();
+    VaultLibraryService = class {
+      constructor(app, getSettings, paperHub) {
+        this.app = app;
+        this.getSettings = getSettings;
+        this.paperHub = paperHub;
+      }
+      getLiteratureFolderPrefix() {
+        const settings = this.getSettings();
+        return folderPrefixFromPattern(
+          settings.paperWorkspace.literatureNotePath || "002-Literature/{{citekey}}.md"
+        );
+      }
+      getExcludedFolderPrefixes(litPrefix) {
+        var _a;
+        const s = this.getSettings();
+        const ws = s.paperWorkspace;
+        const candidates = [
+          folderPrefixFromPattern(ws.report1Path),
+          folderPrefixFromPattern(ws.report2Path),
+          folderPrefixFromPattern(ws.takeawayPath),
+          folderPrefixFromPattern(ws.coreNotePath),
+          folderPrefixFromPattern(ws.highlightNotesFolder),
+          folderPrefixFromPattern(s.fleetingNoteFolder),
+          folderPrefixFromPattern(ws.atomicNotesFolder),
+          folderPrefixFromPattern(ws.templatesFolder || "900-Templates"),
+          "002-Literature/100-Prompts/",
+          folderPrefixFromPattern(s.cfpNoteDir),
+          ...((_a = s.zoteroTemplate) == null ? void 0 : _a.vaultPath) ? [folderPrefixFromPattern(s.zoteroTemplate.vaultPath)] : [],
+          ...(s.prompts || []).map((p) => folderPrefixFromPattern(p.vaultPath))
+        ];
+        return Array.from(
+          new Set(candidates.filter((p) => Boolean(p) && p !== litPrefix))
+        );
+      }
+      isPrimaryLiteratureFile(file) {
+        var _a;
+        const path2 = normalizePath(file.path);
+        if (!path2.toLowerCase().endsWith(".md")) return false;
+        const litPrefix = this.getLiteratureFolderPrefix();
+        const excluded = this.getExcludedFolderPrefixes(litPrefix);
+        if (excluded.some((prefix) => path2.startsWith(prefix))) {
+          return false;
+        }
+        const fm = (_a = this.app.metadataCache.getFileCache(file)) == null ? void 0 : _a.frontmatter;
+        const fmType = fm == null ? void 0 : fm["type"];
+        if ((fm == null ? void 0 : fm["cfp-series"]) === true || fmType === "fleeting" || fmType === "atom" || fmType === "permanent" || fmType === "paper-note" || fmType === "deep-report" || fmType === "external-report" || fmType === "takeaway" || fm !== void 0 && ("linked-notes" in fm || "linkedNotes" in fm)) {
+          return false;
+        }
+        const tags4 = toStringArray(fm == null ? void 0 : fm["tags"]).flatMap((t) => t.split(/[\s,]+/)).map((t) => t.replace(/^#/, "").trim()).filter(Boolean);
+        const hasZoteroTag = tags4.some(
+          (t) => t === "source/\u{1F4DC}Zotero" || t.startsWith("source/\u{1F4DC}Zotero/")
+        );
+        if (tags4.some(
+          (t) => t === "source/\u{1F916}AI" || t.startsWith("source/\u{1F916}AI/") || t === "type/paper-note" || t.startsWith("type/report") || t === "type/takeaway"
+        )) {
+          return false;
+        }
+        const lowerBase = fileBasename(file).toLowerCase();
+        if (!hasZoteroTag && (lowerBase.startsWith("takeaway-") || lowerBase.startsWith("deep research-") || lowerBase.startsWith("external research-"))) {
+          return false;
+        }
+        if (hasZoteroTag) {
+          return true;
+        }
+        if (litPrefix && path2.startsWith(litPrefix)) {
+          return true;
+        }
+        return fmType === "literature";
+      }
+      async listLiteraturePapers() {
+        const settings = this.getSettings();
+        const files = this.app.vault.getMarkdownFiles().filter((file) => this.isPrimaryLiteratureFile(file));
+        const entries = await Promise.all(
+          files.map(async (file) => {
+            var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j;
+            const fm = (_b = (_a = this.app.metadataCache.getFileCache(file)) == null ? void 0 : _a.frontmatter) != null ? _b : {};
+            const citekey = this.paperHub.getCitekeyForFile(file) || fileBasename(file);
+            const paths = resolvePaperPaths(settings.paperWorkspace, citekey);
+            const coreRawFile = this.app.vault.getAbstractFileByPath(
+              paths.coreNote
+            );
+            const takeawayRawFile = this.app.vault.getAbstractFileByPath(
+              paths.takeaway
+            );
+            const report1RawFile = this.app.vault.getAbstractFileByPath(
+              paths.report1
+            );
+            const report2RawFile = this.app.vault.getAbstractFileByPath(
+              paths.report2
+            );
+            const coreFile = coreRawFile instanceof import_obsidian4.TFile ? coreRawFile : null;
+            const takeawayFile = takeawayRawFile instanceof import_obsidian4.TFile ? takeawayRawFile : null;
+            const hasReport1 = report1RawFile instanceof import_obsidian4.TFile;
+            const hasReport2 = report2RawFile instanceof import_obsidian4.TFile;
+            const [coreContent, takeawayContent] = await Promise.all([
+              coreFile ? this.app.vault.read(coreFile) : Promise.resolve(""),
+              takeawayFile ? this.app.vault.read(takeawayFile) : Promise.resolve("")
+            ]);
+            const coreData = coreFile ? parseCoreNoteContent(coreContent, citekey) : { citekey, source: "", projects: [], linkedNotes: [], body: "" };
+            const summary = takeawayFile ? extractTakeawaySummary(takeawayContent) : {
+              tldr: "",
+              topic: "",
+              position: "",
+              contributions: "",
+              novelty: "",
+              limitation: ""
+            };
+            const rawVenue = String((_d = (_c = fm["venue"]) != null ? _c : fm["publication"]) != null ? _d : "").trim();
+            const acronymHint = String(
+              (_e = fm[settings.cfpAcronymKey || "conference-acronym"]) != null ? _e : ""
+            ).trim();
+            const venueSeries = normalizeVenueSeries(acronymHint || rawVenue);
+            const fmProjects = toStringArray(
+              fm[settings.projectFrontmatterKey || "projects"]
+            );
+            return {
+              file,
+              citekey,
+              title: String((_f = fm["title"]) != null ? _f : fileBasename(file)).trim(),
+              authors: toStringArray(fm["authors"]),
+              year: String((_g = fm["year"]) != null ? _g : "").trim(),
+              venue: rawVenue.replace(/^\[\[|\]\]$/g, ""),
+              venueSeries,
+              doi: String((_h = fm["doi"]) != null ? _h : "").trim(),
+              url: String((_i = fm["url"]) != null ? _i : "").trim(),
+              codeUrl: String((_j = fm["code"]) != null ? _j : "").trim(),
+              projects: Array.from(
+                /* @__PURE__ */ new Set([...fmProjects, ...coreData.projects])
+              ),
+              linkedNotes: coreData.linkedNotes,
+              tags: toStringArray(fm["tags"]),
+              coreNoteBody: coreData.body,
+              tldr: summary.tldr,
+              contributions: summary.contributions,
+              novelty: summary.novelty,
+              limitation: summary.limitation,
+              hasCoreNote: Boolean(coreFile),
+              hasTakeaway: Boolean(takeawayFile),
+              hasReport1,
+              hasReport2
+            };
+          })
+        );
+        return entries.sort((a, b) => {
+          var _a, _b, _c, _d;
+          const yearDiff = (Number(b.year) || 0) - (Number(a.year) || 0);
+          if (yearDiff !== 0) return yearDiff;
+          const mtimeA = (_b = (_a = a.file.stat) == null ? void 0 : _a.mtime) != null ? _b : 0;
+          const mtimeB = (_d = (_c = b.file.stat) == null ? void 0 : _c.mtime) != null ? _d : 0;
+          if (mtimeB !== mtimeA) return mtimeB - mtimeA;
+          return a.title.localeCompare(b.title);
+        });
+      }
+      async searchPapers(query, filters) {
+        var _a, _b;
+        const all = await this.listLiteraturePapers();
+        const targetVenue = (filters == null ? void 0 : filters.venue) ? normalizeVenueSeries(filters.venue).toLowerCase() : "";
+        const rawVenueFilter = (_b = (_a = filters == null ? void 0 : filters.venue) == null ? void 0 : _a.trim().toLowerCase()) != null ? _b : "";
+        const filtered = all.filter((entry) => {
+          if (targetVenue) {
+            const matchesSeries = entry.venueSeries.toLowerCase() === targetVenue;
+            const matchesRaw = entry.venue.toLowerCase().includes(rawVenueFilter);
+            if (!matchesSeries && !matchesRaw) return false;
+          }
+          if ((filters == null ? void 0 : filters.hasCoreNote) && !entry.hasCoreNote) return false;
+          if ((filters == null ? void 0 : filters.hasTakeaway) && !entry.hasTakeaway) return false;
+          return true;
+        });
+        const trimmedQuery = query.trim();
+        if (!trimmedQuery) return filtered;
+        return filtered.map((entry) => ({ entry, score: scoreLibraryMatch(entry, trimmedQuery) })).filter((item) => item.score > 0).sort((a, b) => b.score - a.score).map((item) => item.entry);
+      }
+      findSameVenuePapers(currentFile, explicitSeries) {
+        var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n;
+        const settings = this.getSettings();
+        const acronymKey = settings.cfpAcronymKey || "conference-acronym";
+        const currentFm = (_b = (_a = this.app.metadataCache.getFileCache(currentFile)) == null ? void 0 : _a.frontmatter) != null ? _b : {};
+        const rawSeries = (explicitSeries == null ? void 0 : explicitSeries.trim()) || String(
+          (_e = (_d = (_c = currentFm[acronymKey]) != null ? _c : currentFm["venue"]) != null ? _d : currentFm["publication"]) != null ? _e : ""
+        );
+        const targetSeries = normalizeVenueSeries(rawSeries);
+        if (!targetSeries) return [];
+        const targetLower = targetSeries.toLowerCase();
+        const refs = [];
+        for (const file of this.app.vault.getMarkdownFiles()) {
+          if (file.path === currentFile.path || !this.isPrimaryLiteratureFile(file))
+            continue;
+          const fm = (_g = (_f = this.app.metadataCache.getFileCache(file)) == null ? void 0 : _f.frontmatter) != null ? _g : {};
+          const candSeries = normalizeVenueSeries(
+            String((_j = (_i = (_h = fm[acronymKey]) != null ? _h : fm["venue"]) != null ? _i : fm["publication"]) != null ? _j : "")
+          );
+          if (!candSeries || candSeries.toLowerCase() !== targetLower) continue;
+          const citekey = this.paperHub.getCitekeyForFile(file) || fileBasename(file);
+          const year = String((_k = fm["year"]) != null ? _k : "").trim();
+          const shortName = String((_l = fm["short-name"]) != null ? _l : "").trim();
+          const firstAuthor = (_m = toStringArray(fm["authors"])[0]) != null ? _m : "";
+          const authorSurname = firstAuthor.split("-").pop() || firstAuthor;
+          const baseLabel = shortName || authorSurname || citekey;
+          const shortLabel = year && !baseLabel.includes(year) ? `${baseLabel} ${year}` : baseLabel;
+          refs.push({
+            file,
+            citekey,
+            title: String((_n = fm["title"]) != null ? _n : fileBasename(file)).trim(),
+            shortLabel,
+            year,
+            venueSeries: candSeries
+          });
+        }
+        return refs.sort((a, b) => {
+          const yearDiff = (Number(b.year) || 0) - (Number(a.year) || 0);
+          return yearDiff !== 0 ? yearDiff : a.shortLabel.localeCompare(b.shortLabel);
+        });
+      }
+      matchCandidatesAgainstVault(candidates, reportTexts, currentCitekey) {
+        var _a, _b, _c, _d, _e;
+        const settings = this.getSettings();
+        const atomicFolder = normalizePath(
+          settings.paperWorkspace.atomicNotesFolder || "003-Permanent"
+        );
+        const atomicPrefix = atomicFolder ? `${atomicFolder}/` : "";
+        const allMdFiles = this.app.vault.getMarkdownFiles();
+        const atomicFiles = allMdFiles.filter((f) => {
+          const p = normalizePath(f.path);
+          const base = fileBasename(f);
+          return atomicPrefix && p.startsWith(atomicPrefix) || base.startsWith("A - ");
+        });
+        const candidateMatches = candidates.map((candidate) => {
+          var _a2, _b2;
+          if ((_a2 = candidate.linkPath) == null ? void 0 : _a2.trim()) {
+            const rawLinkPath = candidate.linkPath.trim();
+            const normalizedLinkPath = normalizePath(
+              rawLinkPath.toLowerCase().endsWith(".md") ? rawLinkPath : `${rawLinkPath}.md`
+            );
+            const directFile = this.app.vault.getAbstractFileByPath(normalizedLinkPath);
+            if (directFile instanceof import_obsidian4.TFile) {
+              return {
+                candidate,
+                matchedFile: directFile,
+                matchType: "exact",
+                overlapScore: 1
+              };
+            }
+          }
+          const cleanTitle = (candidate.linkTitle.split("/").pop() || candidate.linkTitle).replace(/\.md$/i, "").trim();
+          const exact = (_b2 = atomicFiles.find(
+            (f) => fileBasename(f).toLowerCase() === cleanTitle.toLowerCase()
+          )) != null ? _b2 : candidate.linkStatus.toLowerCase().includes("existing") ? allMdFiles.find(
+            (f) => !this.isPrimaryLiteratureFile(f) && fileBasename(f).toLowerCase() === cleanTitle.toLowerCase()
+          ) : void 0;
+          if (exact) {
+            return {
+              candidate,
+              matchedFile: exact,
+              matchType: "exact",
+              overlapScore: 1
+            };
+          }
+          const candTokens = tokenizeConcept(cleanTitle);
+          let bestFile = null;
+          let bestScore = 0;
+          if (candTokens.length > 0) {
+            for (const af of atomicFiles) {
+              const fileTokens = tokenizeConcept(fileBasename(af));
+              if (fileTokens.length === 0) continue;
+              const fileTokenSet = new Set(fileTokens);
+              const shared = candTokens.filter((t) => fileTokenSet.has(t)).length;
+              if (shared === 0) continue;
+              const denom = Math.min(candTokens.length, fileTokens.length);
+              const ratio = shared / denom;
+              if ((shared >= 2 || denom === 1) && ratio >= 0.5 && ratio > bestScore) {
+                bestScore = ratio;
+                bestFile = af;
+              }
+            }
+          }
+          return bestFile ? {
+            candidate,
+            matchedFile: bestFile,
+            matchType: "overlap",
+            overlapScore: Number(bestScore.toFixed(2))
+          } : {
+            candidate,
+            matchedFile: null,
+            matchType: "none",
+            overlapScore: 0
+          };
+        });
+        const corpusLower = [
+          ...reportTexts,
+          ...candidates.map((c) => `${c.relatedPapers} ${c.evidence} ${c.brief}`)
+        ].join("\n").toLowerCase();
+        const cleanCurrentKey = currentCitekey.replace(/^@/, "").trim().toLowerCase();
+        const citedPapers = [];
+        if (corpusLower.trim().length > 0) {
+          for (const file of allMdFiles) {
+            if (!this.isPrimaryLiteratureFile(file)) continue;
+            const fm = (_b = (_a = this.app.metadataCache.getFileCache(file)) == null ? void 0 : _a.frontmatter) != null ? _b : {};
+            const citekey = (this.paperHub.getCitekeyForFile(file) || fileBasename(file)).replace(/^@/, "").trim();
+            if (!citekey || citekey.toLowerCase() === cleanCurrentKey) continue;
+            const keyLower = citekey.toLowerCase();
+            const escapedKey = keyLower.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+            const keyRegex = new RegExp(
+              `(?:^|[^a-z0-9])${escapedKey}(?:$|[^a-z0-9])`,
+              "i"
+            );
+            const doi = String((_c = fm["doi"]) != null ? _c : "").trim().replace(/^https?:\/\/doi\.org\//i, "").toLowerCase();
+            const keyMatched = keyLower.length >= 3 && keyRegex.test(corpusLower);
+            const doiMatched = !keyMatched && doi.length >= 7 && corpusLower.includes(doi);
+            if (keyMatched || doiMatched) {
+              citedPapers.push({
+                file,
+                citekey,
+                title: String((_d = fm["title"]) != null ? _d : fileBasename(file)).trim(),
+                year: String((_e = fm["year"]) != null ? _e : "").trim(),
+                matchedBy: keyMatched ? "citekey" : "doi"
+              });
+            }
+          }
+        }
+        citedPapers.sort((a, b) => (Number(b.year) || 0) - (Number(a.year) || 0));
+        return { candidateMatches, citedPapers };
+      }
+      async connectCandidateToVault(params) {
+        var _a, _b;
+        const {
+          literatureFile,
+          citekey,
+          candidate,
+          mode,
+          appendEvidence = true
+        } = params;
+        const litPathNoExt = literatureFile.path.replace(/\.md$/i, "");
+        const sourceLink = `[[${litPathNoExt}|${citekey}]]`;
+        const priorBasenames = /* @__PURE__ */ new Set();
+        const candTitleBase = extractWikiBasename(candidate.linkTitle);
+        if (candTitleBase) priorBasenames.add(candTitleBase);
+        if (candidate.linkPath) {
+          const candPathBase = extractWikiBasename(candidate.linkPath);
+          if (candPathBase) priorBasenames.add(candPathBase);
+        }
+        if (params.replacedFile) {
+          const replacedBase = fileBasename(params.replacedFile).trim().toLowerCase();
+          if (replacedBase) priorBasenames.add(replacedBase);
+        }
+        const cleanCandTitle = (candidate.linkTitle.split("/").pop() || candidate.linkTitle).replace(/\.md$/i, "").trim();
+        const candLinkPathNoExt = candidate.linkPath ? normalizePath(candidate.linkPath.trim()).replace(/\.md$/i, "") : "";
+        const evidenceLines = [`### Evidence from ${sourceLink}`];
+        if (candidate.storyline)
+          evidenceLines.push(`- **Storyline**: ${candidate.storyline}`);
+        if (candidate.brief) evidenceLines.push(`- **Brief**: ${candidate.brief}`);
+        if (candidate.evidence)
+          evidenceLines.push(`- **Evidence**: ${candidate.evidence}`);
+        if (candidate.validation)
+          evidenceLines.push(`- **Validation**: ${candidate.validation}`);
+        if (candidate.tags.length > 0) {
+          const tagLine = candidate.tags.map((t) => `#${t.replace(/^#/, "")}`).join(" ");
+          evidenceLines.push(`- **Tags**: ${tagLine}`);
+        }
+        const evidenceBlock = evidenceLines.join("\n");
+        let resolvedTarget;
+        if (mode === "reuse" && params.targetFile) {
+          resolvedTarget = params.targetFile;
+          if (appendEvidence) {
+            const existing = await this.app.vault.read(resolvedTarget);
+            if (!existing.includes(`Evidence from ${sourceLink}`)) {
+              const updated = `${existing.trimEnd()}
+
+${evidenceBlock}
+`;
+              await this.app.vault.modify(resolvedTarget, updated);
+            }
+          }
+          const chosenBasename = fileBasename(resolvedTarget);
+          const chosenPathNoExt = normalizePath(resolvedTarget.path).replace(
+            /\.md$/i,
+            ""
+          );
+          const shouldRewrite = params.rewriteTakeaway !== void 0 ? params.rewriteTakeaway : chosenBasename.toLowerCase() !== cleanCandTitle.toLowerCase() || Boolean(candLinkPathNoExt) && candLinkPathNoExt.toLowerCase() !== chosenPathNoExt.toLowerCase();
+          if (shouldRewrite) {
+            const targetWikiLink = `[[${chosenPathNoExt}|${chosenBasename}]]`;
+            await this.paperHub.rewriteCandidateLinkInTakeaway(
+              citekey,
+              candidate.index,
+              targetWikiLink
+            );
+          }
+        } else {
+          const rawName = (candidate.linkTitle || `A - Concept - ${citekey}`).replace(/\.md$/i, "").replace(/[\\/:*?"<>|]/g, "-").trim();
+          const folder = normalizePath(
+            this.getSettings().paperWorkspace.atomicNotesFolder || "003-Permanent"
+          );
+          const targetPath = normalizePath(
+            folder ? `${folder}/${rawName}.md` : `${rawName}.md`
+          );
+          const existing = this.app.vault.getAbstractFileByPath(targetPath);
+          if (existing instanceof import_obsidian4.TFile) {
+            resolvedTarget = existing;
+            if (appendEvidence) {
+              const currentText = await this.app.vault.read(resolvedTarget);
+              if (!currentText.includes(`Evidence from ${sourceLink}`)) {
+                await this.app.vault.modify(
+                  resolvedTarget,
+                  `${currentText.trimEnd()}
+
+${evidenceBlock}
+`
+                );
+              }
+            }
+          } else {
+            await this.paperHub.ensureParentFolder(targetPath);
+            const litFm = (_a = this.app.metadataCache.getFileCache(literatureFile)) == null ? void 0 : _a.frontmatter;
+            const paperTitle = (litFm == null ? void 0 : litFm["title"]) !== void 0 && (litFm == null ? void 0 : litFm["title"]) !== null ? String(litFm["title"]).trim() : "";
+            const rawTemplate = await this.paperHub.getPromptContent("tpl-atomic-note") || DEFAULT_ATOMIC_NOTE_TEMPLATE;
+            let rendered = renderNoteTemplateString(rawTemplate, {
+              citekey,
+              title: paperTitle || citekey,
+              sourcePath: litPathNoExt,
+              atomicTitle: rawName
+            });
+            const cleanTags = Array.from(
+              new Set(
+                candidate.tags.map((t) => t.replace(/^#/, "").trim()).filter(Boolean)
+              )
+            );
+            if (cleanTags.length > 0) {
+              const fmMatch = rendered.match(
+                /^---\r?\n([\s\S]*?)\r?\n---([\s\S]*)$/
+              );
+              if (fmMatch) {
+                let fmPart = fmMatch[1];
+                const bodyPart = fmMatch[2];
+                const emptyTagsRe = /^tags:[ \t]*\[\s*\][ \t]*$/m;
+                const listTagsRe = /^tags:[ \t]*\r?\n((?:[ \t]*-[ \t]*[^\r\n]+\r?\n?)*)/m;
+                if (emptyTagsRe.test(fmPart)) {
+                  const tagBlock = `tags:
+${cleanTags.map((t) => `  - ${t}`).join("\n")}`;
+                  fmPart = fmPart.replace(emptyTagsRe, () => tagBlock);
+                } else {
+                  const listMatch = listTagsRe.exec(fmPart);
+                  if (listMatch) {
+                    const existingTags = new Set(
+                      listMatch[1].split(/\r?\n/).map(
+                        (line) => line.replace(/^[ \t]*-[ \t]*/, "").trim()
+                      ).filter(Boolean)
+                    );
+                    const toInsert = cleanTags.filter((t) => !existingTags.has(t)).map((t) => `  - ${t}`);
+                    if (toInsert.length > 0) {
+                      fmPart = fmPart.replace(
+                        /^tags:[ \t]*$/m,
+                        () => `tags:
+${toInsert.join("\n")}`
+                      );
+                    }
+                  } else {
+                    fmPart = `${fmPart}
+tags:
+${cleanTags.map((t) => `  - ${t}`).join("\n")}`;
+                  }
+                }
+                rendered = `---
+${fmPart}
+---${bodyPart}`;
+              }
+            }
+            const extraBlocks = [];
+            if (candidate.brief) extraBlocks.push(candidate.brief);
+            if (appendEvidence) extraBlocks.push(evidenceBlock);
+            const finalContent = extraBlocks.length > 0 ? `${rendered.trimEnd()}
+
+${extraBlocks.join("\n\n")}
+` : `${rendered.trimEnd()}
+`;
+            resolvedTarget = await this.app.vault.create(targetPath, finalContent);
+          }
+          const createdBasename = fileBasename(resolvedTarget);
+          const targetPathNoExt = normalizePath(resolvedTarget.path).replace(
+            /\.md$/i,
+            ""
+          );
+          const shouldRewriteCreate = params.rewriteTakeaway !== void 0 ? params.rewriteTakeaway : createdBasename.toLowerCase() !== cleanCandTitle.toLowerCase() || Boolean(candLinkPathNoExt) && candLinkPathNoExt.toLowerCase() !== targetPathNoExt.toLowerCase();
+          if (shouldRewriteCreate) {
+            await this.paperHub.rewriteCandidateLinkInTakeaway(
+              citekey,
+              candidate.index,
+              `[[${targetPathNoExt}|${createdBasename}]]`
+            );
+          }
+        }
+        const state = await this.paperHub.getPaperState(literatureFile);
+        const currentLinks = (_b = state == null ? void 0 : state.coreNote.linkedNotes) != null ? _b : [];
+        const newBasename = fileBasename(resolvedTarget).trim().toLowerCase();
+        priorBasenames.delete(newBasename);
+        if (priorBasenames.size > 0 && (state == null ? void 0 : state.takeawayCandidates)) {
+          for (const other of state.takeawayCandidates) {
+            if (other.index === candidate.index) continue;
+            const otherMatches = this.matchCandidatesAgainstVault(
+              [other],
+              [],
+              citekey
+            ).candidateMatches[0];
+            const otherTitleBase = extractWikiBasename(other.linkTitle);
+            if (otherTitleBase) priorBasenames.delete(otherTitleBase);
+            if (other.linkPath) {
+              const otherPathBase = extractWikiBasename(other.linkPath);
+              if (otherPathBase) priorBasenames.delete(otherPathBase);
+            }
+            if (otherMatches == null ? void 0 : otherMatches.matchedFile) {
+              const otherMatchedBase = fileBasename(otherMatches.matchedFile).trim().toLowerCase();
+              if (otherMatchedBase) priorBasenames.delete(otherMatchedBase);
+            }
+          }
+        }
+        const prunedLinks = currentLinks.filter(
+          (entry) => !priorBasenames.has(extractWikiBasename(entry))
+        );
+        const atomicWikiLink = `[[${fileBasename(resolvedTarget)}]]`;
+        const nextLinks = prunedLinks.some(
+          (entry) => extractWikiBasename(entry) === newBasename
+        ) ? prunedLinks : [...prunedLinks, atomicWikiLink];
+        await this.paperHub.saveCoreNote(
+          citekey,
+          { linkedNotes: nextLinks },
+          literatureFile
+        );
+        return resolvedTarget;
+      }
+    };
+  }
+});
+
+// src/ui/connector-modal.ts
+function getBasename(file) {
+  if (file.basename) return file.basename;
+  return (file.name || file.path.split("/").pop() || "").replace(/\.md$/i, "");
+}
+async function renderMarkdownContent(app, markdown, container, sourcePath, component) {
+  const extContainer = container;
+  if (typeof extContainer.addClass === "function") {
+    extContainer.addClass("markdown-rendered");
+  } else {
+    container.classList.add("markdown-rendered");
+  }
+  if (typeof extContainer.setText !== "function") {
+    extContainer.setText = (text) => {
+      container.textContent = text;
+    };
+  }
+  await import_obsidian5.MarkdownRenderer.render(app, markdown, container, sourcePath, component);
+  container.addEventListener("click", (ev) => {
+    var _a, _b;
+    const target = ev.target;
+    const linkEl = (_a = target == null ? void 0 : target.closest) == null ? void 0 : _a.call(target, "a.internal-link");
+    if (!linkEl) return;
+    ev.preventDefault();
+    ev.stopPropagation();
+    const linkTarget = linkEl.getAttribute("data-href") || linkEl.getAttribute("href") || "";
+    if (linkTarget && ((_b = app.workspace) == null ? void 0 : _b.openLinkText)) {
+      void app.workspace.openLinkText(linkTarget, sourcePath);
+    }
+  });
+}
+var import_obsidian5, VaultMarkdownSuggestModal, ConnectorModal;
+var init_connector_modal = __esm({
+  "src/ui/connector-modal.ts"() {
+    "use strict";
+    import_obsidian5 = require("obsidian");
+    init_paths();
+    VaultMarkdownSuggestModal = class extends import_obsidian5.FuzzySuggestModal {
+      constructor(app, onChoose, filterFn, placeholder = "Choose a note in Vault...") {
+        var _a;
+        super(app);
+        this.onChoose = onChoose;
+        this.filterFn = filterFn;
+        (_a = this.setPlaceholder) == null ? void 0 : _a.call(this, placeholder);
+      }
+      getItems() {
+        const files = this.app.vault.getMarkdownFiles();
+        return this.filterFn ? files.filter(this.filterFn) : files;
+      }
+      getItemText(file) {
+        return `${getBasename(file)} \u2014 ${file.path}`;
+      }
+      onChooseItem(file) {
+        void this.onChoose(file);
+      }
+    };
+    ConnectorModal = class extends import_obsidian5.Modal {
+      constructor(app, plugin, literatureFile, onUpdated) {
+        super(app);
+        this.plugin = plugin;
+        this.literatureFile = literatureFile;
+        this.onUpdated = onUpdated;
+        this.state = null;
+        this.matchResult = {
+          candidateMatches: [],
+          citedPapers: []
+        };
+        this.selectedIndex = 0;
+        this.appendEvidence = true;
+        this.mdComponent = new import_obsidian5.Component();
+      }
+      async onOpen() {
+        var _a;
+        this.mdComponent.load();
+        (_a = this.modalEl) == null ? void 0 : _a.addClass(
+          "zotero-connector-modal-shell"
+        );
+        this.contentEl.addClass("zotero-connector-modal");
+        await this.refreshState();
+      }
+      onClose() {
+        this.mdComponent.unload();
+        this.contentEl.empty();
+      }
+      async refreshState() {
+        this.state = await this.plugin.paperHub.getPaperState(this.literatureFile);
+        if (!this.state) {
+          this.renderNoCitekey();
+          return;
+        }
+        const report1Raw = this.state.report1File ? await this.app.vault.read(this.state.report1File) : "";
+        const reportTexts = [
+          this.state.takeawayRaw,
+          this.state.report2Raw,
+          report1Raw
+        ].filter(Boolean);
+        this.matchResult = this.plugin.vaultLibrary.matchCandidatesAgainstVault(
+          this.state.takeawayCandidates,
+          reportTexts,
+          this.state.citekey
+        );
+        if (this.selectedIndex >= this.matchResult.candidateMatches.length) {
+          this.selectedIndex = 0;
+        }
+        await this.renderContent();
+      }
+      renderNoCitekey() {
+        const { contentEl } = this;
+        contentEl.empty();
+        contentEl.createEl("h3", { text: "Vault Knowledge Connector" });
+        contentEl.createDiv({
+          cls: "zotero-connector-empty",
+          text: "No citation key found in this note frontmatter."
+        });
+      }
+      isNoteLinked(basenameOrLink) {
+        var _a;
+        if (!this.state) return false;
+        const clean = (_a = basenameOrLink.replace(/^\[\[|\]\]$/g, "").split("|")[0].split("/").pop()) == null ? void 0 : _a.replace(/\.md$/i, "").trim().toLowerCase();
+        if (!clean) return false;
+        return this.state.coreNote.linkedNotes.some((item) => {
+          var _a2;
+          const inner = item.replace(/^\[\[|\]\]$/g, "").trim();
+          const [rawTarget, rawAlias] = inner.split("|");
+          const targetBase = (_a2 = rawTarget == null ? void 0 : rawTarget.split("/").pop()) == null ? void 0 : _a2.replace(/\.md$/i, "").trim().toLowerCase();
+          const aliasBase = rawAlias == null ? void 0 : rawAlias.replace(/\.md$/i, "").trim().toLowerCase();
+          return targetBase === clean || aliasBase === clean;
+        });
+      }
+      async renderContent() {
+        var _a;
+        this.mdComponent.unload();
+        this.mdComponent = new import_obsidian5.Component();
+        this.mdComponent.load();
+        const { contentEl } = this;
+        contentEl.empty();
+        const state = this.state;
+        if (!state) return;
+        const header = contentEl.createDiv({ cls: "zotero-connector-header" });
+        const titleWrap = header.createDiv({ cls: "zotero-connector-title-wrap" });
+        const iconEl = titleWrap.createSpan({ cls: "zotero-connector-title-icon" });
+        (0, import_obsidian5.setIcon)(iconEl, "link-2");
+        titleWrap.createEl("h3", {
+          text: `Connect Paper to Vault \xB7 ${state.citekey}`,
+          cls: "zotero-connector-title"
+        });
+        const { candidateMatches, citedPapers } = this.matchResult;
+        if (candidateMatches.length === 0 && citedPapers.length === 0) {
+          this.renderEmptyState(contentEl, state);
+          return;
+        }
+        const columns = contentEl.createDiv({ cls: "zotero-connector-columns" });
+        const leftPane = columns.createDiv({ cls: "zotero-connector-left" });
+        const rightPane = columns.createDiv({ cls: "zotero-connector-right" });
+        this.renderLeftPane(leftPane, state, candidateMatches, citedPapers);
+        await this.renderRightPane(
+          rightPane,
+          state,
+          (_a = candidateMatches[this.selectedIndex]) != null ? _a : null
+        );
+      }
+      renderEmptyState(container, state) {
+        const box = container.createDiv({ cls: "zotero-connector-empty" });
+        box.createEl("h4", { text: "No Takeaway Candidates Yet" });
+        box.createEl("p", {
+          text: "Create and open the Takeaway.md file in Obsidian to paste synthesized Markdown directly, or trigger a synthesis webhook.",
+          cls: "zotero-text-muted"
+        });
+        const actions = box.createDiv({ cls: "zotero-connector-empty-actions" });
+        const createOpenBtn = actions.createEl("button", {
+          cls: "mod-cta zotero-connector-btn",
+          text: "+ Create & Open Takeaway.md",
+          attr: { type: "button" }
+        });
+        createOpenBtn.onclick = async () => {
+          var _a;
+          try {
+            const created = await this.plugin.paperHub.createOrOpenReportFile(
+              state.citekey,
+              "takeaway",
+              this.literatureFile
+            );
+            await this.app.workspace.getLeaf(false).openFile(created);
+            await this.notifyUpdated();
+            this.close();
+          } catch (err) {
+            console.error(
+              "[ConnectorModal] Failed to create/open Takeaway.md",
+              err
+            );
+            new import_obsidian5.Notice(
+              `Failed to open Takeaway.md: ${(_a = err == null ? void 0 : err.message) != null ? _a : String(err)}`
+            );
+          }
+        };
+        const copyPromptBtn = actions.createEl("button", {
+          cls: "zotero-connector-btn",
+          text: "Copy Synthesize Prompt",
+          attr: { type: "button" }
+        });
+        copyPromptBtn.onclick = async () => {
+          var _a, _b;
+          try {
+            const prompt = await this.plugin.paperHub.getPromptContent("synthesize");
+            if ((_a = navigator.clipboard) == null ? void 0 : _a.writeText) {
+              await navigator.clipboard.writeText(prompt);
+              new import_obsidian5.Notice("Copied synthesize prompt to clipboard.");
+            }
+          } catch (err) {
+            console.error("[ConnectorModal] Failed to copy prompt", err);
+            new import_obsidian5.Notice(
+              `Failed to copy prompt: ${(_b = err == null ? void 0 : err.message) != null ? _b : String(err)}`
+            );
+          }
+        };
+        const visibleHooks = (this.plugin.settings.webhooks || []).filter(
+          (h) => !h.hidden
+        );
+        for (const hook of visibleHooks) {
+          const hookBtn = actions.createEl("button", {
+            cls: "zotero-connector-btn",
+            text: `Trigger: ${hook.name}`,
+            attr: { type: "button" }
+          });
+          hookBtn.onclick = async () => {
+            var _a;
+            try {
+              await this.plugin.webhookService.triggerWebhook(
+                hook,
+                this.literatureFile,
+                void 0,
+                this.plugin.settings.webhookDebugMode
+              );
+            } catch (err) {
+              console.error("[ConnectorModal] Webhook trigger failed", err);
+              new import_obsidian5.Notice(
+                `Webhook failed: ${(_a = err == null ? void 0 : err.message) != null ? _a : String(err)}`
+              );
+            }
+          };
+        }
+      }
+      renderLeftPane(leftPane, state, candidateMatches, citedPapers) {
+        leftPane.createDiv({
+          cls: "zotero-connector-section-label",
+          text: `Candidate Atomic Zettels (${candidateMatches.length})`
+        });
+        if (candidateMatches.length === 0) {
+          leftPane.createDiv({
+            cls: "zotero-connector-subtle",
+            text: "No ### Candidate blocks found in Takeaway."
+          });
+        } else {
+          const candList = leftPane.createDiv({ cls: "zotero-connector-list" });
+          candidateMatches.forEach((match, idx) => {
+            const item = candList.createDiv({
+              cls: `zotero-connector-item ${idx === this.selectedIndex ? "is-selected" : ""}`
+            });
+            item.onclick = () => {
+              this.selectedIndex = idx;
+              void this.renderContent();
+            };
+            const topRow = item.createDiv({ cls: "zotero-connector-item-top" });
+            const leftMeta = topRow.createDiv({
+              cls: "zotero-connector-item-meta"
+            });
+            leftMeta.createSpan({
+              cls: "zotero-connector-item-index",
+              text: `#${match.candidate.index}`
+            });
+            if (match.candidate.typeLabel) {
+              leftMeta.createSpan({
+                cls: "zotero-connector-type-chip",
+                text: match.candidate.typeLabel
+              });
+            }
+            const linked = match.matchedFile && this.isNoteLinked(getBasename(match.matchedFile)) || this.isNoteLinked(match.candidate.linkTitle);
+            const badgeText = linked ? "Linked" : match.matchedFile ? "Matched" : "Proposed";
+            const badgeCls = linked ? "is-linked" : match.matchedFile ? "is-matched" : "is-proposed";
+            topRow.createSpan({
+              cls: `zotero-connector-badge ${badgeCls}`,
+              text: badgeText
+            });
+            item.createDiv({
+              cls: "zotero-connector-item-title",
+              text: match.candidate.linkTitle
+            });
+            const subText = match.candidate.brief || match.candidate.storyline;
+            if (subText) {
+              item.createDiv({
+                cls: "zotero-connector-item-sub",
+                text: subText
+              });
+            }
+          });
+        }
+        leftPane.createDiv({
+          cls: "zotero-connector-section-label zotero-connector-section-spaced",
+          text: `Cited Vault Papers (${citedPapers.length})`
+        });
+        if (citedPapers.length === 0) {
+          leftPane.createDiv({
+            cls: "zotero-connector-subtle",
+            text: "No cited papers matched existing Literature notes."
+          });
+        } else {
+          const citedList = leftPane.createDiv({
+            cls: "zotero-connector-cited-list"
+          });
+          for (const cited of citedPapers) {
+            const row = citedList.createDiv({ cls: "zotero-connector-cited-row" });
+            const info = row.createDiv({ cls: "zotero-connector-cited-info" });
+            const titleLink = info.createEl("a", {
+              cls: "zotero-connector-cited-title",
+              text: cited.title,
+              href: "#"
+            });
+            titleLink.onclick = (ev) => {
+              ev.preventDefault();
+              void this.app.workspace.getLeaf(false).openFile(cited.file);
+              this.close();
+            };
+            const metaParts = [
+              cited.citekey,
+              cited.year,
+              `via ${cited.matchedBy}`
+            ].filter(Boolean);
+            info.createDiv({
+              cls: "zotero-connector-item-sub",
+              text: metaParts.join(" \xB7 ")
+            });
+            const base = getBasename(cited.file);
+            const alreadyLinked = this.isNoteLinked(base);
+            const btn = row.createEl("button", {
+              cls: `zotero-connector-mini-btn ${alreadyLinked ? "is-linked" : ""}`,
+              text: alreadyLinked ? "Linked" : "Link",
+              attr: { type: "button" }
+            });
+            btn.disabled = alreadyLinked;
+            btn.onclick = async () => {
+              var _a;
+              try {
+                const wiki = `[[${base}]]`;
+                const next = state.coreNote.linkedNotes.includes(wiki) ? state.coreNote.linkedNotes : [...state.coreNote.linkedNotes, wiki];
+                await this.plugin.paperHub.saveCoreNote(
+                  state.citekey,
+                  { linkedNotes: next },
+                  this.literatureFile
+                );
+                new import_obsidian5.Notice(`Linked ${wiki} to Core Note.`);
+                await this.notifyUpdated();
+                await this.refreshState();
+              } catch (err) {
+                console.error(
+                  "[ConnectorModal] Failed to link cited paper",
+                  err
+                );
+                new import_obsidian5.Notice(
+                  `Failed to link paper: ${(_a = err == null ? void 0 : err.message) != null ? _a : String(err)}`
+                );
+              }
+            };
+          }
+        }
+      }
+      async renderRightPane(rightPane, state, selected) {
+        if (!selected) {
+          rightPane.createDiv({
+            cls: "zotero-connector-subtle",
+            text: "Select a Candidate Atomic Zettel on the left to review and link it."
+          });
+          return;
+        }
+        const { candidate, matchedFile, matchType } = selected;
+        const head = rightPane.createDiv({ cls: "zotero-connector-detail-head" });
+        head.createEl("h4", {
+          cls: "zotero-connector-detail-title",
+          text: candidate.linkTitle
+        });
+        const metaChips = [
+          { label: "Type", value: candidate.typeLabel || "" },
+          { label: "Source", value: candidate.source || "" },
+          { label: "Storyline", value: candidate.storyline },
+          { label: "Answers", value: candidate.answers || "" },
+          { label: "Link Status", value: candidate.linkStatus }
+        ].filter((m) => Boolean(m.value));
+        if (metaChips.length > 0) {
+          const chipsRow = head.createDiv({ cls: "zotero-connector-meta-chips" });
+          for (const item of metaChips) {
+            chipsRow.createSpan({
+              cls: "zotero-connector-meta-chip",
+              text: `${item.label}: ${item.value}`
+            });
+          }
+        }
+        const fields = rightPane.createDiv({ cls: "zotero-connector-fields" });
+        const renderTasks = [];
+        const addMarkdownField = (label, value) => {
+          if (!value) return;
+          const row = fields.createDiv({ cls: "zotero-connector-field-row" });
+          row.createSpan({ cls: "zotero-connector-field-key", text: label });
+          const valEl = row.createDiv({
+            cls: "zotero-connector-field-val zotero-connector-md-val"
+          });
+          renderTasks.push(
+            renderMarkdownContent(
+              this.app,
+              value,
+              valEl,
+              this.literatureFile.path,
+              this.mdComponent
+            )
+          );
+        };
+        addMarkdownField("Brief", candidate.brief);
+        addMarkdownField("Evidence", candidate.evidence);
+        addMarkdownField("Validation", candidate.validation);
+        addMarkdownField("Related Papers", candidate.relatedPapers);
+        if (candidate.tags.length > 0) {
+          const row = fields.createDiv({ cls: "zotero-connector-field-row" });
+          row.createSpan({ cls: "zotero-connector-field-key", text: "Tags" });
+          row.createSpan({
+            cls: "zotero-connector-field-val zotero-connector-tags-val",
+            text: candidate.tags.map((t) => `#${t}`).join("  ")
+          });
+        }
+        const isLinked = Boolean(
+          matchedFile && this.isNoteLinked(getBasename(matchedFile)) || this.isNoteLinked(candidate.linkTitle)
+        );
+        if (matchedFile) {
+          const previewWrap = rightPane.createDiv({
+            cls: "zotero-connector-preview-card"
+          });
+          const previewHead = previewWrap.createDiv({
+            cls: "zotero-connector-preview-head"
+          });
+          previewHead.createSpan({
+            text: `${isLinked ? "Linked" : "Matched"} (${matchType === "exact" ? "Exact Title" : "Concept Overlap"}): ${matchedFile.path}`
+          });
+          const openExisting = previewHead.createEl("a", {
+            text: "Open in Obsidian",
+            href: "#",
+            cls: "zotero-connector-open-link"
+          });
+          openExisting.onclick = (ev) => {
+            ev.preventDefault();
+            void this.app.workspace.getLeaf(false).openFile(matchedFile);
+            this.close();
+          };
+          const previewBody = previewWrap.createDiv({
+            cls: "zotero-connector-preview-rendered"
+          });
+          renderTasks.push(
+            this.app.vault.read(matchedFile).then(
+              (existingContent) => renderMarkdownContent(
+                this.app,
+                existingContent,
+                previewBody,
+                matchedFile.path,
+                this.mdComponent
+              )
+            )
+          );
+        }
+        await Promise.all(renderTasks);
+        const sanitizedName = (candidate.linkTitle || `A - Concept - ${state.citekey}`).replace(/\.md$/i, "").replace(/[\\/:*?"<>|]/g, "-").trim();
+        const atomicFolder = normalizePath(
+          this.plugin.settings.paperWorkspace.atomicNotesFolder || "003-Permanent"
+        );
+        const targetDisplayPath = atomicFolder ? `${atomicFolder}/${sanitizedName}.md` : `${sanitizedName}.md`;
+        if (!matchedFile && !isLinked) {
+          rightPane.createDiv({
+            cls: "zotero-connector-target-hint",
+            text: `Target: ${targetDisplayPath}`
+          });
+        }
+        const appendRow = rightPane.createEl("label", {
+          cls: "zotero-connector-checkbox-row"
+        });
+        const checkbox = appendRow.createEl("input", {
+          attr: { type: "checkbox" }
+        });
+        checkbox.checked = this.appendEvidence;
+        checkbox.onchange = () => {
+          this.appendEvidence = checkbox.checked;
+        };
+        appendRow.createSpan({
+          text: `Append "Evidence from [[${state.citekey}]]" section to target note`
+        });
+        const actions = rightPane.createDiv({ cls: "zotero-connector-actions" });
+        const openVaultNotePicker = (replaced, noticeLabel) => {
+          var _a, _b;
+          const atomicBase = (normalizePath(
+            ((_b = (_a = this.plugin.settings.paperWorkspace) == null ? void 0 : _a.atomicNotesFolder) == null ? void 0 : _b.trim()) || "003-Permanent"
+          ).replace(/\/+$/, "") || "003-Permanent") + "/";
+          new VaultMarkdownSuggestModal(
+            this.app,
+            async (chosenFile) => {
+              var _a2;
+              try {
+                const target = await this.plugin.vaultLibrary.connectCandidateToVault({
+                  literatureFile: this.literatureFile,
+                  citekey: state.citekey,
+                  candidate,
+                  mode: "reuse",
+                  targetFile: chosenFile,
+                  replacedFile: replaced,
+                  appendEvidence: this.appendEvidence,
+                  rewriteTakeaway: true
+                });
+                new import_obsidian5.Notice(`${noticeLabel}: ${getBasename(target)}`);
+                await this.notifyUpdated();
+                await this.refreshState();
+              } catch (err) {
+                console.error(
+                  "[ConnectorModal] Failed to link chosen vault note",
+                  err
+                );
+                new import_obsidian5.Notice(
+                  `Failed to link note: ${(_a2 = err == null ? void 0 : err.message) != null ? _a2 : String(err)}`
+                );
+              }
+            },
+            (f) => f.path.toLowerCase().endsWith(".md") && normalizePath(f.path).startsWith(atomicBase),
+            "Choose an Atomic note..."
+          ).open();
+        };
+        if (isLinked) {
+          const relinkBtn = actions.createEl("button", {
+            cls: "zotero-connector-btn",
+            text: "Relink a note",
+            attr: {
+              type: "button",
+              title: "Replace the currently linked note with another Vault note",
+              "aria-label": "Replace the currently linked note with another Vault note"
+            }
+          });
+          relinkBtn.onclick = () => openVaultNotePicker(matchedFile, "Relinked to note");
+        } else if (matchedFile) {
+          const matchedBase = getBasename(matchedFile);
+          const linkMatchedBtn = actions.createEl("button", {
+            cls: "mod-cta zotero-connector-btn",
+            text: "Link a note",
+            attr: {
+              type: "button",
+              title: `Link and append evidence to ${matchedBase}`,
+              "aria-label": `Link and append evidence to ${matchedBase}`
+            }
+          });
+          linkMatchedBtn.onclick = async () => {
+            var _a;
+            try {
+              const target = await this.plugin.vaultLibrary.connectCandidateToVault({
+                literatureFile: this.literatureFile,
+                citekey: state.citekey,
+                candidate,
+                mode: "reuse",
+                targetFile: matchedFile,
+                replacedFile: matchedFile,
+                appendEvidence: this.appendEvidence
+              });
+              new import_obsidian5.Notice(`Linked note: ${getBasename(target)}`);
+              await this.notifyUpdated();
+              await this.refreshState();
+            } catch (err) {
+              console.error("[ConnectorModal] Failed to link existing note", err);
+              new import_obsidian5.Notice(
+                `Failed to link note: ${(_a = err == null ? void 0 : err.message) != null ? _a : String(err)}`
+              );
+            }
+          };
+          const relinkMatchedBtn = actions.createEl("button", {
+            cls: "zotero-connector-btn",
+            text: "Relink a note",
+            attr: {
+              type: "button",
+              title: "Choose a different existing Vault note",
+              "aria-label": "Choose a different existing Vault note"
+            }
+          });
+          relinkMatchedBtn.onclick = () => openVaultNotePicker(matchedFile, "Relinked to note");
+        } else {
+          const createBtn = actions.createEl("button", {
+            cls: "mod-cta zotero-connector-btn",
+            text: "Create a note",
+            attr: {
+              type: "button",
+              title: `Create ${targetDisplayPath}`,
+              "aria-label": `Create ${targetDisplayPath}`
+            }
+          });
+          createBtn.onclick = async () => {
+            var _a;
+            try {
+              const target = await this.plugin.vaultLibrary.connectCandidateToVault({
+                literatureFile: this.literatureFile,
+                citekey: state.citekey,
+                candidate,
+                mode: "create",
+                replacedFile: null,
+                appendEvidence: this.appendEvidence
+              });
+              new import_obsidian5.Notice(`Created and linked note: ${getBasename(target)}`);
+              await this.notifyUpdated();
+              await this.refreshState();
+            } catch (err) {
+              console.error("[ConnectorModal] Failed to create atomic note", err);
+              new import_obsidian5.Notice(
+                `Failed to create note: ${(_a = err == null ? void 0 : err.message) != null ? _a : String(err)}`
+              );
+            }
+          };
+          const chooseExistingBtn = actions.createEl("button", {
+            cls: "zotero-connector-btn",
+            text: "Link a note",
+            attr: {
+              type: "button",
+              title: "Choose an existing Vault note instead of creating a new one",
+              "aria-label": "Choose an existing Vault note instead of creating a new one"
+            }
+          });
+          chooseExistingBtn.onclick = () => openVaultNotePicker(null, "Linked note");
+        }
+      }
+      async notifyUpdated() {
+        if (this.onUpdated) {
+          await this.onUpdated();
+        }
+      }
+    };
+  }
+});
+
 // src/ui/digest-view.ts
 var digest_view_exports = {};
 __export(digest_view_exports, {
@@ -808,6 +6523,7 @@ __export(digest_view_exports, {
   digestHttp: () => digestHttp,
   getDigestServices: () => getDigestServices,
   openDigest: () => openDigest,
+  openPaperLibrary: () => openPaperLibrary,
   registerDigest: () => registerDigest,
   updateDigestRibbon: () => updateDigestRibbon
 });
@@ -836,7 +6552,7 @@ function getDigestServices(plugin) {
     settings,
     updateSettings,
     files,
-    store: new DigestStore(files, (0, import_obsidian.normalizePath)(`${pluginDir}/digest-store.json`)),
+    store: new DigestStore(files, (0, import_obsidian6.normalizePath)(`${pluginDir}/digest-store.json`)),
     translate: new TranslationClient(
       digestHttp,
       () => settings().translationServerUrl
@@ -852,7 +6568,7 @@ function getDigestServices(plugin) {
   servicesByPlugin.set(plugin, created);
   return created;
 }
-async function openDigest(plugin) {
+async function getOrCreateHubLeaf(plugin) {
   const { workspace } = plugin.app;
   let leaf = workspace.getLeavesOfType(VIEW_TYPE_DIGEST)[0];
   if (!leaf) {
@@ -860,45 +6576,68 @@ async function openDigest(plugin) {
     await leaf.setViewState({ type: VIEW_TYPE_DIGEST, active: true });
   }
   await workspace.revealLeaf(leaf);
-  if (leaf.view instanceof PaperDigestView) await leaf.view.reload(true);
+  return leaf;
+}
+async function openDigest(plugin) {
+  const leaf = await getOrCreateHubLeaf(plugin);
+  if (leaf.view instanceof PaperDigestView) {
+    await leaf.view.switchHubTab("digest");
+    await leaf.view.reload(true);
+  }
+}
+async function openPaperLibrary(plugin, venueFilter) {
+  const leaf = await getOrCreateHubLeaf(plugin);
+  if (leaf.view instanceof PaperDigestView) {
+    await leaf.view.openLibrary(venueFilter);
+  }
 }
 function updateDigestRibbon(plugin) {
   var _a;
   (_a = ribbonByPlugin.get(plugin)) == null ? void 0 : _a.remove();
   ribbonByPlugin.delete(plugin);
-  if (!import_obsidian.Platform.isDesktopApp || !getDigestServices(plugin).settings().showInRibbon)
+  if (!import_obsidian6.Platform.isDesktopApp || !getDigestServices(plugin).settings().showInRibbon)
     return;
-  const el = plugin.addRibbonIcon("inbox", "Open Paper Digest", () => {
+  const el = plugin.addRibbonIcon("inbox", "Open Paper House", () => {
     void openDigest(plugin);
   });
   ribbonByPlugin.set(plugin, el);
 }
 function registerDigest(plugin) {
-  if (!import_obsidian.Platform.isDesktopApp) return;
+  if (!import_obsidian6.Platform.isDesktopApp) return;
   plugin.registerView(VIEW_TYPE_DIGEST, (leaf) => new PaperDigestView(leaf, plugin));
   plugin.addCommand({
     id: "open-paper-digest",
-    name: "Open Paper Digest",
+    name: "Open Paper House",
     callback: () => void openDigest(plugin)
+  });
+  plugin.addCommand({
+    id: "open-paper-library",
+    name: "Open Paper House (Library)",
+    callback: () => void openPaperLibrary(plugin)
   });
   updateDigestRibbon(plugin);
 }
-var import_obsidian, VIEW_TYPE_DIGEST, SECRET_ID, DOCKER_HINT, digestHttp, servicesByPlugin, ribbonByPlugin, STATUS_LABELS, PaperDigestView;
+var import_obsidian6, VIEW_TYPE_DIGEST, SECRET_ID, DOCKER_HINT, digestHttp, servicesByPlugin, ribbonByPlugin, STATUS_LABELS, PaperDigestView;
 var init_digest_view = __esm({
   "src/ui/digest-view.ts"() {
     "use strict";
-    import_obsidian = require("obsidian");
+    import_obsidian6 = require("obsidian");
+    init_types();
     init_digest_bib();
     init_digest_import();
     init_digest_store();
     init_digest_translate();
     init_digest_types();
     init_digest_zotero();
+    init_paper_hub();
+    init_vault_library();
+    init_zotero_connector();
+    init_connector_modal();
     VIEW_TYPE_DIGEST = "zotero-paper-digest";
     SECRET_ID = "zotero-digest-local-api-key";
     DOCKER_HINT = "docker run -d --name zotero-translation --restart unless-stopped -p 127.0.0.1:1969:1969 zotero/translation-server";
     digestHttp = async (request2) => {
-      const response = await (0, import_obsidian.requestUrl)({ ...request2, throw: false });
+      const response = await (0, import_obsidian6.requestUrl)({ ...request2, throw: false });
       return { status: response.status, text: response.text, headers: response.headers };
     };
     servicesByPlugin = /* @__PURE__ */ new WeakMap();
@@ -908,9 +6647,12 @@ var init_digest_view = __esm({
       accepted: "Accepted",
       rejected: "Rejected"
     };
-    PaperDigestView = class extends import_obsidian.ItemView {
+    PaperDigestView = class extends import_obsidian6.ItemView {
       constructor(leaf, plugin) {
         super(leaf);
+        this.fallbackPaperHub = null;
+        this.fallbackLibrary = null;
+        this.hubTab = "digest";
         this.filter = "all";
         this.batch = "";
         this.selectedKey = "";
@@ -926,22 +6668,173 @@ var init_digest_view = __esm({
         this.detailScroll = 0;
         this.collectionScroll = 0;
         this.listScroll = 0;
+        // --- Library state ---
+        this.libraryEntries = [];
+        this.libraryQuery = "";
+        this.libraryQuickFilter = "all";
+        this.libraryVenueFilter = "";
+        this.selectedLibraryKey = "";
+        this.libraryListScroll = 0;
+        this.libraryDetailScroll = 0;
+        this.vaultListenersRegistered = false;
+        this.plugin = plugin;
         this.svc = getDigestServices(plugin);
-        this.scope = new import_obsidian.Scope(this.app.scope);
+        this.scope = new import_obsidian6.Scope(this.app.scope);
         this.registerKeys();
       }
       getViewType() {
         return VIEW_TYPE_DIGEST;
       }
       getDisplayText() {
-        return "Paper Digest";
+        return "Paper House";
       }
       getIcon() {
         return "inbox";
       }
+      getPaperHub() {
+        if (this.plugin.paperHub) return this.plugin.paperHub;
+        if (!this.fallbackPaperHub) {
+          this.fallbackPaperHub = new PaperHubService(
+            this.app,
+            () => Object.assign({}, DEFAULT_SETTINGS, this.plugin.settings)
+          );
+        }
+        return this.fallbackPaperHub;
+      }
+      getVaultLibrary() {
+        if (this.plugin.vaultLibrary) return this.plugin.vaultLibrary;
+        if (!this.fallbackLibrary) {
+          this.fallbackLibrary = new VaultLibraryService(
+            this.app,
+            () => Object.assign({}, DEFAULT_SETTINGS, this.plugin.settings),
+            this.getPaperHub()
+          );
+        }
+        return this.fallbackLibrary;
+      }
+      ensureVaultListeners() {
+        var _a, _b;
+        if (this.vaultListenersRegistered) return;
+        this.vaultListenersRegistered = true;
+        const refreshIfLibraryActive = () => {
+          if (this.hubTab !== "library") return;
+          void this.reloadLibrary().then(() => this.renderLibraryResultsOnly());
+        };
+        if (typeof ((_a = this.app.vault) == null ? void 0 : _a.on) === "function") {
+          this.registerEvent(
+            this.app.vault.on("create", (file) => {
+              if (file.path.toLowerCase().endsWith(".md")) {
+                refreshIfLibraryActive();
+              }
+            })
+          );
+          this.registerEvent(
+            this.app.vault.on("modify", (file) => {
+              if (file.path.toLowerCase().endsWith(".md")) {
+                refreshIfLibraryActive();
+              }
+            })
+          );
+          this.registerEvent(
+            this.app.vault.on("delete", (file) => {
+              if (file.path.toLowerCase().endsWith(".md")) {
+                refreshIfLibraryActive();
+              }
+            })
+          );
+        }
+        if (typeof ((_b = this.app.metadataCache) == null ? void 0 : _b.on) === "function") {
+          this.registerEvent(
+            this.app.metadataCache.on("changed", (file) => {
+              if (file.path.toLowerCase().endsWith(".md")) {
+                refreshIfLibraryActive();
+              }
+            })
+          );
+        }
+      }
+      async importFromZotero() {
+        const connector = new ZoteroConnectorService(
+          this.app,
+          Object.assign({}, DEFAULT_SETTINGS, this.plugin.settings)
+        );
+        const triggered = await connector.triggerInteractiveImport();
+        if (triggered) {
+          await this.reloadLibrary();
+          this.render();
+        }
+      }
       /** Renders from the store only; importing is left to an explicit open or Refresh. */
       async onOpen() {
+        this.ensureVaultListeners();
+        if (this.hubTab === "library") {
+          await this.reloadLibrary();
+          this.render();
+          return;
+        }
         await this.reload(false);
+      }
+      /** Opens Paper House directly on the Vault Paper Library tab, optionally pre-filtered by venue. */
+      async openLibrary(venueFilter) {
+        this.ensureVaultListeners();
+        this.hubTab = "library";
+        if (venueFilter !== void 0) {
+          this.libraryVenueFilter = venueFilter.trim();
+        }
+        await this.reloadLibrary();
+        this.render();
+      }
+      /** Switches between Digest and Library tabs. */
+      async switchHubTab(tab) {
+        this.ensureVaultListeners();
+        if (this.hubTab === tab) return;
+        this.hubTab = tab;
+        if (tab === "library") {
+          await this.reloadLibrary();
+          this.render();
+        } else {
+          await this.reload(false);
+        }
+      }
+      async reloadLibrary() {
+        try {
+          const lib = this.getVaultLibrary();
+          this.libraryEntries = await lib.searchPapers(this.libraryQuery, {
+            venue: this.libraryVenueFilter || void 0,
+            hasCoreNote: this.libraryQuickFilter === "core" ? true : void 0,
+            hasTakeaway: this.libraryQuickFilter === "takeaway" ? true : void 0
+          });
+        } catch (e) {
+          console.error("[Paper Library] reload failed", e);
+          this.libraryEntries = [];
+        }
+        this.ensureLibrarySelection();
+      }
+      ensureLibrarySelection() {
+        var _a, _b;
+        if (this.libraryEntries.some((e) => e.citekey === this.selectedLibraryKey))
+          return;
+        this.selectedLibraryKey = (_b = (_a = this.libraryEntries[0]) == null ? void 0 : _a.citekey) != null ? _b : "";
+      }
+      selectedLibraryEntry() {
+        return this.libraryEntries.find((e) => e.citekey === this.selectedLibraryKey);
+      }
+      moveLibrary(step) {
+        if (this.libraryEntries.length === 0) return;
+        const idx = this.libraryEntries.findIndex(
+          (e) => e.citekey === this.selectedLibraryKey
+        );
+        const nextIdx = Math.min(
+          this.libraryEntries.length - 1,
+          Math.max(0, idx + step)
+        );
+        this.selectedLibraryKey = this.libraryEntries[nextIdx].citekey;
+        this.renderLibraryResultsOnly();
+      }
+      openSelectedLibraryNote() {
+        const selected = this.selectedLibraryEntry();
+        if (!selected) return;
+        void this.app.workspace.getLeaf(false).openFile(selected.file);
       }
       /**
        * Reloads the store and service status, then renders.
@@ -953,11 +6846,11 @@ var init_digest_view = __esm({
         try {
           await store.load();
           if (doImport) {
-            const folder = (0, import_obsidian.normalizePath)(settings().incomingFolder);
+            const folder = (0, import_obsidian6.normalizePath)(settings().incomingFolder);
             const summary = await importIncoming(files, store, folder);
             const expired = store.cleanup(settings().retentionDays);
             await store.save();
-            new import_obsidian.Notice(
+            new import_obsidian6.Notice(
               `Paper Digest: ${summary.added} new, ${summary.duplicates} duplicate, ${summary.invalid} invalid, ${expired} expired.`
             );
           }
@@ -977,7 +6870,7 @@ var init_digest_view = __esm({
         this.zotero = zotero;
         this.translateOnline = translateOnline;
       }
-      // --- Selection -----------------------------------------------------------
+      // --- Digest Selection ----------------------------------------------------
       /** Papers shown in the list: unchecked first, then the most recent decisions. */
       visible() {
         const { store } = this.svc;
@@ -1043,7 +6936,7 @@ var init_digest_view = __esm({
       collections() {
         return this.zotero.state === "online" ? this.zotero.collections : [];
       }
-      // --- Actions -------------------------------------------------------------
+      // --- Digest Actions ------------------------------------------------------
       setMode(mode) {
         this.mode = mode;
         this.error = "";
@@ -1145,7 +7038,7 @@ var init_digest_view = __esm({
         const wasAccepted = record.status === "accepted";
         await this.persist(() => this.svc.store.restore(key));
         if (wasAccepted) {
-          new import_obsidian.Notice(
+          new import_obsidian6.Notice(
             "Paper Digest: restored to unchecked. The item already created in Zotero was not removed."
           );
         }
@@ -1160,7 +7053,7 @@ var init_digest_view = __esm({
         await this.persist(() => {
           removed = this.svc.store.withdrawBatch(batch);
         });
-        new import_obsidian.Notice(`Paper Digest: withdrew ${removed} unchecked papers of ${batch}.`);
+        new import_obsidian6.Notice(`Paper Digest: withdrew ${removed} unchecked papers of ${batch}.`);
         this.batch = "";
         this.ensureSelection();
         this.render();
@@ -1174,14 +7067,14 @@ var init_digest_view = __esm({
           await this.persist(() => {
             counts = ingest(this.svc.store, inputs, batch);
           });
-          new import_obsidian.Notice(
+          new import_obsidian6.Notice(
             `Paper Digest: ${counts.added} new, ${counts.duplicates} duplicate, ${skipped} without identifier (${file.name}).`
           );
           this.ensureSelection();
           this.render();
         } catch (e) {
           console.error("[Paper Digest] bib import failed", e);
-          new import_obsidian.Notice(`Paper Digest: bib import failed: ${e.message}`);
+          new import_obsidian6.Notice(`Paper Digest: bib import failed: ${e.message}`);
         }
       }
       /** Applies a change to the store and writes it to disk, reporting failures. */
@@ -1191,7 +7084,7 @@ var init_digest_view = __esm({
           await this.svc.store.save();
         } catch (e) {
           console.error("[Paper Digest] save failed", e);
-          new import_obsidian.Notice(`Paper Digest: could not save: ${e.message}`);
+          new import_obsidian6.Notice(`Paper Digest: could not save: ${e.message}`);
         }
       }
       // --- Keys ----------------------------------------------------------------
@@ -1205,14 +7098,40 @@ var init_digest_view = __esm({
             return false;
           });
         };
-        bind("ArrowLeft", () => this.mode === "card" && this.startReject());
-        bind("ArrowRight", () => this.mode === "card" && this.startAccept());
-        bind("ArrowDown", () => this.mode !== "invalid" && this.move(1));
-        bind("ArrowUp", () => this.mode !== "invalid" && this.move(-1));
-        bind("Enter", () => this.mode === "accept" && void this.confirmAccept());
-        bind("Escape", () => this.mode !== "card" && this.setMode("card"));
+        bind("ArrowLeft", () => {
+          if (this.hubTab === "digest" && this.mode === "card") this.startReject();
+        });
+        bind("ArrowRight", () => {
+          if (this.hubTab === "digest" && this.mode === "card") this.startAccept();
+        });
+        bind("ArrowDown", () => {
+          if (this.hubTab === "library") this.moveLibrary(1);
+          else if (this.mode !== "invalid") this.move(1);
+        });
+        bind("ArrowUp", () => {
+          if (this.hubTab === "library") this.moveLibrary(-1);
+          else if (this.mode !== "invalid") this.move(-1);
+        });
+        bind("Enter", () => {
+          if (this.hubTab === "digest" && this.mode === "accept") {
+            void this.confirmAccept();
+          }
+        });
+        bind("Escape", () => {
+          if (this.hubTab === "library") {
+            if (this.libraryVenueFilter || this.libraryQuery) {
+              this.libraryVenueFilter = "";
+              this.libraryQuery = "";
+              void this.reloadLibrary().then(() => this.render());
+            }
+          } else if (this.mode !== "card") {
+            this.setMode("card");
+          }
+        });
         for (let digit = 1; digit <= 9; digit++) {
-          bind(String(digit), () => this.pickByDigit(digit - 1));
+          bind(String(digit), () => {
+            if (this.hubTab === "digest") this.pickByDigit(digit - 1);
+          });
         }
       }
       pickByDigit(index) {
@@ -1243,9 +7162,21 @@ var init_digest_view = __esm({
           ".zotero-digest-collections",
           this.collectionScroll
         );
+        this.libraryListScroll = scrollOf(
+          ".zotero-library-list",
+          this.libraryListScroll
+        );
+        this.libraryDetailScroll = scrollOf(
+          ".zotero-library-detail",
+          this.libraryDetailScroll
+        );
         root.empty();
         root.addClass("zotero-digest");
         this.renderHeader(root);
+        if (this.hubTab === "library") {
+          this.renderLibraryView(root);
+          return;
+        }
         if (this.storeError) {
           root.createDiv({
             cls: "zotero-digest-alert",
@@ -1266,6 +7197,42 @@ var init_digest_view = __esm({
       }
       renderHeader(root) {
         const header = root.createDiv({ cls: "zotero-digest-header" });
+        const switcher = header.createDiv({ cls: "zotero-hub-segmented" });
+        const digestBtn = switcher.createEl("button", {
+          cls: "zotero-hub-seg-btn",
+          text: "Digest"
+        });
+        digestBtn.toggleClass("is-active", this.hubTab === "digest");
+        digestBtn.onclick = () => void this.switchHubTab("digest");
+        const libBtn = switcher.createEl("button", {
+          cls: "zotero-hub-seg-btn",
+          text: "Library"
+        });
+        libBtn.toggleClass("is-active", this.hubTab === "library");
+        libBtn.onclick = () => void this.switchHubTab("library");
+        if (this.hubTab === "library") {
+          const right2 = header.createDiv({ cls: "zotero-digest-header-right" });
+          right2.createSpan({
+            cls: "zotero-digest-meta",
+            text: `${this.libraryEntries.length} paper${this.libraryEntries.length === 1 ? "" : "s"}`
+          });
+          const importBtn = right2.createEl("button", {
+            cls: "mod-cta zotero-library-import-btn",
+            text: "+ Import from Zotero",
+            attr: { type: "button" }
+          });
+          importBtn.onclick = () => void this.importFromZotero();
+          const refreshBtn = right2.createEl("button", {
+            cls: "zotero-library-refresh-btn",
+            text: "\u21BB Refresh",
+            attr: { type: "button" }
+          });
+          refreshBtn.onclick = async () => {
+            await this.reloadLibrary();
+            this.render();
+          };
+          return;
+        }
         const dot2 = (label, online) => {
           const el = header.createSpan({ cls: "zotero-digest-status", text: label });
           el.toggleClass("is-online", online);
@@ -1310,9 +7277,393 @@ var init_digest_view = __esm({
         menuButton.setAttr("aria-label", "More");
         menuButton.onclick = (evt) => this.openMenu(evt);
       }
+      // --- Library Rendering ---------------------------------------------------
+      renderLibraryView(root) {
+        const toolbar = root.createDiv({ cls: "zotero-library-toolbar" });
+        const searchWrap = toolbar.createDiv({ cls: "zotero-library-search-wrap" });
+        const searchInput = searchWrap.createEl("input", {
+          cls: "zotero-library-search-input",
+          attr: {
+            type: "search",
+            placeholder: "Search title, citekey, venue, authors, Core Note, TL;DR..."
+          }
+        });
+        searchInput.value = this.libraryQuery;
+        const clearBtn = searchWrap.createEl("button", {
+          cls: "zotero-library-search-clear",
+          text: "\xD7",
+          attr: { type: "button", title: "Clear search" }
+        });
+        clearBtn.toggleClass("zotero-digest-hidden", !this.libraryQuery);
+        searchInput.oninput = async () => {
+          this.libraryQuery = searchInput.value;
+          clearBtn.toggleClass("zotero-digest-hidden", !this.libraryQuery);
+          await this.reloadLibrary();
+          this.renderLibraryResultsOnly();
+        };
+        clearBtn.onclick = async () => {
+          this.libraryQuery = "";
+          searchInput.value = "";
+          clearBtn.addClass("zotero-digest-hidden");
+          await this.reloadLibrary();
+          this.renderLibraryResultsOnly();
+          searchInput.focus();
+        };
+        const filterBar = toolbar.createDiv({ cls: "zotero-library-filters" });
+        const addChip = (id, label) => {
+          const chip = filterBar.createEl("button", {
+            cls: "zotero-library-filter-chip",
+            text: label,
+            attr: { type: "button" }
+          });
+          chip.toggleClass("is-active", this.libraryQuickFilter === id);
+          chip.onclick = async () => {
+            this.libraryQuickFilter = id;
+            await this.reloadLibrary();
+            this.render();
+          };
+        };
+        addChip("all", "All");
+        addChip("core", "Core Note");
+        addChip("takeaway", "Takeaway");
+        if (this.libraryVenueFilter) {
+          const venueChip = filterBar.createEl("button", {
+            cls: "zotero-library-filter-chip is-venue is-active",
+            text: `Venue: ${this.libraryVenueFilter} \xD7`,
+            attr: { type: "button", title: "Clear venue filter" }
+          });
+          venueChip.onclick = async () => {
+            this.libraryVenueFilter = "";
+            await this.reloadLibrary();
+            this.render();
+          };
+        }
+        const resultsRoot = root.createDiv({
+          cls: "zotero-digest-body zotero-library-results"
+        });
+        this.populateLibraryResults(resultsRoot);
+      }
+      renderLibraryResultsOnly() {
+        var _a, _b, _c, _d;
+        const resultsRoot = this.contentEl.querySelector(
+          ".zotero-library-results"
+        );
+        if (!resultsRoot) {
+          this.render();
+          return;
+        }
+        this.libraryListScroll = (_b = (_a = resultsRoot.querySelector(".zotero-library-list")) == null ? void 0 : _a.scrollTop) != null ? _b : this.libraryListScroll;
+        this.libraryDetailScroll = (_d = (_c = resultsRoot.querySelector(".zotero-library-detail")) == null ? void 0 : _c.scrollTop) != null ? _d : this.libraryDetailScroll;
+        resultsRoot.empty();
+        this.populateLibraryResults(resultsRoot);
+        const countEl = this.contentEl.querySelector(
+          ".zotero-digest-header-right .zotero-digest-meta"
+        );
+        if (countEl) {
+          countEl.textContent = `${this.libraryEntries.length} paper${this.libraryEntries.length === 1 ? "" : "s"}`;
+        }
+      }
+      populateLibraryResults(resultsRoot) {
+        var _a, _b;
+        const list = resultsRoot.createDiv({
+          cls: "zotero-digest-list zotero-library-list"
+        });
+        if (this.libraryEntries.length === 0) {
+          const hasActiveFilter = Boolean(
+            this.libraryQuery.trim() || this.libraryVenueFilter || this.libraryQuickFilter !== "all"
+          );
+          const emptyEl = list.createDiv({
+            cls: "zotero-digest-empty zotero-library-empty"
+          });
+          emptyEl.createDiv({
+            text: hasActiveFilter ? "No matching papers in Vault." : "No papers in Vault yet."
+          });
+          if (!hasActiveFilter) {
+            const emptyImportBtn = emptyEl.createEl("button", {
+              cls: "mod-cta zotero-library-import-btn",
+              text: "+ Import from Zotero",
+              attr: { type: "button" }
+            });
+            emptyImportBtn.onclick = () => void this.importFromZotero();
+          }
+        } else {
+          let selectedRow = null;
+          for (const entry of this.libraryEntries) {
+            const row = list.createDiv({
+              cls: "zotero-digest-list-row zotero-library-row"
+            });
+            if (entry.citekey === this.selectedLibraryKey) {
+              row.addClass("is-selected");
+              selectedRow = row;
+            }
+            row.onclick = () => {
+              this.selectedLibraryKey = entry.citekey;
+              this.libraryDetailScroll = 0;
+              this.renderLibraryResultsOnly();
+            };
+            const textCol = row.createDiv({ cls: "zotero-digest-list-text" });
+            textCol.createDiv({
+              cls: "zotero-digest-list-title",
+              text: entry.title
+            });
+            const firstAuthor = (_b = (_a = entry.authors[0]) == null ? void 0 : _a.replace(/-/g, " ")) != null ? _b : "";
+            const metaParts = [
+              entry.venueSeries || entry.venue,
+              entry.year,
+              firstAuthor
+            ].filter(Boolean);
+            if (metaParts.length > 0) {
+              textCol.createDiv({
+                cls: "zotero-digest-meta",
+                text: metaParts.join(" \xB7 ")
+              });
+            }
+            const badgeRow = textCol.createDiv({
+              cls: "zotero-library-row-badges"
+            });
+            badgeRow.createSpan({
+              cls: "zotero-library-citekey-pill",
+              text: entry.citekey
+            });
+            if (entry.hasCoreNote) {
+              badgeRow.createSpan({
+                cls: "zotero-library-mini-badge is-core",
+                text: "Core"
+              });
+            }
+            if (entry.hasTakeaway) {
+              badgeRow.createSpan({
+                cls: "zotero-library-mini-badge is-takeaway",
+                text: "Takeaway"
+              });
+            }
+            if (entry.hasReport1) {
+              badgeRow.createSpan({
+                cls: "zotero-library-mini-badge",
+                text: "R1"
+              });
+            }
+            if (entry.hasReport2) {
+              badgeRow.createSpan({
+                cls: "zotero-library-mini-badge",
+                text: "R2"
+              });
+            }
+          }
+          list.scrollTop = this.libraryListScroll;
+          selectedRow == null ? void 0 : selectedRow.scrollIntoView({ block: "nearest" });
+        }
+        const detail = resultsRoot.createDiv({
+          cls: "zotero-digest-detail zotero-library-detail"
+        });
+        this.renderLibraryDetail(detail);
+        detail.scrollTop = this.libraryDetailScroll;
+      }
+      renderLibraryDetail(detail) {
+        const entry = this.selectedLibraryEntry();
+        if (!entry) {
+          detail.createDiv({
+            cls: "zotero-digest-empty",
+            text: "Select a paper on the left to inspect its notes and synthesis."
+          });
+          return;
+        }
+        const headerCard = detail.createDiv({
+          cls: "zotero-digest-card zotero-library-card"
+        });
+        headerCard.createEl("h3", { cls: "zotero-digest-title", text: entry.title });
+        if (entry.authors.length > 0) {
+          headerCard.createDiv({
+            cls: "zotero-library-authors",
+            text: entry.authors.map((a) => a.replace(/-/g, " ")).join(", ")
+          });
+        }
+        const metaRow = headerCard.createDiv({
+          cls: "zotero-digest-meta zotero-library-meta-row"
+        });
+        if (entry.venueSeries || entry.venue) {
+          const venueBtn = metaRow.createEl("button", {
+            cls: "zotero-library-venue-pill",
+            text: entry.venueSeries || entry.venue,
+            attr: { type: "button", title: "Filter library by this venue" }
+          });
+          venueBtn.onclick = async () => {
+            this.libraryVenueFilter = entry.venueSeries || entry.venue;
+            await this.reloadLibrary();
+            this.render();
+          };
+        }
+        if (entry.year) metaRow.createSpan({ text: entry.year });
+        const doiHref = entry.doi ? /^https?:\/\//i.test(entry.doi) ? entry.doi : `https://doi.org/${entry.doi}` : entry.url;
+        if (doiHref) {
+          metaRow.createEl("a", {
+            text: entry.doi ? `DOI: ${entry.doi}` : "External URL",
+            href: doiHref,
+            attr: { target: "_blank", rel: "noopener noreferrer" }
+          });
+        }
+        if (entry.codeUrl && /^https?:\/\//i.test(entry.codeUrl)) {
+          metaRow.createEl("a", {
+            text: "Code Repo",
+            href: entry.codeUrl,
+            attr: { target: "_blank", rel: "noopener noreferrer" }
+          });
+        }
+        const actionsBar = headerCard.createDiv({ cls: "zotero-library-actions" });
+        const openBtn = actionsBar.createEl("button", {
+          cls: "mod-cta",
+          text: "Open Note",
+          attr: { type: "button" }
+        });
+        openBtn.onclick = () => this.openSelectedLibraryNote();
+        const baseName = entry.file.basename || (entry.file.name || entry.file.path.split("/").pop() || "").replace(
+          /\.md$/i,
+          ""
+        );
+        const copyWikiBtn = actionsBar.createEl("button", {
+          text: "Copy [[Wikilink]]",
+          attr: { type: "button" }
+        });
+        copyWikiBtn.onclick = async () => {
+          var _a;
+          const link = `[[${baseName}]]`;
+          if ((_a = navigator.clipboard) == null ? void 0 : _a.writeText) {
+            await navigator.clipboard.writeText(link);
+            new import_obsidian6.Notice(`Copied ${link}`);
+          }
+        };
+        const copyKeyBtn = actionsBar.createEl("button", {
+          text: "Copy citekey",
+          attr: { type: "button" }
+        });
+        copyKeyBtn.onclick = async () => {
+          var _a;
+          if ((_a = navigator.clipboard) == null ? void 0 : _a.writeText) {
+            await navigator.clipboard.writeText(entry.citekey);
+            new import_obsidian6.Notice(`Copied ${entry.citekey}`);
+          }
+        };
+        const connectBtn = actionsBar.createEl("button", {
+          text: "Connect Notes",
+          attr: { type: "button" }
+        });
+        connectBtn.onclick = () => {
+          new ConnectorModal(this.app, this.plugin, entry.file, async () => {
+            await this.reloadLibrary();
+            this.renderLibraryResultsOnly();
+          }).open();
+        };
+        const coreCard = detail.createDiv({
+          cls: "zotero-digest-card zotero-library-core-card"
+        });
+        const coreHead = coreCard.createDiv({ cls: "zotero-library-section-head" });
+        coreHead.createSpan({ cls: "zotero-digest-panel-title", text: "Core Note" });
+        const coreHeadActions = coreHead.createDiv({
+          cls: "zotero-library-section-actions"
+        });
+        if (entry.hasCoreNote) {
+          const openCoreBtn = coreHeadActions.createEl("button", {
+            cls: "zotero-library-inline-btn",
+            text: "Open",
+            attr: { type: "button", title: "Open Core Note in Obsidian editor" }
+          });
+          openCoreBtn.onclick = async () => {
+            const coreFile = await this.getPaperHub().createOrOpenReportFile(
+              entry.citekey,
+              "coreNote",
+              entry.file
+            );
+            await this.app.workspace.getLeaf(false).openFile(coreFile);
+          };
+          const bodyBox = coreCard.createDiv({ cls: "zotero-library-core-text" });
+          void renderMarkdownContent(
+            this.app,
+            entry.coreNoteBody,
+            bodyBox,
+            entry.file.path,
+            this
+          );
+        } else {
+          const writeCoreBtn = coreHeadActions.createEl("button", {
+            cls: "mod-cta zotero-library-inline-btn",
+            text: "Write Core Note",
+            attr: {
+              type: "button",
+              title: "Create and open Core Note in Obsidian editor"
+            }
+          });
+          writeCoreBtn.onclick = async () => {
+            const coreFile = await this.getPaperHub().createOrOpenReportFile(
+              entry.citekey,
+              "coreNote",
+              entry.file
+            );
+            await this.app.workspace.getLeaf(false).openFile(coreFile);
+            await this.reloadLibrary();
+            this.renderLibraryResultsOnly();
+          };
+          coreCard.createDiv({
+            cls: "zotero-digest-meta zotero-library-core-empty",
+            text: "No Core Note yet."
+          });
+        }
+        if (entry.tldr || entry.contributions || entry.novelty || entry.limitation) {
+          const profileCard = detail.createDiv({
+            cls: "zotero-digest-card zotero-library-profile-card"
+          });
+          profileCard.createDiv({
+            cls: "zotero-digest-panel-title",
+            text: "Takeaway Research Profile"
+          });
+          const addProfileField = (label, val) => {
+            if (!val) return;
+            const row = profileCard.createDiv({
+              cls: "zotero-library-profile-row"
+            });
+            row.createSpan({ cls: "zotero-library-profile-key", text: label });
+            const valEl = row.createDiv({ cls: "zotero-library-profile-val" });
+            void renderMarkdownContent(this.app, val, valEl, entry.file.path, this);
+          };
+          addProfileField("TL;DR", entry.tldr);
+          addProfileField("Contributions", entry.contributions);
+          addProfileField("Novelty", entry.novelty);
+          addProfileField("Limitation", entry.limitation);
+        }
+        if (entry.projects.length > 0 || entry.linkedNotes.length > 0) {
+          const relCard = detail.createDiv({
+            cls: "zotero-digest-card zotero-library-links-card"
+          });
+          const renderChipRow = (title, links, isProject) => {
+            if (links.length === 0) return;
+            const group = relCard.createDiv({ cls: "zotero-links-group" });
+            group.createSpan({ cls: "zotero-links-label", text: title });
+            const chips = group.createDiv({ cls: "zotero-links-chips" });
+            for (const raw of links) {
+              const inner = raw.replace(/^\[\[|\]\]$/g, "").trim();
+              const [target, alias] = inner.split("|");
+              const label = (alias || target.split("/").pop() || target).trim();
+              const chip = chips.createEl("a", {
+                cls: `zotero-link-chip${isProject ? " is-project" : ""}`,
+                text: label,
+                href: "#"
+              });
+              chip.onclick = (ev) => {
+                ev.preventDefault();
+                void this.app.workspace.openLinkText(
+                  target.trim(),
+                  entry.file.path
+                );
+              };
+            }
+          };
+          renderChipRow("Projects", entry.projects, true);
+          renderChipRow("Linked", entry.linkedNotes, false);
+        }
+      }
+      // --- Digest Menu & Panels ------------------------------------------------
       openMenu(evt) {
         const invalid2 = this.svc.store.invalidLines().length;
-        const menu = new import_obsidian.Menu();
+        const menu = new import_obsidian6.Menu();
         menu.addItem(
           (item) => item.setTitle("Refresh").setIcon("refresh-cw").onClick(() => void this.reload(true))
         );
@@ -1592,7 +7943,7 @@ function renderDigestSettings(container, plugin, rerender) {
   const svc = getDigestServices(plugin);
   const settings = svc.settings();
   const save = (patch) => svc.updateSettings(patch);
-  new import_obsidian2.Setting(container).setName("Translation server endpoint").setDesc(
+  new import_obsidian7.Setting(container).setName("Translation server endpoint").setDesc(
     "URL of the Zotero translation-server that resolves DOIs. Default is the local container."
   ).addText(
     (text) => text.setPlaceholder("http://127.0.0.1:1969").setValue(settings.translationServerUrl).onChange((value) => save({ translationServerUrl: value.trim() }))
@@ -1600,19 +7951,19 @@ function renderDigestSettings(container, plugin, rerender) {
     (button) => button.setButtonText("Test").onClick(async () => {
       var _a;
       const result = await svc.translate.search(TEST_IDENTIFIER);
-      new import_obsidian2.Notice(
+      new import_obsidian7.Notice(
         result.ok ? `Translation server OK: "${String((_a = result.item.title) != null ? _a : "")}"` : `Translation server test failed: ${result.reason}`
       );
     })
   );
-  new import_obsidian2.Setting(container).setName("Incoming folder").setDesc("Vault folder where external sources drop *.jsonl files.").addText(
+  new import_obsidian7.Setting(container).setName("Incoming folder").setDesc("Vault folder where external sources drop *.jsonl files.").addText(
     (text) => text.setValue(settings.incomingFolder).onChange((value) => save({ incomingFolder: value.trim() }))
   );
   renderFormatHelp(container);
-  new import_obsidian2.Setting(container).setName("Direction tag prefix").setDesc("Written to Zotero as <prefix><direction id>.").addText(
+  new import_obsidian7.Setting(container).setName("Direction tag prefix").setDesc("Written to Zotero as <prefix><direction id>.").addText(
     (text) => text.setValue(settings.tagPrefix).onChange((value) => save({ tagPrefix: value }))
   );
-  new import_obsidian2.Setting(container).setName("Retention (days)").setDesc(
+  new import_obsidian7.Setting(container).setName("Retention (days)").setDesc(
     "Accepted and rejected papers are removed from the store after this many days."
   ).addText(
     (text) => text.setValue(String(settings.retentionDays)).onChange((value) => {
@@ -1621,7 +7972,7 @@ function renderDigestSettings(container, plugin, rerender) {
         void save({ retentionDays: days });
     })
   );
-  new import_obsidian2.Setting(container).setName("Show Paper Digest icon in sidebar").addToggle(
+  new import_obsidian7.Setting(container).setName("Show Paper Digest icon in sidebar").addToggle(
     (toggle) => toggle.setValue(settings.showInRibbon).onChange(async (value) => {
       await save({ showInRibbon: value });
       updateDigestRibbon(plugin);
@@ -1649,7 +8000,9 @@ function renderTable(parent, head, rows) {
   const body = table.createEl("tbody");
   rows.forEach((row) => {
     const tr = body.createEl("tr");
-    row.forEach((text, i) => tr.createEl("td").createEl(i === 0 ? "code" : "span", { text }));
+    row.forEach(
+      (text, i) => tr.createEl("td").createEl(i === 0 ? "code" : "span", { text })
+    );
   });
 }
 function renderFormatHelp(container) {
@@ -1670,14 +8023,14 @@ function renderFormatHelp(container) {
 }
 function renderVocab(container, editor) {
   const items = editor.items.map((item) => ({ ...item }));
-  new import_obsidian2.Setting(container).setName(editor.title).setDesc(editor.description).setHeading().addButton(
+  new import_obsidian7.Setting(container).setName(editor.title).setDesc(editor.description).setHeading().addButton(
     (button) => button.setButtonText("Add").onClick(async () => {
       await editor.save([...items, { id: "", label: "" }]);
       editor.rerender();
     })
   );
   items.forEach((item, index) => {
-    new import_obsidian2.Setting(container).addText(
+    new import_obsidian7.Setting(container).addText(
       (text) => text.setPlaceholder("id (optional, from label)").setValue(item.id).onChange((value) => {
         item.id = toVocabId(value);
         void editor.save(items);
@@ -1700,16 +8053,20 @@ function renderVocab(container, editor) {
     );
   });
 }
-var import_obsidian2, TEST_IDENTIFIER, JSONL_FIELDS, JSONL_EXAMPLE, BIB_FIELDS;
+var import_obsidian7, TEST_IDENTIFIER, JSONL_FIELDS, JSONL_EXAMPLE, BIB_FIELDS;
 var init_digest_settings = __esm({
   "src/ui/digest-settings.ts"() {
     "use strict";
-    import_obsidian2 = require("obsidian");
+    import_obsidian7 = require("obsidian");
     init_digest_types();
     init_digest_view();
     TEST_IDENTIFIER = "10.48550/arXiv.1706.03762";
     JSONL_FIELDS = [
-      ["key", "yes", "Non-empty string. Use the DOI, else the URL, else another stable id."],
+      [
+        "key",
+        "yes",
+        "Non-empty string. Use the DOI, else the URL, else another stable id."
+      ],
       ["title", "yes", "Non-empty string."],
       ["doi", "no", "Bare DOI such as 10.1234/abc, without https://doi.org/."],
       ["url", "no", "Absolute http(s) URL."],
@@ -1726,7 +8083,10 @@ var init_digest_settings = __esm({
         "Used when doi or url is missing: DOI 10.48550/arXiv.<id> and URL https://arxiv.org/abs/<id>. A version suffix such as v2 is removed."
       ],
       ["url", "URL. Also the key when there is no DOI."],
-      ["title", "Title, with LaTeX markup removed. The citation key is used when it is empty."],
+      [
+        "title",
+        "Title, with LaTeX markup removed. The citation key is used when it is empty."
+      ],
       ["year", "Year, when it is a number."],
       ["journal or booktitle", "Venue."],
       ["abstract", "Abstract, with LaTeX markup removed."],
@@ -1743,12 +8103,12 @@ var cfp_manual_modal_exports = {};
 __export(cfp_manual_modal_exports, {
   CFPManualModal: () => CFPManualModal
 });
-var import_obsidian3, CFPManualModal;
+var import_obsidian8, CFPManualModal;
 var init_cfp_manual_modal = __esm({
   "src/ui/cfp-manual-modal.ts"() {
     "use strict";
-    import_obsidian3 = require("obsidian");
-    CFPManualModal = class extends import_obsidian3.Modal {
+    import_obsidian8 = require("obsidian");
+    CFPManualModal = class extends import_obsidian8.Modal {
       constructor(app, defaultTags, onSubmit) {
         super(app);
         this.defaultTags = defaultTags;
@@ -1765,19 +8125,31 @@ var init_cfp_manual_modal = __esm({
         contentEl.empty();
         contentEl.addClass("zotero-modal-wide");
         contentEl.createEl("h2", { text: "Add manual CFP" });
-        new import_obsidian3.Setting(contentEl).setName("Acronym").setDesc("Short name used as note filename (e.g. CHIL 2026).").addText((t) => t.setValue(this.acronym).setPlaceholder("CHIL 2026").onChange((v) => this.acronym = v));
-        new import_obsidian3.Setting(contentEl).setName("Full name").setDesc("Full conference or journal name.").addText((t) => t.setValue(this.fullName).setPlaceholder("Conference on Health, Inference, and Learning").onChange((v) => this.fullName = v));
-        new import_obsidian3.Setting(contentEl).setName("Location").setDesc('City, country or "N/A".').addText((t) => t.setValue(this.location).setPlaceholder("Seattle, WA, USA").onChange((v) => this.location = v));
-        new import_obsidian3.Setting(contentEl).setName("Start date (optional)").setDesc("e.g. Jun 28, 2026").addText((t) => t.setValue(this.start).setPlaceholder("Jun 28, 2026").onChange((v) => this.start = v));
-        new import_obsidian3.Setting(contentEl).setName("End date (optional)").setDesc("e.g. Jun 30, 2026").addText((t) => t.setValue(this.end).setPlaceholder("Jun 30, 2026").onChange((v) => this.end = v));
-        new import_obsidian3.Setting(contentEl).setName("Submission deadline").setDesc("Required for sorting (e.g. Feb 4, 2026).").addText((t) => t.setValue(this.submissionDdl).setPlaceholder("Feb 4, 2026").onChange((v) => this.submissionDdl = v));
+        new import_obsidian8.Setting(contentEl).setName("Acronym").setDesc("Short name used as note filename (e.g. CHIL 2026).").addText(
+          (t) => t.setValue(this.acronym).setPlaceholder("CHIL 2026").onChange((v) => this.acronym = v)
+        );
+        new import_obsidian8.Setting(contentEl).setName("Full name").setDesc("Full conference or journal name.").addText(
+          (t) => t.setValue(this.fullName).setPlaceholder("Conference on Health, Inference, and Learning").onChange((v) => this.fullName = v)
+        );
+        new import_obsidian8.Setting(contentEl).setName("Location").setDesc('City, country or "N/A".').addText(
+          (t) => t.setValue(this.location).setPlaceholder("Seattle, WA, USA").onChange((v) => this.location = v)
+        );
+        new import_obsidian8.Setting(contentEl).setName("Start date (optional)").setDesc("e.g. Jun 28, 2026").addText(
+          (t) => t.setValue(this.start).setPlaceholder("Jun 28, 2026").onChange((v) => this.start = v)
+        );
+        new import_obsidian8.Setting(contentEl).setName("End date (optional)").setDesc("e.g. Jun 30, 2026").addText(
+          (t) => t.setValue(this.end).setPlaceholder("Jun 30, 2026").onChange((v) => this.end = v)
+        );
+        new import_obsidian8.Setting(contentEl).setName("Submission deadline").setDesc("Required for sorting (e.g. Feb 4, 2026).").addText(
+          (t) => t.setValue(this.submissionDdl).setPlaceholder("Feb 4, 2026").onChange((v) => this.submissionDdl = v)
+        );
         const footer = contentEl.createDiv({ cls: "zotero-modal-footer" });
-        new import_obsidian3.ButtonComponent(footer).setButtonText("Cancel").onClick(() => this.close());
-        new import_obsidian3.ButtonComponent(footer).setButtonText("Save").setCta().onClick(() => {
+        new import_obsidian8.ButtonComponent(footer).setButtonText("Cancel").onClick(() => this.close());
+        new import_obsidian8.ButtonComponent(footer).setButtonText("Save").setCta().onClick(() => {
           const ac = this.acronym.trim();
           const name = this.fullName.trim();
           if (!ac && !name) {
-            new import_obsidian3.Notice("Acronym or full name required.");
+            new import_obsidian8.Notice("Acronym or full name required.");
             return;
           }
           const item = {
@@ -1803,69 +8175,11 @@ __export(main_exports, {
   default: () => ZoteroGKPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian22 = require("obsidian");
-
-// src/types.ts
-var DEFAULT_ASSISTANT_SCRIPT = `
-dv.table(["File"], dv.pages('"Fleeting Notes"')
-    .map(b => [b.file.link]))
-`;
-var DEFAULT_SETTINGS = {
-  zoteroPort: 23119,
-  fleetingNoteFolder: "Fleeting Notes",
-  metadataMapping: [
-    { label: "Title", zoteroProp: "title", noteProp: "title", enabled: true },
-    { label: "Date", zoteroProp: "date", noteProp: "date", enabled: true },
-    { label: "Publication", zoteroProp: "publication", noteProp: "publication", enabled: true },
-    { label: "Authors", zoteroProp: "creators", noteProp: "authors", enabled: true },
-    { label: "DOI", zoteroProp: "doi", noteProp: "doi", enabled: true }
-  ],
-  assistantScript: DEFAULT_ASSISTANT_SCRIPT,
-  // Set the default script
-  sortProperty: "color",
-  webhooks: [],
-  annotationKeyName: "annotation-id",
-  citationKeyName: "citation-key",
-  projectsFolder: "Projects",
-  // Default folder name
-  projectFrontmatterKey: "projects",
-  // Default YAML key
-  projectIdKey: "project_id",
-  // Default YAML key
-  webhookShowInRibbon: false,
-  webhookDebugMode: false,
-  // CFP defaults
-  cfpNoteDir: "CFP",
-  cfpDefaultTags: ["cfp"],
-  cfpRefreshDays: 5,
-  cfpSeriesRefreshDays: 30,
-  cfpWikicfpUrls: [],
-  cfpCcfddlUrls: [],
-  cfpEasychairUrls: [],
-  cfpOpenresearchUrls: [],
-  cfpLastFetchTime: 0,
-  cfpLastSeriesFetchTime: 0,
-  cfpSeriesMap: {},
-  cfpLastDailyRun: 0,
-  cfpSeriesIndexLetters: [],
-  cfpAcronymKey: "conference-acronym",
-  cfpCoreCsvPath: "",
-  cfpCcfddlLocalPath: "",
-  cfpSeriesDataviewJSCode: `const cur = dv.current();
-if (cur && cur["series-url"]) {
-  const programUrl = cur["series-url"];
-  const seriesAcronym = (cur.file?.name || "").replace(/\\s+Series(\\.md)?$/i, "");
-  const btn = dv.el("button", "Refresh events");
-  btn.addEventListener("click", (e) => {
-    e.preventDefault();
-    if (window.__ZoteroAnnotationReviewerCFP)
-      window.__ZoteroAnnotationReviewerCFP.refreshSeries(programUrl, seriesAcronym);
-  });
-}`
-};
+var import_obsidian26 = require("obsidian");
+init_types();
 
 // src/settings.ts
-var import_obsidian4 = require("obsidian");
+var import_obsidian9 = require("obsidian");
 var import_view3 = require("@codemirror/view");
 var import_state2 = require("@codemirror/state");
 var import_commands = require("@codemirror/commands");
@@ -2607,901 +8921,11 @@ var oneDarkHighlightStyle = /* @__PURE__ */ import_language3.HighlightStyle.defi
 ]);
 var oneDark = [oneDarkTheme, /* @__PURE__ */ (0, import_language3.syntaxHighlighting)(oneDarkHighlightStyle)];
 
-// src/utils/paths.ts
-function normalizePath(path2) {
-  if (!path2) return "";
-  let normalized = path2.replace(/\\/g, "/");
-  normalized = normalized.replace(/\/+/g, "/");
-  if (normalized.startsWith("./")) {
-    normalized = normalized.slice(2);
-  }
-  if (normalized.startsWith("/")) {
-    normalized = normalized.slice(1);
-  }
-  return normalized;
-}
-
 // src/settings.ts
-function mountCodeMirror(container, initialValue, mode, onChange, options = {}) {
-  const extensions = [
-    (0, import_view3.lineNumbers)(),
-    (0, import_view3.highlightActiveLine)(),
-    (0, import_view3.drawSelection)(),
-    (0, import_commands.history)(),
-    (0, import_language4.bracketMatching)(),
-    (0, import_language4.syntaxHighlighting)(import_language4.defaultHighlightStyle),
-    import_view3.keymap.of([...import_commands.defaultKeymap, ...import_commands.historyKeymap]),
-    import_view3.EditorView.updateListener.of((update) => {
-      if (update.docChanged) {
-        onChange(update.state.doc.toString());
-      }
-    }),
-    oneDark
-    // Keep a dark theme for code blocks
-  ];
-  if (mode === "javascript") extensions.push(javascript());
-  if (mode === "json") extensions.push(json());
-  extensions.push(import_view3.EditorView.theme({
-    "&": {
-      height: options.height || "300px",
-      border: "1px solid var(--background-modifier-border)",
-      borderRadius: "4px",
-      fontSize: "13px"
-    },
-    ".cm-scroller": { overflow: "auto" },
-    ".cm-content": { fontFamily: "var(--font-monospace)" }
-  }));
-  const startState = import_state2.EditorState.create({
-    doc: initialValue,
-    extensions
-  });
-  const view = new import_view3.EditorView({
-    state: startState,
-    parent: container
-  });
-  return view;
-}
-var ZoteroSettingTab = class extends import_obsidian4.PluginSettingTab {
-  constructor(app, plugin) {
-    super(app, plugin);
-    this.activeTab = "general";
-    this.plugin = plugin;
-  }
-  display() {
-    const { containerEl } = this;
-    containerEl.empty();
-    containerEl.addClass("zotero-settings-wrapper");
-    const tabsEl = containerEl.createDiv({ cls: "zotero-settings-tabs" });
-    this.renderTabItem(tabsEl, "general", "General");
-    this.renderTabItem(tabsEl, "zotero", "Zotero & Highlights");
-    this.renderTabItem(tabsEl, "webhook", "Modular Webhooks");
-    this.renderTabItem(tabsEl, "cfp", "CFP");
-    this.renderTabItem(tabsEl, "digest", "Digest");
-    const bodyEl = containerEl.createDiv({ cls: "zotero-setting-container" });
-    if (this.activeTab === "general") this.renderGeneralSettings(bodyEl);
-    else if (this.activeTab === "zotero") this.renderZoteroSettings(bodyEl);
-    else if (this.activeTab === "webhook") this.renderWebhookSettings(bodyEl);
-    else if (this.activeTab === "cfp") this.renderCFPSettings(bodyEl);
-    else if (this.activeTab === "digest") {
-      Promise.resolve().then(() => (init_digest_settings(), digest_settings_exports)).then((digest) => digest.renderDigestSettings(bodyEl, this.plugin, () => this.display())).catch((e) => console.error("[Paper Digest] settings failed", e));
-    }
-  }
-  renderTabItem(container, id, label) {
-    const tab = container.createDiv({ cls: `zotero-tab-item ${this.activeTab === id ? "active" : ""}` });
-    tab.innerText = label;
-    tab.onclick = () => {
-      this.activeTab = id;
-      this.display();
-    };
-  }
-  // -------------------------------------------------------------------------
-  // TAB 1: GENERAL
-  // -------------------------------------------------------------------------
-  renderGeneralSettings(container) {
-    new import_obsidian4.Setting(container).setName("Zotero Port").setDesc("Port for Better BibTeX JSON-RPC (Default: 23119)").addText((text) => text.setValue(String(this.plugin.settings.zoteroPort)).onChange(async (value) => {
-      this.plugin.settings.zoteroPort = Number(value);
-      await this.plugin.saveSettings();
-    }));
-    new import_obsidian4.Setting(container).setName("Fleeting Notes Folder").setDesc("Folder where atomic notes will be created").addText((text) => text.setValue(this.plugin.settings.fleetingNoteFolder).onChange(async (value) => {
-      this.plugin.settings.fleetingNoteFolder = value;
-      await this.plugin.saveSettings();
-    }));
-    new import_obsidian4.Setting(container).setName("Citation Key Name").setDesc('A name used in the frontmatter to store the citation key for each note (e.g. "zotero-citation-key").').addText((text) => text.setValue(this.plugin.settings.citationKeyName).onChange(async (value) => {
-      this.plugin.settings.citationKeyName = value;
-      await this.plugin.saveSettings();
-    }));
-    new import_obsidian4.Setting(container).setName("Annotation Key Name").setDesc('A name used in the frontmatter to identify the annotation (e.g. "zotero-annotation-key").').addText((text) => text.setValue(this.plugin.settings.annotationKeyName).onChange(async (value) => {
-      this.plugin.settings.annotationKeyName = value;
-      await this.plugin.saveSettings();
-    }));
-    container.createEl("h3", { text: "Project Linker" });
-    new import_obsidian4.Setting(container).setName("Projects Folder").setDesc("Folder containing your project notes.").addText((text) => text.setValue(this.plugin.settings.projectsFolder).onChange(async (value) => {
-      this.plugin.settings.projectsFolder = value;
-      await this.plugin.saveSettings();
-    }));
-    new import_obsidian4.Setting(container).setName("Project Frontmatter Key").setDesc('The YAML key to update when a project is selected (e.g. "project" or "related-project").').addText((text) => text.setValue(this.plugin.settings.projectFrontmatterKey).onChange(async (value) => {
-      this.plugin.settings.projectFrontmatterKey = value;
-      await this.plugin.saveSettings();
-    }));
-    new import_obsidian4.Setting(container).setName("Project ID Key").setDesc('Frontmatter key on project notes whose value is used as the link label (e.g. "project_id", "uuid", "alias"). If set, links show as [[note|value]]; otherwise [[note]].').addText((text) => text.setValue(this.plugin.settings.projectIdKey).onChange(async (value) => {
-      this.plugin.settings.projectIdKey = value;
-      await this.plugin.saveSettings();
-    }));
-  }
-  // -------------------------------------------------------------------------
-  // TAB 2: ZOTERO & HIGHLIGHTS
-  // -------------------------------------------------------------------------
-  renderZoteroSettings(container) {
-    new import_obsidian4.Setting(container).setName("Default Annotation Sort").setDesc("Property to sort highlights by in the review modal.").addDropdown((dropdown) => dropdown.addOption("color", "Color (Group by Color)").addOption("pageLabel", "Page Number").addOption("type", "Annotation Type").addOption("text", "Content Text").setValue(this.plugin.settings.sortProperty).onChange(async (value) => {
-      this.plugin.settings.sortProperty = value;
-      await this.plugin.saveSettings();
-    }));
-    container.createEl("h3", { text: "Metadata Verification" });
-    const metaList = container.createDiv({ cls: "zotero-settings-list" });
-    this.plugin.settings.metadataMapping.forEach((item, index) => {
-      const block = metaList.createDiv({ cls: "zotero-setting-block" });
-      block.style.display = "flex";
-      block.style.gap = "10px";
-      block.style.alignItems = "center";
-      new import_obsidian4.ToggleComponent(block).setValue(item.enabled).onChange(async (v) => {
-        item.enabled = v;
-        await this.plugin.saveSettings();
-      });
-      new import_obsidian4.TextComponent(block).setPlaceholder("Label").setValue(item.label).onChange(async (v) => {
-        item.label = v;
-        await this.plugin.saveSettings();
-      });
-      new import_obsidian4.TextComponent(block).setPlaceholder("Zotero").setValue(item.zoteroProp).onChange(async (v) => {
-        item.zoteroProp = v;
-        await this.plugin.saveSettings();
-      });
-      block.createSpan({ text: "\u2794" });
-      new import_obsidian4.TextComponent(block).setPlaceholder("Note YAML").setValue(item.noteProp).onChange(async (v) => {
-        item.noteProp = v;
-        await this.plugin.saveSettings();
-      });
-      new import_obsidian4.ButtonComponent(block).setIcon("trash").onClick(async () => {
-        this.plugin.settings.metadataMapping.splice(index, 1);
-        await this.plugin.saveSettings();
-        this.display();
-      });
-    });
-    new import_obsidian4.ButtonComponent(container.createDiv({ cls: "zotero-setting-center-btn" })).setButtonText("+ Add Property").onClick(async () => {
-      this.plugin.settings.metadataMapping.push({ label: "New", zoteroProp: "", noteProp: "", enabled: true });
-      await this.plugin.saveSettings();
-      this.display();
-    });
-    container.createEl("hr");
-    container.createEl("h3", { text: "Assistant Custom JS" });
-    container.createDiv({
-      text: "Available params: container, file, app",
-      cls: "setting-item-description zotero-desc-tight"
-    });
-    const scriptWrapper = container.createDiv();
-    mountCodeMirror(
-      scriptWrapper,
-      this.plugin.settings.assistantScript,
-      "javascript",
-      async (val) => {
-        this.plugin.settings.assistantScript = val;
-        await this.plugin.saveSettings();
-      },
-      { height: "300px" }
-    );
-  }
-  // -------------------------------------------------------------------------
-  // TAB 3: MODULAR WEBHOOKS
-  // -------------------------------------------------------------------------
-  renderWebhookSettings(container) {
-    container.createDiv({
-      text: "Configure modular webhooks. Toggle 'Show in Assistant' to display them on the note.",
-      cls: "setting-item-description"
-    });
-    new import_obsidian4.Setting(container).setName("Show webhook icon in sidebar").setDesc("Add an icon in the left sidebar to quickly trigger a webhook for the active note.").addToggle((toggle) => toggle.setValue(this.plugin.settings.webhookShowInRibbon).onChange(async (value) => {
-      this.plugin.settings.webhookShowInRibbon = value;
-      await this.plugin.saveSettings();
-      this.plugin.updateWebhookRibbonIcon();
-    }));
-    const debugWarningEl = container.createDiv({
-      cls: "setting-item-description",
-      attr: {
-        style: "margin-bottom: 8px; padding: 10px; background: var(--background-modifier-error); color: var(--text-on-accent); border-radius: 6px; font-weight: 500;"
-      }
-    });
-    debugWarningEl.createSpan({ text: "\u26A0\uFE0F " });
-    debugWarningEl.createSpan({
-      text: "Debug mode logs full request headers and body to the console. API keys, tokens, and other secrets may be exposed. Only enable when debugging and turn off afterwards."
-    });
-    new import_obsidian4.Setting(container).setName("Debug mode").setDesc("When enabled, webhook request headers and body are logged to the developer console (Ctrl/Cmd+Shift+I) when you trigger a webhook. A confirmation is required when turning on.").addToggle((toggle) => toggle.setValue(this.plugin.settings.webhookDebugMode).onChange(async (value) => {
-      if (value) {
-        new WebhookDebugConfirmModal(
-          this.app,
-          async () => {
-            this.plugin.settings.webhookDebugMode = true;
-            await this.plugin.saveSettings();
-          },
-          () => {
-            this.plugin.settings.webhookDebugMode = false;
-            toggle.setValue(false);
-          }
-        ).open();
-      } else {
-        this.plugin.settings.webhookDebugMode = false;
-        await this.plugin.saveSettings();
-      }
-    }));
-    const webhookList = container.createDiv({ cls: "zotero-settings-list" });
-    this.plugin.settings.webhooks.forEach((hook, idx) => {
-      const box = webhookList.createDiv({ cls: "zotero-setting-block" });
-      box.style.display = "flex";
-      box.style.alignItems = "center";
-      box.style.justifyContent = "space-between";
-      box.style.padding = "10px";
-      const titleDiv = box.createDiv();
-      titleDiv.style.display = "flex";
-      titleDiv.style.alignItems = "center";
-      titleDiv.style.gap = "10px";
-      titleDiv.style.fontWeight = "bold";
-      if (hook.hidden) titleDiv.style.opacity = "0.5";
-      if (hook.icon) {
-        const iconSpan = titleDiv.createSpan({ cls: "zotero-webhook-icon" });
-        (0, import_obsidian4.setIcon)(iconSpan, hook.icon);
-      }
-      titleDiv.createSpan({ text: hook.name + (hook.hidden ? " (Hidden)" : "") });
-      const btnGroup = box.createDiv();
-      btnGroup.style.display = "flex";
-      btnGroup.style.gap = "5px";
-      new import_obsidian4.ButtonComponent(btnGroup).setButtonText("Edit").onClick(() => {
-        new WebhookEditModal(this.app, hook, async (updated) => {
-          this.plugin.settings.webhooks[idx] = updated;
-          await this.plugin.saveSettings();
-          this.display();
-        }).open();
-      });
-      new import_obsidian4.ButtonComponent(btnGroup).setIcon("trash").onClick(async () => {
-        this.plugin.settings.webhooks.splice(idx, 1);
-        await this.plugin.saveSettings();
-        this.display();
-      });
-    });
-    new import_obsidian4.ButtonComponent(container.createDiv({ cls: "zotero-setting-center-btn" })).setButtonText("+ Create Webhook").setCta().onClick(() => {
-      const newHook = {
-        id: Date.now().toString(),
-        name: "New Webhook",
-        url: "",
-        method: "POST",
-        icon: "plane",
-        headers: [],
-        bodyTemplate: '{\n  "filename": "{{filename}}",\n  "content": "{{content}}"\n}',
-        hidden: false,
-        contentType: "json",
-        inputVariables: []
-      };
-      new WebhookEditModal(this.app, newHook, async (hook) => {
-        this.plugin.settings.webhooks.push(hook);
-        await this.plugin.saveSettings();
-        this.display();
-      }).open();
-    });
-  }
-  // -------------------------------------------------------------------------
-  // TAB 4: CFP (Call For Paper)
-  // -------------------------------------------------------------------------
-  renderCFPSettings(container) {
-    container.createDiv({
-      text: "Call For Paper: store CFPs as notes. Add URLs to fetch from WikiCFP, CCFDDL (YAML), EasyChair, or OpenResearch; or use WikiCFP Conf Series (A\u2013Z) as core; or add entries manually.",
-      cls: "setting-item-description",
-      attr: { style: "margin-bottom: 20px; padding: 12px; background: var(--background-primary-alt); border-radius: 6px; border-left: 3px solid var(--interactive-accent);" }
-    });
-    const basicCard = container.createDiv({ cls: "zotero-setting-card" });
-    basicCard.createEl("h3", { text: "Basic Settings", cls: "zotero-card-title" });
-    new import_obsidian4.Setting(basicCard).setName("CFP note folder").setDesc("Folder where CFP notes are stored (one note per acronym).").addText((text) => text.setValue(this.plugin.settings.cfpNoteDir).onChange(async (value) => {
-      this.plugin.settings.cfpNoteDir = value || "CFP";
-      await this.plugin.saveSettings();
-    }));
-    new import_obsidian4.Setting(basicCard).setName("Default tags").setDesc("Tags applied to CFP notes (one per line or comma-separated).").addTextArea((text) => {
-      text.setValue((this.plugin.settings.cfpDefaultTags || []).join(", ")).setPlaceholder("cfp, conference").onChange(async (value) => {
-        this.plugin.settings.cfpDefaultTags = value.split(/[,\n]/).map((s) => s.trim()).filter(Boolean);
-        await this.plugin.saveSettings();
-      });
-      text.inputEl.rows = 2;
-    });
-    new import_obsidian4.Setting(basicCard).setName("URL sources refresh (days)").setDesc("Refresh from WikiCFP URLs, CCFDDL, EasyChair, OpenResearch every N days (default 5). Set 0 to disable.").addText((text) => {
-      var _a;
-      return text.setValue(String((_a = this.plugin.settings.cfpRefreshDays) != null ? _a : 5)).onChange(async (value) => {
-        const n = parseInt(value, 10);
-        this.plugin.settings.cfpRefreshDays = isNaN(n) ? 5 : Math.max(0, n);
-        await this.plugin.saveSettings();
-      });
-    });
-    new import_obsidian4.Setting(basicCard).setName("Series scan interval (days)").setDesc("Refresh from WikiCFP Conference Series (A\u2013Z) every N days (default 30). Independent from URL sources. Set 0 to disable auto series scan.").addText((text) => {
-      var _a;
-      return text.setValue(String((_a = this.plugin.settings.cfpSeriesRefreshDays) != null ? _a : 30)).onChange(async (value) => {
-        const n = parseInt(value, 10);
-        this.plugin.settings.cfpSeriesRefreshDays = isNaN(n) ? 30 : Math.max(0, n);
-        await this.plugin.saveSettings();
-      });
-    });
-    new import_obsidian4.Setting(basicCard).setName("Conference acronym key (for CFP link)").setDesc('Frontmatter key to read conference acronym for direct CFP match in Assistant (e.g. conference-acronym). If set on a note, exact match is tried first so long titles like "Proceedings of the 16th USENIX Symposium on OSDI" can link by setting this key to "OSDI".').addText((text) => {
-      var _a;
-      return text.setValue((_a = this.plugin.settings.cfpAcronymKey) != null ? _a : "conference-acronym").setPlaceholder("conference-acronym").onChange(async (value) => {
-        this.plugin.settings.cfpAcronymKey = (value || "conference-acronym").trim();
-        await this.plugin.saveSettings();
-      });
-    });
-    const seriesCard = container.createDiv({ cls: "zotero-setting-card" });
-    seriesCard.createEl("h3", { text: "WikiCFP Conference Series", cls: "zotero-card-title" });
-    seriesCard.createDiv({
-      text: "Load conference series from WikiCFP's A\u2013Z index. Select specific letters to reduce crawling risk. Auto-refresh uses all configured sources.",
-      cls: "setting-item-description",
-      attr: { style: "margin-bottom: 16px;" }
-    });
-    const lettersSection = seriesCard.createDiv({ cls: "zotero-cfp-letters-section" });
-    lettersSection.createEl("h4", { text: "Index Letters", cls: "zotero-cfp-filter-title" });
-    lettersSection.createDiv({
-      text: "Select letters to load (empty = all A-Z):",
-      cls: "setting-item-description",
-      attr: { style: "margin-bottom: 12px; font-size: 0.85em;" }
-    });
-    const lettersContainer = lettersSection.createDiv({ cls: "zotero-cfp-letters-container" });
-    const allLetters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
-    const selectedLetters = Array.isArray(this.plugin.settings.cfpSeriesIndexLetters) ? new Set(this.plugin.settings.cfpSeriesIndexLetters) : /* @__PURE__ */ new Set();
-    const checkboxes = [];
-    allLetters.forEach((letter) => {
-      const letterItem = lettersContainer.createDiv({ cls: "zotero-cfp-letter-item" });
-      const checkbox = letterItem.createEl("input", {
-        type: "checkbox",
-        attr: { value: letter, id: `cfp-letter-${letter}` },
-        cls: "zotero-cfp-letter-checkbox"
-      });
-      const label = letterItem.createEl("label", {
-        text: letter,
-        attr: { for: `cfp-letter-${letter}` },
-        cls: "zotero-cfp-letter-label"
-      });
-      checkbox.checked = selectedLetters.has(letter);
-      checkboxes.push(checkbox);
-      const updateSettings = async () => {
-        const current = Array.isArray(this.plugin.settings.cfpSeriesIndexLetters) ? [...this.plugin.settings.cfpSeriesIndexLetters] : [];
-        if (checkbox.checked) {
-          if (!current.includes(letter)) current.push(letter);
-        } else {
-          const idx = current.indexOf(letter);
-          if (idx >= 0) current.splice(idx, 1);
-        }
-        this.plugin.settings.cfpSeriesIndexLetters = current.sort();
-        await this.plugin.saveSettings();
-      };
-      checkbox.onchange = updateSettings;
-      letterItem.onclick = (e) => {
-        if (e.target !== checkbox && e.target !== label) {
-          checkbox.checked = !checkbox.checked;
-          updateSettings();
-        }
-      };
-    });
-    const actionsRow = seriesCard.createDiv({ cls: "zotero-cfp-series-actions-row" });
-    new import_obsidian4.ButtonComponent(actionsRow).setButtonText("Select All").onClick(async () => {
-      checkboxes.forEach((cb) => cb.checked = true);
-      this.plugin.settings.cfpSeriesIndexLetters = allLetters.slice();
-      await this.plugin.saveSettings();
-    });
-    new import_obsidian4.ButtonComponent(actionsRow).setButtonText("Deselect All").onClick(async () => {
-      checkboxes.forEach((cb) => cb.checked = false);
-      this.plugin.settings.cfpSeriesIndexLetters = [];
-      await this.plugin.saveSettings();
-    });
-    new import_obsidian4.ButtonComponent(actionsRow).setButtonText("Refresh Series").setCta().onClick(() => {
-      new import_obsidian4.Notice("WikiCFP series refresh started. Notices will show progress.");
-      this.plugin.cfpService.refreshWikiCFPSeries((msg) => new import_obsidian4.Notice(msg)).then(() => new import_obsidian4.Notice("WikiCFP series refresh done.")).catch(() => new import_obsidian4.Notice("WikiCFP series refresh failed. See console."));
-    });
-    const codeCard = container.createDiv({ cls: "zotero-setting-card" });
-    codeCard.createEl("h3", { text: "Series Note DataviewJS Code", cls: "zotero-card-title" });
-    codeCard.createDiv({
-      text: "Custom DataviewJS code for the refresh button in Series notes. Changes apply to all existing Series notes immediately. Available: cur (current page), dv, window.__ZoteroAnnotationReviewerCFP.refreshSeries(programUrl, seriesAcronym).",
-      cls: "setting-item-description zotero-desc-tight",
-      attr: { style: "margin-bottom: 12px;" }
-    });
-    const scriptWrapper = codeCard.createDiv({ cls: "zotero-cfp-script-wrapper" });
-    mountCodeMirror(
-      scriptWrapper,
-      this.plugin.settings.cfpSeriesDataviewJSCode || "",
-      "javascript",
-      async (val) => {
-        this.plugin.settings.cfpSeriesDataviewJSCode = val;
-        await this.plugin.saveSettings();
-        const updated = await this.plugin.cfpService.updateAllSeriesNotesDataviewJS();
-        if (updated > 0) {
-          new import_obsidian4.Notice(`Updated ${updated} Series notes with new code.`);
-        }
-      },
-      { height: "250px" }
-    );
-    const updateBtnRow = codeCard.createDiv({ cls: "zotero-cfp-code-actions-row" });
-    new import_obsidian4.ButtonComponent(updateBtnRow).setButtonText("Update All Series Notes").onClick(async () => {
-      new import_obsidian4.Notice("Updating all Series notes...");
-      const updated = await this.plugin.cfpService.updateAllSeriesNotesDataviewJS();
-      new import_obsidian4.Notice(`Updated ${updated} Series notes.`);
-    });
-    const urlsCard = container.createDiv({ cls: "zotero-setting-card" });
-    urlsCard.createEl("h3", { text: "URL Sources", cls: "zotero-card-title" });
-    urlsCard.createDiv({
-      text: "Add URLs from different sources to fetch CFP data. Each source type is managed separately.",
-      cls: "setting-item-description",
-      attr: { style: "margin-bottom: 16px;" }
-    });
-    const cfpUrlsWrapper = urlsCard.createDiv({ cls: "zotero-cfp-urls-sections" });
-    const wikicfpSection = cfpUrlsWrapper.createDiv({ cls: "zotero-cfp-url-section" });
-    const wikicfpHeader = wikicfpSection.createDiv({ cls: "zotero-cfp-url-section-header" });
-    wikicfpHeader.createEl("h4", { text: "WikiCFP URLs", cls: "zotero-cfp-url-section-title" });
-    new import_obsidian4.ButtonComponent(wikicfpHeader).setButtonText("Refresh").setCta().onClick(() => {
-      this.plugin.cfpService.refreshWikiCFPUrls();
-    });
-    wikicfpSection.createDiv({
-      text: "e.g. http://www.wikicfp.com/cfp/call?conference=machine%20learning",
-      cls: "setting-item-description zotero-cfp-url-desc"
-    });
-    const wikicfpAddRow = wikicfpSection.createDiv({ cls: "zotero-setting-block zotero-cfp-add-row" });
-    wikicfpAddRow.style.display = "flex";
-    wikicfpAddRow.style.gap = "8px";
-    wikicfpAddRow.style.alignItems = "center";
-    const wikicfpInputWrap = wikicfpAddRow.createDiv();
-    wikicfpInputWrap.style.flex = "1";
-    wikicfpInputWrap.style.minWidth = "0";
-    const wikicfpInput = new import_obsidian4.TextComponent(wikicfpInputWrap);
-    wikicfpInput.setPlaceholder("https://...");
-    wikicfpInput.inputEl.addClass("zotero-input-wide");
-    wikicfpInput.inputEl.style.width = "100%";
-    new import_obsidian4.ButtonComponent(wikicfpAddRow).setButtonText("Add URL").onClick(async () => {
-      var _a;
-      const val = (_a = wikicfpInput.getValue()) == null ? void 0 : _a.trim();
-      if (!val) return;
-      if (!this.plugin.settings.cfpWikicfpUrls) this.plugin.settings.cfpWikicfpUrls = [];
-      this.plugin.settings.cfpWikicfpUrls.push(val);
-      await this.plugin.saveSettings();
-      wikicfpInput.setValue("");
-      this.display();
-    });
-    const wikicfpList = wikicfpSection.createDiv({ cls: "zotero-settings-list" });
-    (this.plugin.settings.cfpWikicfpUrls || []).forEach((url, idx) => {
-      const row = wikicfpList.createDiv({ cls: "zotero-setting-block" });
-      row.style.display = "flex";
-      row.style.gap = "8px";
-      row.style.alignItems = "center";
-      const urlSpan = row.createSpan({ text: url || "(empty)", cls: "zotero-cfp-url-display" });
-      urlSpan.style.flex = "1";
-      new import_obsidian4.ButtonComponent(row).setIcon("trash").onClick(async () => {
-        this.plugin.settings.cfpWikicfpUrls.splice(idx, 1);
-        await this.plugin.saveSettings();
-        this.display();
-      });
-    });
-    const ccfddlSection = cfpUrlsWrapper.createDiv({ cls: "zotero-cfp-url-section" });
-    const ccfddlHeader = ccfddlSection.createDiv({ cls: "zotero-cfp-url-section-header" });
-    ccfddlHeader.createEl("h4", { text: "CCFDDL URLs (YAML)", cls: "zotero-cfp-url-section-title" });
-    new import_obsidian4.ButtonComponent(ccfddlHeader).setButtonText("Refresh").setCta().onClick(() => {
-      this.plugin.cfpService.refreshCcfddlUrls();
-    });
-    ccfddlSection.createDiv({
-      text: "Single YAML URL with all conferences (not per-conference like WikiCFP). e.g. https://ccfddl.com/conference/allconf.yml",
-      cls: "setting-item-description zotero-cfp-url-desc"
-    });
-    const ccfddlAddRow = ccfddlSection.createDiv({ cls: "zotero-setting-block zotero-cfp-add-row" });
-    ccfddlAddRow.style.display = "flex";
-    ccfddlAddRow.style.gap = "8px";
-    ccfddlAddRow.style.alignItems = "center";
-    const ccfddlInputWrap = ccfddlAddRow.createDiv();
-    ccfddlInputWrap.style.flex = "1";
-    ccfddlInputWrap.style.minWidth = "0";
-    const ccfddlInput = new import_obsidian4.TextComponent(ccfddlInputWrap);
-    ccfddlInput.setPlaceholder("https://...");
-    ccfddlInput.inputEl.addClass("zotero-input-wide");
-    ccfddlInput.inputEl.style.width = "100%";
-    new import_obsidian4.ButtonComponent(ccfddlAddRow).setButtonText("Add URL").onClick(async () => {
-      var _a;
-      const val = (_a = ccfddlInput.getValue()) == null ? void 0 : _a.trim();
-      if (!val) return;
-      if (!this.plugin.settings.cfpCcfddlUrls) this.plugin.settings.cfpCcfddlUrls = [];
-      this.plugin.settings.cfpCcfddlUrls.push(val);
-      await this.plugin.saveSettings();
-      ccfddlInput.setValue("");
-      this.display();
-    });
-    const ccfddlList = ccfddlSection.createDiv({ cls: "zotero-settings-list" });
-    (this.plugin.settings.cfpCcfddlUrls || []).forEach((url, idx) => {
-      const row = ccfddlList.createDiv({ cls: "zotero-setting-block" });
-      row.style.display = "flex";
-      row.style.gap = "8px";
-      row.style.alignItems = "center";
-      const urlSpan = row.createSpan({ text: url || "(empty)", cls: "zotero-cfp-url-display" });
-      urlSpan.style.flex = "1";
-      new import_obsidian4.ButtonComponent(row).setIcon("trash").onClick(async () => {
-        this.plugin.settings.cfpCcfddlUrls.splice(idx, 1);
-        await this.plugin.saveSettings();
-        this.display();
-      });
-    });
-    const easychairSection = cfpUrlsWrapper.createDiv({ cls: "zotero-cfp-url-section" });
-    const easychairHeader = easychairSection.createDiv({ cls: "zotero-cfp-url-section-header" });
-    easychairHeader.createEl("h4", { text: "EasyChair URLs", cls: "zotero-cfp-url-section-title" });
-    new import_obsidian4.ButtonComponent(easychairHeader).setButtonText("Refresh").setCta().onClick(() => {
-      this.plugin.cfpService.refreshEasychairUrls();
-    });
-    easychairSection.createDiv({ text: "e.g. https://easychair.org/cfp/area.cgi?area=1", cls: "setting-item-description zotero-cfp-url-desc" });
-    const easychairAddRow = easychairSection.createDiv({ cls: "zotero-setting-block zotero-cfp-add-row" });
-    easychairAddRow.style.display = "flex";
-    easychairAddRow.style.gap = "8px";
-    easychairAddRow.style.alignItems = "center";
-    const easychairInputWrap = easychairAddRow.createDiv();
-    easychairInputWrap.style.flex = "1";
-    easychairInputWrap.style.minWidth = "0";
-    const easychairInput = new import_obsidian4.TextComponent(easychairInputWrap);
-    easychairInput.setPlaceholder("https://...");
-    easychairInput.inputEl.addClass("zotero-input-wide");
-    easychairInput.inputEl.style.width = "100%";
-    new import_obsidian4.ButtonComponent(easychairAddRow).setButtonText("Add URL").onClick(async () => {
-      var _a;
-      const val = (_a = easychairInput.getValue()) == null ? void 0 : _a.trim();
-      if (!val) return;
-      if (!this.plugin.settings.cfpEasychairUrls) this.plugin.settings.cfpEasychairUrls = [];
-      this.plugin.settings.cfpEasychairUrls.push(val);
-      await this.plugin.saveSettings();
-      easychairInput.setValue("");
-      this.display();
-    });
-    const easychairList = easychairSection.createDiv({ cls: "zotero-settings-list" });
-    (this.plugin.settings.cfpEasychairUrls || []).forEach((url, idx) => {
-      const row = easychairList.createDiv({ cls: "zotero-setting-block" });
-      row.style.display = "flex";
-      row.style.gap = "8px";
-      row.style.alignItems = "center";
-      const urlSpan = row.createSpan({ text: url || "(empty)", cls: "zotero-cfp-url-display" });
-      urlSpan.style.flex = "1";
-      new import_obsidian4.ButtonComponent(row).setIcon("trash").onClick(async () => {
-        this.plugin.settings.cfpEasychairUrls.splice(idx, 1);
-        await this.plugin.saveSettings();
-        this.display();
-      });
-    });
-    const openresearchSection = cfpUrlsWrapper.createDiv({ cls: "zotero-cfp-url-section" });
-    const openresearchHeader = openresearchSection.createDiv({ cls: "zotero-cfp-url-section-header" });
-    openresearchHeader.createEl("h4", { text: "OpenResearch URLs", cls: "zotero-cfp-url-section-title" });
-    new import_obsidian4.ButtonComponent(openresearchHeader).setButtonText("Refresh").setCta().onClick(() => {
-      this.plugin.cfpService.refreshOpenresearchUrls();
-    });
-    openresearchSection.createDiv({ text: "e.g. https://www.openresearch.org/mediawiki/index.php?title=Events&field=Science&type=Science", cls: "setting-item-description zotero-cfp-url-desc" });
-    const openresearchAddRow = openresearchSection.createDiv({ cls: "zotero-setting-block zotero-cfp-add-row" });
-    openresearchAddRow.style.display = "flex";
-    openresearchAddRow.style.gap = "8px";
-    openresearchAddRow.style.alignItems = "center";
-    const openresearchInputWrap = openresearchAddRow.createDiv();
-    openresearchInputWrap.style.flex = "1";
-    openresearchInputWrap.style.minWidth = "0";
-    const openresearchInput = new import_obsidian4.TextComponent(openresearchInputWrap);
-    openresearchInput.setPlaceholder("https://...");
-    openresearchInput.inputEl.addClass("zotero-input-wide");
-    openresearchInput.inputEl.style.width = "100%";
-    new import_obsidian4.ButtonComponent(openresearchAddRow).setButtonText("Add URL").onClick(async () => {
-      var _a;
-      const val = (_a = openresearchInput.getValue()) == null ? void 0 : _a.trim();
-      if (!val) return;
-      if (!this.plugin.settings.cfpOpenresearchUrls) this.plugin.settings.cfpOpenresearchUrls = [];
-      this.plugin.settings.cfpOpenresearchUrls.push(val);
-      await this.plugin.saveSettings();
-      openresearchInput.setValue("");
-      this.display();
-    });
-    const openresearchList = openresearchSection.createDiv({ cls: "zotero-settings-list" });
-    (this.plugin.settings.cfpOpenresearchUrls || []).forEach((url, idx) => {
-      const row = openresearchList.createDiv({ cls: "zotero-setting-block" });
-      row.style.display = "flex";
-      row.style.gap = "8px";
-      row.style.alignItems = "center";
-      const urlSpan = row.createSpan({ text: url || "(empty)", cls: "zotero-cfp-url-display" });
-      urlSpan.style.flex = "1";
-      new import_obsidian4.ButtonComponent(row).setIcon("trash").onClick(async () => {
-        this.plugin.settings.cfpOpenresearchUrls.splice(idx, 1);
-        await this.plugin.saveSettings();
-        this.display();
-      });
-    });
-    const rankCard = container.createDiv({ cls: "zotero-setting-card" });
-    rankCard.createEl("h3", { text: "Ranking Sources", cls: "zotero-card-title" });
-    rankCard.createDiv({
-      text: "Configure local files for ranking metadata. CORE rankings are loaded from a local CSV; CCF rankings are loaded from allconf.yml (remote URLs above, with an optional local fallback below).",
-      cls: "setting-item-description",
-      attr: { style: "margin-bottom: 12px;" }
-    });
-    new import_obsidian4.Setting(rankCard).setName("CORE CSV path").setDesc("Vault-relative path to CORE.csv. When set, this is the only source used for CORE ranks (A*, A, B, C).").addText((text) => text.setPlaceholder("e.g. CFP/CORE/CORE-ICORE2026.csv").setValue(this.plugin.settings.cfpCoreCsvPath || "").onChange(async (value) => {
-      this.plugin.settings.cfpCoreCsvPath = value.trim();
-      await this.plugin.saveSettings();
-    }));
-    new import_obsidian4.Setting(rankCard).setName("Local allconf.yml path").setDesc("Optional vault-relative path to a local copy of allconf.yml. Used as a fallback when CCFDDL URLs are unreachable, and for deriving CCF ranks for Series notes.").addText((text) => text.setPlaceholder("e.g. CFP/CCF/allconf.yml").setValue(this.plugin.settings.cfpCcfddlLocalPath || "").onChange(async (value) => {
-      this.plugin.settings.cfpCcfddlLocalPath = value.trim();
-      await this.plugin.saveSettings();
-    }));
-    const actionsCard = container.createDiv({ cls: "zotero-setting-card" });
-    actionsCard.createEl("h3", { text: "Actions", cls: "zotero-card-title" });
-    actionsCard.createDiv({
-      text: "Manual actions: Add CFP manually or refresh all sources at once. Auto-refresh (based on intervals above) refreshes all sources automatically.",
-      cls: "setting-item-description",
-      attr: { style: "margin-bottom: 12px;" }
-    });
-    const btnRow = actionsCard.createDiv({ cls: "zotero-cfp-actions-row" });
-    new import_obsidian4.ButtonComponent(btnRow).setButtonText("Refresh All Sources").setCta().onClick(async () => {
-      await this.plugin.cfpService.refresh();
-    });
-    new import_obsidian4.ButtonComponent(btnRow).setButtonText("Add Manual CFP").setCta().onClick(() => {
-      Promise.resolve().then(() => (init_cfp_manual_modal(), cfp_manual_modal_exports)).then(({ CFPManualModal: CFPManualModal2 }) => {
-        new CFPManualModal2(this.app, this.plugin.settings.cfpDefaultTags || [], (item) => {
-          this.plugin.cfpService.saveManualCFP(item).then(() => new import_obsidian4.Notice("CFP note created.")).catch(() => new import_obsidian4.Notice("Failed to create CFP note."));
-        }).open();
-      });
-    });
-    const diagRow = actionsCard.createDiv({ cls: "zotero-cfp-actions-row" });
-    new import_obsidian4.ButtonComponent(diagRow).setButtonText("Check ranking sources").onClick(async () => {
-      const s = this.plugin.settings;
-      const corePath = (s.cfpCoreCsvPath || "").trim();
-      const ccfLocal = (s.cfpCcfddlLocalPath || "").trim();
-      const messages = [];
-      if (corePath) {
-        const normalized = normalizePath(corePath);
-        const file = this.app.vault.getAbstractFileByPath(normalized);
-        if (file) messages.push(`CORE CSV: found at ${normalized}`);
-        else messages.push(`CORE CSV: not found at ${normalized}`);
-      } else {
-        messages.push("CORE CSV: path not set.");
-      }
-      if (ccfLocal) {
-        const normalized = normalizePath(ccfLocal);
-        const file = this.app.vault.getAbstractFileByPath(normalized);
-        if (file) messages.push(`Local allconf.yml: found at ${normalized}`);
-        else messages.push(`Local allconf.yml: not found at ${normalized}`);
-      } else {
-        messages.push("Local allconf.yml: path not set.");
-      }
-      new import_obsidian4.Notice(messages.join("\n"));
-    });
-  }
-};
-var IconSuggestModal = class extends import_obsidian4.FuzzySuggestModal {
-  constructor(app, callback) {
-    super(app);
-    this.callback = callback;
-  }
-  getItems() {
-    return (0, import_obsidian4.getIconIds)();
-  }
-  getItemText(icon) {
-    return icon;
-  }
-  renderSuggestion(match, el) {
-    el.addClass("mod-icon-suggestion");
-    const iconName = match.item;
-    const iconContainer = el.createDiv({ cls: "suggestion-icon" });
-    (0, import_obsidian4.setIcon)(iconContainer, iconName);
-    el.createDiv({ text: iconName });
-  }
-  onChooseItem(icon, evt) {
-    this.callback(icon);
-  }
-};
-var WebhookDebugConfirmModal = class extends import_obsidian4.Modal {
-  constructor(app, onConfirm, onCancel) {
-    super(app);
-    this.onConfirm = onConfirm;
-    this.onCancel = onCancel;
-  }
-  onOpen() {
-    const { contentEl } = this;
-    contentEl.empty();
-    contentEl.addClass("zotero-webhook-debug-confirm-modal");
-    contentEl.createEl("h2", { text: "\u26A0\uFE0F Enable Webhook Debug Mode?" });
-    const warning = contentEl.createDiv({ cls: "zotero-debug-confirm-warning" });
-    warning.style.padding = "12px";
-    warning.style.marginBottom = "16px";
-    warning.style.background = "var(--background-modifier-error)";
-    warning.style.color = "var(--text-on-accent)";
-    warning.style.borderRadius = "6px";
-    warning.style.fontWeight = "500";
-    warning.createEl("p", { text: "Debug mode logs full request headers and body to the developer console. This may expose:" });
-    const list = warning.createEl("ul");
-    list.createEl("li", { text: "API keys and authentication tokens" });
-    list.createEl("li", { text: "Secret header values" });
-    list.createEl("li", { text: "Sensitive data in the request body" });
-    warning.createEl("p", { text: "Only enable when debugging. Turn it off when done. Do not share console output or screenshots." });
-    const footer = contentEl.createDiv({ cls: "zotero-debug-confirm-footer" });
-    footer.style.display = "flex";
-    footer.style.gap = "8px";
-    footer.style.justifyContent = "flex-end";
-    footer.style.marginTop = "16px";
-    new import_obsidian4.ButtonComponent(footer).setButtonText("Cancel").onClick(() => {
-      this.onCancel();
-      this.close();
-    });
-    new import_obsidian4.ButtonComponent(footer).setButtonText("Enable anyway").setWarning().onClick(async () => {
-      await this.onConfirm();
-      this.close();
-    });
-  }
-  onClose() {
-    this.contentEl.empty();
-  }
-};
-var WebhookEditModal = class extends import_obsidian4.Modal {
-  constructor(app, webhook, onSave) {
-    super(app);
-    // Store editor instance to format it manually if needed
-    this.jsonEditor = null;
-    this.webhook = JSON.parse(JSON.stringify(webhook));
-    this.onSave = onSave;
-  }
-  async onOpen() {
-    var _a, _b;
-    const { contentEl } = this;
-    contentEl.empty();
-    contentEl.addClass("zotero-modal-wide");
-    contentEl.createEl("h2", { text: "Edit Webhook" });
-    const infoContainer = contentEl.createDiv({ cls: "zotero-setting-group" });
-    new import_obsidian4.Setting(infoContainer).setName("Name").addText((t) => t.setValue(this.webhook.name).onChange((v) => this.webhook.name = v));
-    new import_obsidian4.Setting(infoContainer).setName("Show in Assistant").setDesc("Toggle visibility in the code block.").addToggle((t) => t.setValue(!this.webhook.hidden).onChange((v) => this.webhook.hidden = !v));
-    const iconSetting = new import_obsidian4.Setting(infoContainer).setName("Icon");
-    const iconContainer = iconSetting.controlEl.createDiv({ cls: "zotero-icon-control" });
-    iconContainer.style.display = "flex";
-    iconContainer.style.gap = "10px";
-    iconContainer.style.alignItems = "center";
-    const previewEl = iconContainer.createDiv({ cls: "zotero-icon-preview-box" });
-    (0, import_obsidian4.setIcon)(previewEl, this.webhook.icon || "help-circle");
-    const iconSearcher = new import_obsidian4.ButtonComponent(iconContainer);
-    iconSearcher.setButtonText(this.webhook.icon || "Select").setIcon("search").onClick(() => {
-      new IconSuggestModal(this.app, (selectedIcon) => {
-        this.webhook.icon = selectedIcon;
-        previewEl.empty();
-        (0, import_obsidian4.setIcon)(previewEl, selectedIcon);
-      }).open();
-    });
-    const reqContainer = contentEl.createDiv({ cls: "zotero-setting-group" });
-    new import_obsidian4.Setting(reqContainer).setName("URL").addText((t) => t.setValue(this.webhook.url).onChange((v) => this.webhook.url = v).inputEl.addClass("zotero-input-wide"));
-    new import_obsidian4.Setting(reqContainer).setName("Method").addDropdown((d) => d.addOption("POST", "POST").addOption("GET", "GET").addOption("PUT", "PUT").setValue(this.webhook.method).onChange((v) => this.webhook.method = v));
-    new import_obsidian4.Setting(reqContainer).setName("Body Content Type").setDesc("Sets the Content-Type header and body format.").addDropdown((d) => d.addOption("json", "JSON (application/json)").addOption("text", "Plain Text (text/plain)").addOption("form", "Form (x-www-form-urlencoded)").setValue(this.webhook.contentType || "json").onChange((v) => this.webhook.contentType = v));
-    contentEl.createEl("h4", { text: "Body Template (JSON)" });
-    const legacy = this.webhook.inputVariable;
-    if (legacy && !((_a = this.webhook.inputVariables) == null ? void 0 : _a.length)) {
-      this.webhook.inputVariables = [legacy];
-      delete this.webhook.inputVariable;
-    }
-    if (!this.webhook.inputVariables) this.webhook.inputVariables = [];
-    const usageBox = contentEl.createDiv({ cls: "zotero-usage-box" });
-    usageBox.style.backgroundColor = "var(--background-secondary)";
-    usageBox.style.padding = "10px";
-    usageBox.style.borderRadius = "5px";
-    usageBox.style.marginBottom = "10px";
-    usageBox.style.fontSize = "0.9em";
-    usageBox.style.color = "var(--text-muted)";
-    usageBox.createEl("strong", { text: "\u2139\uFE0F Usage Guide: " });
-    usageBox.createSpan({ text: "Placeholders: " });
-    const inputNames = ((_b = this.webhook.inputVariables) != null ? _b : []).map((iv) => {
-      var _a2;
-      return (_a2 = iv.name) == null ? void 0 : _a2.trim();
-    }).filter(Boolean);
-    const inputPlaceholder = inputNames.length ? " " + inputNames.map((n) => `{{${n}}} (from input)`).join(", ") + "." : "";
-    usageBox.createSpan({ text: "{{content}}, {{filename}}, {{path}}, {{frontmatter.KEY}}." + inputPlaceholder, attr: { style: "color: var(--text-accent);" } });
-    contentEl.createEl("h4", { text: "Input variables", cls: "zotero-input-vars-heading" });
-    const inputVarsDesc = contentEl.createDiv({ cls: "setting-item-description", attr: { style: "margin-bottom: 10px;" } });
-    inputVarsDesc.setText("Add variables to prompt when triggering. Use {{name}} in the body template above. Each needs a unique name.");
-    const inputVarsList = contentEl.createDiv({ cls: "zotero-input-vars-list" });
-    const renderInputVars = () => {
-      inputVarsList.empty();
-      this.webhook.inputVariables.forEach((iv, idx) => {
-        const card = inputVarsList.createDiv({ cls: "zotero-input-var-card" });
-        const row = card.createDiv({ cls: "zotero-input-var-row" });
-        new import_obsidian4.TextComponent(row).setPlaceholder("Variable name (e.g. custom)").setValue(iv.name).onChange((v) => iv.name = v.trim()).inputEl.addClass("zotero-input-var-name");
-        new import_obsidian4.DropdownComponent(row).addOption("text", "Text").addOption("number", "Number").setValue(iv.type).onChange((v) => iv.type = v).selectEl.addClass("zotero-input-var-type");
-        new import_obsidian4.ButtonComponent(row).setIcon("trash-2").setTooltip("Remove").onClick(() => {
-          this.webhook.inputVariables.splice(idx, 1);
-          renderInputVars();
-        }).buttonEl.addClass("zotero-input-var-remove");
-      });
-      const addWrap = inputVarsList.createDiv({ cls: "zotero-input-var-add-wrap" });
-      new import_obsidian4.ButtonComponent(addWrap).setButtonText("+ Add input variable").setIcon("plus").setCta().onClick(() => {
-        this.webhook.inputVariables.push({ name: "", type: "text" });
-        renderInputVars();
-      }).buttonEl.addClass("zotero-btn-fancy", "zotero-input-var-add-btn");
-    };
-    renderInputVars();
-    const jsonControls = contentEl.createDiv({ cls: "zotero-json-controls" });
-    new import_obsidian4.ButtonComponent(jsonControls).setButtonText("Format JSON").setIcon("code-glyph").setTooltip("Prettify JSON").onClick(() => {
-      if (!this.jsonEditor) return;
-      try {
-        const current = this.jsonEditor.state.doc.toString();
-        if (!current.trim()) return;
-        const formatted = JSON.stringify(JSON.parse(current), null, 2);
-        this.jsonEditor.dispatch({
-          changes: { from: 0, to: current.length, insert: formatted }
-        });
-        new import_obsidian4.Notice("JSON Formatted!");
-      } catch (e) {
-        new import_obsidian4.Notice("Invalid JSON, cannot format.");
-      }
-    });
-    const jsonWrapper = contentEl.createDiv();
-    this.jsonEditor = mountCodeMirror(
-      jsonWrapper,
-      this.webhook.bodyTemplate,
-      "json",
-      (val) => {
-        this.webhook.bodyTemplate = val;
-      },
-      { height: "250px" }
-    );
-    contentEl.createEl("h4", { text: "Custom Headers" });
-    const headerContainer = contentEl.createDiv();
-    let availableSecrets = [];
-    if (this.app.secretStorage && this.app.secretStorage.listSecrets) {
-      try {
-        availableSecrets = await this.app.secretStorage.listSecrets();
-      } catch (e) {
-      }
-    }
-    const refreshHeaders = () => {
-      headerContainer.empty();
-      this.webhook.headers.forEach((h, i) => {
-        const row = headerContainer.createDiv({ cls: "zotero-setting-block" });
-        row.style.marginBottom = "8px";
-        row.style.display = "flex";
-        row.style.gap = "8px";
-        row.style.alignItems = "center";
-        new import_obsidian4.TextComponent(row).setPlaceholder("Key").setValue(h.key).onChange((v) => h.key = v).inputEl.style.flex = "1";
-        new import_obsidian4.DropdownComponent(row).addOption("text", "Text").addOption("secret", "Secret \u{1F512}").setValue(h.type || "text").onChange((v) => {
-          h.type = v;
-          h.value = "";
-          refreshHeaders();
-        });
-        if (h.type === "secret") {
-          const dd = new import_obsidian4.DropdownComponent(row);
-          dd.addOption("", "-- Select Secret --");
-          availableSecrets.forEach((s) => dd.addOption(s, s));
-          dd.setValue(h.value);
-          dd.onChange((v) => h.value = v);
-          if (availableSecrets.length === 0) dd.setDisabled(true);
-          dd.selectEl.style.flex = "2";
-        } else {
-          new import_obsidian4.TextComponent(row).setPlaceholder("Value").setValue(h.value).onChange((v) => h.value = v).inputEl.style.flex = "2";
-        }
-        new import_obsidian4.ButtonComponent(row).setIcon("trash").onClick(() => {
-          this.webhook.headers.splice(i, 1);
-          refreshHeaders();
-        });
-      });
-      new import_obsidian4.ButtonComponent(headerContainer).setButtonText("+ Add Header").onClick(() => {
-        this.webhook.headers.push({ key: "", value: "", type: "text" });
-        refreshHeaders();
-      });
-    };
-    refreshHeaders();
-    const footer = contentEl.createDiv();
-    footer.style.marginTop = "20px";
-    footer.style.textAlign = "right";
-    new import_obsidian4.ButtonComponent(footer).setButtonText("Save Webhook").setCta().onClick(() => {
-      if (this.webhook.inputVariables)
-        this.webhook.inputVariables = this.webhook.inputVariables.filter((iv) => {
-          var _a2;
-          return (_a2 = iv.name) == null ? void 0 : _a2.trim();
-        });
-      this.onSave(this.webhook);
-      this.close();
-    });
-  }
-  onClose() {
-    this.contentEl.empty();
-  }
-};
-
-// src/ui/highlights.ts
-var import_obsidian9 = require("obsidian");
+init_types();
 
 // src/services/zotero.ts
-var import_obsidian5 = require("obsidian");
+var import_obsidian = require("obsidian");
 var BBT_RPC_HEADERS = {
   "Content-Type": "application/json",
   "User-Agent": "obsidian/zotero",
@@ -3517,12 +8941,20 @@ var ZoteroService = class {
   async getRawMetadata(citationKey) {
     const key = this.normalizeCitationKey(citationKey);
     const libraryId = await this.resolveLibraryId(key);
-    return await this.sendRpc("item.export", [[key], this.BBT_JSON_TRANSLATOR_ID, libraryId]);
+    return await this.sendRpc("item.export", [
+      [key],
+      this.BBT_JSON_TRANSLATOR_ID,
+      libraryId
+    ]);
   }
   async getItemMetadata(citationKey) {
     const key = this.normalizeCitationKey(citationKey);
     const libraryId = await this.resolveLibraryId(key);
-    const result = await this.sendRpc("item.export", [[key], this.BBT_JSON_TRANSLATOR_ID, libraryId]);
+    const result = await this.sendRpc("item.export", [
+      [key],
+      this.BBT_JSON_TRANSLATOR_ID,
+      libraryId
+    ]);
     if (!result) return null;
     return this.parseItemMetadata(result);
   }
@@ -3538,7 +8970,7 @@ var ZoteroService = class {
     return String(citationKey).replace(/^@/, "");
   }
   parseItemMetadata(rawExport) {
-    var _a, _b;
+    var _a;
     let data = rawExport;
     if (typeof rawExport === "string") {
       try {
@@ -3554,12 +8986,16 @@ var ZoteroService = class {
         return null;
       }
     }
-    const item = data.items ? data.items[0] : null;
-    if (!item) return null;
-    const creators = ((_a = item.creators) == null ? void 0 : _a.map((c) => c.name || `${c.firstName || ""} ${c.lastName || ""}`.trim())) || [];
+    if (typeof data !== "object" || data === null) return null;
+    const exportPayload = data;
+    const item = Array.isArray(exportPayload.items) ? exportPayload.items[0] : null;
+    if (!item || typeof item !== "object") return null;
+    const creators = Array.isArray(item.creators) ? item.creators.map(
+      (c) => c.name || `${c.firstName || ""} ${c.lastName || ""}`.trim()
+    ) : [];
     const pubName = item.publicationTitle || item.proceedingsTitle || item.conferenceName || "";
     return {
-      key: item.key,
+      key: (_a = item.key) != null ? _a : "",
       itemType: item.itemType || "unknown",
       title: item.title || "",
       creators,
@@ -3568,7 +9004,10 @@ var ZoteroService = class {
       doi: item.DOI || "",
       url: item.url || "",
       abstract: item.abstractNote || "",
-      tags: ((_b = item.tags) == null ? void 0 : _b.map((t) => t.tag)) || [],
+      tags: Array.isArray(item.tags) ? item.tags.map((t) => {
+        var _a2;
+        return (_a2 = t.tag) != null ? _a2 : "";
+      }) : [],
       zoteroNotes: [],
       volume: item.volume,
       issue: item.issue,
@@ -3576,27 +9015,37 @@ var ZoteroService = class {
       publisher: item.publisher
     };
   }
-  parseAnnotations(attachments, citationKey) {
-    var _a;
+  parseAnnotations(rawAttachments, citationKey) {
+    var _a, _b, _c, _d;
+    if (!Array.isArray(rawAttachments)) return [];
     const results = [];
-    for (const att of attachments) {
+    for (const rawAtt of rawAttachments) {
+      if (typeof rawAtt !== "object" || rawAtt === null) continue;
+      const att = rawAtt;
       const attachmentItemKey = this.resolveAttachmentItemKey(att);
       const attachmentTitle = this.resolveAttachmentTitle(att);
       const openBase = typeof att.open === "string" ? att.open : null;
       if (!att.annotations || !Array.isArray(att.annotations)) continue;
-      for (const ann of att.annotations) {
+      for (const rawAnn of att.annotations) {
+        if (typeof rawAnn !== "object" || rawAnn === null) continue;
+        const ann = rawAnn;
         const pageLabel = ann.annotationPageLabel || ann.page || "?";
         results.push({
-          key: ann.key,
+          key: (_a = ann.key) != null ? _a : "",
           citationKey,
-          type: this.mapAnnotationType(ann.annotationType),
+          type: this.mapAnnotationType((_b = ann.annotationType) != null ? _b : ""),
           text: ann.annotationText || "",
           comment: ann.annotationComment || "",
           color: ann.annotationColor || "#aaaaaa",
           pageLabel,
-          link: this.buildAnnotationLink(openBase, attachmentItemKey, pageLabel, ann.key),
+          link: this.buildAnnotationLink(
+            openBase,
+            attachmentItemKey,
+            pageLabel,
+            (_c = ann.key) != null ? _c : ""
+          ),
           attachmentTitle,
-          position: (_a = ann.annotationPosition) != null ? _a : ann.position,
+          position: (_d = ann.annotationPosition) != null ? _d : ann.position,
           date: ann.dateAdded || ann.dateModified || ann.date || ""
         });
       }
@@ -3644,19 +9093,19 @@ var ZoteroService = class {
     return "unknown";
   }
   async resolveLibraryId(citationKey) {
-    var _a, _b;
+    var _a, _b, _c;
     const searchRes = await this.sendRpc("item.search", [citationKey]);
-    if (!searchRes || searchRes.length === 0) {
+    if (!Array.isArray(searchRes) || searchRes.length === 0) {
       throw new Error(`Citation Key '${citationKey}' not found.`);
     }
     const firstHit = searchRes[0];
-    const libraryName = typeof firstHit === "object" && firstHit.library ? firstHit.library : "";
+    const libraryName = typeof firstHit === "object" && firstHit !== null && typeof firstHit.library === "string" && firstHit.library ? (_a = firstHit.library) != null ? _a : "" : "";
     const libs = await this.fetchLibraryMap();
     if (libraryName && libs[libraryName] !== void 0) {
       return libs[libraryName];
     }
     if (!libraryName) {
-      return (_b = (_a = libs["My Library"]) != null ? _a : libs[""]) != null ? _b : 1;
+      return (_c = (_b = libs["My Library"]) != null ? _b : libs[""]) != null ? _c : 1;
     }
     return "*";
   }
@@ -3665,9 +9114,12 @@ var ZoteroService = class {
     const groups = await this.sendRpc("user.groups", []);
     this.libraryCache = { "": 1, "My Library": 1 };
     if (Array.isArray(groups)) {
-      for (const g of groups) {
-        if ((g == null ? void 0 : g.name) != null && (g == null ? void 0 : g.id) != null) {
-          this.libraryCache[g.name] = g.id;
+      for (const rawGroup of groups) {
+        if (typeof rawGroup === "object" && rawGroup !== null) {
+          const g = rawGroup;
+          if (g.name != null && typeof g.id === "number") {
+            this.libraryCache[g.name] = g.id;
+          }
         }
       }
     }
@@ -3675,7 +9127,7 @@ var ZoteroService = class {
   }
   async sendRpc(method, params) {
     try {
-      const text = await (0, import_obsidian5.request)({
+      const text = await (0, import_obsidian.request)({
         url: `http://127.0.0.1:${this.port}/better-bibtex/json-rpc`,
         method: "POST",
         headers: BBT_RPC_HEADERS,
@@ -3691,13 +9143,1707 @@ var ZoteroService = class {
   }
 };
 
+// src/settings.ts
+init_zotero_connector();
+init_paths();
+function addSettingIconAction(parent, icon, tooltip, onClick) {
+  if (typeof import_obsidian9.ExtraButtonComponent === "function") {
+    const btn = new import_obsidian9.ExtraButtonComponent(parent).setIcon(icon).setTooltip(tooltip).onClick(() => {
+      void onClick();
+    });
+    return btn.extraSettingsEl;
+  }
+  const fallback = parent.createEl("button", {
+    cls: "clickable-icon extra-setting-button",
+    attr: { "aria-label": tooltip, title: tooltip, type: "button" }
+  });
+  (0, import_obsidian9.setIcon)(fallback, icon);
+  fallback.onclick = () => {
+    void onClick();
+  };
+  return fallback;
+}
+function mountCodeMirror(container, initialValue, mode, onChange, options = {}) {
+  const extensions = [
+    (0, import_view3.lineNumbers)(),
+    (0, import_view3.highlightActiveLine)(),
+    (0, import_view3.drawSelection)(),
+    (0, import_commands.history)(),
+    (0, import_language4.bracketMatching)(),
+    (0, import_language4.syntaxHighlighting)(import_language4.defaultHighlightStyle),
+    import_view3.keymap.of([...import_commands.defaultKeymap, ...import_commands.historyKeymap]),
+    import_view3.EditorView.updateListener.of((update) => {
+      if (update.docChanged) {
+        onChange(update.state.doc.toString());
+      }
+    }),
+    oneDark
+  ];
+  if (mode === "javascript") extensions.push(javascript());
+  if (mode === "json") extensions.push(json());
+  if (options.wrap || mode === "markdown") extensions.push(import_view3.EditorView.lineWrapping);
+  extensions.push(
+    import_view3.EditorView.theme({
+      "&": {
+        height: options.height || "300px",
+        border: "1px solid var(--background-modifier-border)",
+        borderRadius: "6px",
+        fontSize: "13px"
+      },
+      ".cm-scroller": { overflow: "auto" },
+      ".cm-content": { fontFamily: "var(--font-monospace)" }
+    })
+  );
+  const startState = import_state2.EditorState.create({
+    doc: initialValue,
+    extensions
+  });
+  return new import_view3.EditorView({
+    state: startState,
+    parent: container
+  });
+}
+var ConfirmActionModal = class extends import_obsidian9.Modal {
+  constructor(app, titleText, messageText, confirmLabel, onConfirm) {
+    super(app);
+    this.titleText = titleText;
+    this.messageText = messageText;
+    this.confirmLabel = confirmLabel;
+    this.onConfirm = onConfirm;
+  }
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.createEl("h3", { text: this.titleText });
+    contentEl.createEl("p", {
+      text: this.messageText,
+      cls: "setting-item-description"
+    });
+    const footer = contentEl.createDiv({ cls: "zotero-modal-footer" });
+    const cancelBtn = footer.createEl("button", {
+      text: "Cancel",
+      attr: { type: "button" }
+    });
+    cancelBtn.onclick = () => this.close();
+    const confirmBtn = footer.createEl("button", {
+      cls: "mod-warning",
+      text: this.confirmLabel,
+      attr: { type: "button" }
+    });
+    confirmBtn.onclick = async () => {
+      await this.onConfirm();
+      this.close();
+    };
+  }
+  onClose() {
+    this.contentEl.empty();
+  }
+};
+function slugifyPromptId(raw) {
+  return raw.trim().toLowerCase().replace(/[^a-z0-9_-]+/g, "_").replace(/^_+|_+$/g, "");
+}
+var AddPromptModal = class extends import_obsidian9.Modal {
+  constructor(app, existingIds, onSubmit) {
+    super(app);
+    this.existingIds = existingIds;
+    this.onSubmit = onSubmit;
+    this.idTouched = false;
+  }
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.addClass("zotero-webhook-input-modal");
+    contentEl.createEl("h3", {
+      text: "Add Custom Prompt",
+      cls: "zotero-webhook-input-title"
+    });
+    const form = contentEl.createDiv({ cls: "zotero-webhook-input-form" });
+    const nameRow = form.createDiv({ cls: "zotero-webhook-input-row" });
+    nameRow.createEl("label", {
+      text: "Prompt name",
+      cls: "zotero-webhook-input-label"
+    });
+    const nameInput = nameRow.createEl("input", {
+      cls: "zotero-webhook-input-field",
+      attr: {
+        type: "text",
+        placeholder: "e.g. Related Work Review"
+      }
+    });
+    const idRow = form.createDiv({ cls: "zotero-webhook-input-row" });
+    idRow.createEl("label", {
+      text: "Prompt ID ({{prompt.<id>}})",
+      cls: "zotero-webhook-input-label"
+    });
+    const idInput = idRow.createEl("input", {
+      cls: "zotero-webhook-input-field",
+      attr: {
+        type: "text",
+        placeholder: "e.g. related_work_review"
+      }
+    });
+    nameInput.oninput = () => {
+      if (!this.idTouched) {
+        idInput.value = slugifyPromptId(nameInput.value);
+      }
+    };
+    idInput.oninput = () => {
+      this.idTouched = true;
+    };
+    const footer = contentEl.createDiv({ cls: "zotero-webhook-input-footer" });
+    const cancelBtn = footer.createEl("button", {
+      text: "Cancel",
+      attr: { type: "button" }
+    });
+    cancelBtn.onclick = () => this.close();
+    const createBtn = footer.createEl("button", {
+      cls: "mod-cta",
+      text: "Create Prompt",
+      attr: { type: "button" }
+    });
+    createBtn.onclick = async () => {
+      const cleanName = nameInput.value.trim();
+      const cleanId = slugifyPromptId(idInput.value || cleanName);
+      if (!cleanName || !cleanId) {
+        new import_obsidian9.Notice("Please enter a valid prompt name and ID.");
+        return;
+      }
+      if (this.existingIds.has(cleanId)) {
+        new import_obsidian9.Notice(`Prompt ID "${cleanId}" already exists.`);
+        return;
+      }
+      await this.onSubmit({ id: cleanId, name: cleanName });
+      this.close();
+    };
+  }
+  onClose() {
+    this.contentEl.empty();
+  }
+};
+var ZoteroSettingTab = class extends import_obsidian9.PluginSettingTab {
+  constructor(app, plugin) {
+    super(app, plugin);
+    this.activeTab = "general";
+    this.plugin = plugin;
+  }
+  display() {
+    const { containerEl } = this;
+    containerEl.empty();
+    containerEl.addClass("zotero-settings-wrapper");
+    const tabsEl = containerEl.createDiv({ cls: "zotero-settings-tabs" });
+    this.renderTabItem(tabsEl, "general", "General");
+    this.renderTabItem(tabsEl, "zotero", "Highlights");
+    this.renderTabItem(tabsEl, "prompts", "Templates");
+    this.renderTabItem(tabsEl, "webhook", "Webhooks");
+    this.renderTabItem(tabsEl, "cfp", "CFP");
+    this.renderTabItem(tabsEl, "digest", "Digest");
+    const bodyEl = containerEl.createDiv({ cls: "zotero-setting-container" });
+    if (this.activeTab === "general") this.renderGeneralSettings(bodyEl);
+    else if (this.activeTab === "zotero") this.renderZoteroSettings(bodyEl);
+    else if (this.activeTab === "prompts") this.renderPromptsSettings(bodyEl);
+    else if (this.activeTab === "webhook") this.renderWebhookSettings(bodyEl);
+    else if (this.activeTab === "cfp") this.renderCFPSettings(bodyEl);
+    else if (this.activeTab === "digest") {
+      Promise.resolve().then(() => (init_digest_settings(), digest_settings_exports)).then(
+        (digest) => digest.renderDigestSettings(
+          bodyEl,
+          this.plugin,
+          () => this.display()
+        )
+      ).catch((e) => console.error("[Paper Digest] settings failed", e));
+    }
+  }
+  renderTabItem(container, id, label) {
+    const tab = container.createDiv({
+      cls: `zotero-tab-item ${this.activeTab === id ? "active" : ""}`
+    });
+    tab.innerText = label;
+    tab.onclick = () => {
+      this.activeTab = id;
+      this.display();
+    };
+  }
+  // -------------------------------------------------------------------------
+  // TAB 1: GENERAL
+  // -------------------------------------------------------------------------
+  renderGeneralSettings(container) {
+    const ws = this.plugin.settings.paperWorkspace;
+    const layoutCard = container.createDiv({ cls: "zotero-setting-card" });
+    layoutCard.createEl("h3", {
+      text: "Paper Workspace Layout",
+      cls: "zotero-card-title"
+    });
+    layoutCard.createDiv({
+      text: "Configure button labels and Vault-relative path patterns for each paper resource. Use {{citekey}} for automatic citation-key substitution.",
+      cls: "setting-item-description zotero-desc-tight"
+    });
+    const syncRefs = {
+      highlightNotes: null,
+      fleetingFolder: null
+    };
+    const addPathRow = (name, desc, key, defaultVal, options) => {
+      const labelRef = { current: null };
+      const rowRef = { current: null };
+      const setting = new import_obsidian9.Setting(layoutCard).setName(name).setDesc(desc);
+      if ((options == null ? void 0 : options.labelKey) && options.defaultLabel) {
+        const lKey = options.labelKey;
+        const defLabel = options.defaultLabel;
+        setting.addText((labelInput) => {
+          var _a;
+          labelRef.current = labelInput;
+          (_a = labelInput.setPlaceholder) == null ? void 0 : _a.call(labelInput, defLabel);
+          labelInput.setValue(ws[lKey] || defLabel).onChange(async (val) => {
+            ws[lKey] = val.trim() || defLabel;
+            await this.plugin.saveSettings();
+          });
+          labelInput.inputEl.addClass("zotero-workspace-label-input");
+          labelInput.inputEl.setAttribute(
+            "aria-label",
+            `${name} button label`
+          );
+          labelInput.inputEl.setAttribute("title", "Button label");
+        });
+      }
+      setting.addText((text) => {
+        var _a;
+        rowRef.current = text;
+        if (options == null ? void 0 : options.onInitRef) options.onInitRef(text);
+        (_a = text.setPlaceholder) == null ? void 0 : _a.call(text, defaultVal);
+        text.setValue(ws[key]).onChange(async (val) => {
+          ws[key] = val.trim();
+          if (options == null ? void 0 : options.afterSave) options.afterSave(ws[key]);
+          await this.plugin.saveSettings();
+        });
+        text.inputEl.addClass("zotero-workspace-path-input");
+      });
+      const resetTooltip = (options == null ? void 0 : options.labelKey) && options.defaultLabel ? `Reset to default (${options.defaultLabel} \xB7 ${defaultVal})` : `Reset to default (${defaultVal})`;
+      addSettingIconAction(
+        setting.controlEl,
+        "rotate-ccw",
+        resetTooltip,
+        async () => {
+          var _a, _b;
+          if ((options == null ? void 0 : options.labelKey) && options.defaultLabel) {
+            ws[options.labelKey] = options.defaultLabel;
+            (_a = labelRef.current) == null ? void 0 : _a.setValue(options.defaultLabel);
+          }
+          ws[key] = defaultVal;
+          if (options == null ? void 0 : options.afterSave) options.afterSave(defaultVal);
+          (_b = rowRef.current) == null ? void 0 : _b.setValue(defaultVal);
+          await this.plugin.saveSettings();
+        }
+      );
+    };
+    addPathRow(
+      "Zotero Note",
+      "Primary literature note imported from Zotero.",
+      "literatureNotePath",
+      DEFAULT_PAPER_WORKSPACE.literatureNotePath
+    );
+    addPathRow(
+      "Takeaway",
+      "Button label and Vault path pattern for synthesized takeaway notes.",
+      "takeawayPath",
+      DEFAULT_PAPER_WORKSPACE.takeawayPath,
+      {
+        labelKey: "takeawayLabel",
+        defaultLabel: DEFAULT_PAPER_WORKSPACE.takeawayLabel
+      }
+    );
+    addPathRow(
+      "Report 1",
+      "Button label and Vault path pattern for internal deep-research reports.",
+      "report1Path",
+      DEFAULT_PAPER_WORKSPACE.report1Path,
+      {
+        labelKey: "report1Label",
+        defaultLabel: DEFAULT_PAPER_WORKSPACE.report1Label
+      }
+    );
+    addPathRow(
+      "Report 2",
+      "Button label and Vault path pattern for external landscape & code discovery reports.",
+      "report2Path",
+      DEFAULT_PAPER_WORKSPACE.report2Path,
+      {
+        labelKey: "report2Label",
+        defaultLabel: DEFAULT_PAPER_WORKSPACE.report2Label
+      }
+    );
+    addPathRow(
+      "Core Note",
+      "Personal core claim, projects, and linked atomic notes.",
+      "coreNotePath",
+      DEFAULT_PAPER_WORKSPACE.coreNotePath
+    );
+    addPathRow(
+      "Highlight Notes (Fleeting)",
+      "Folder where exported PDF highlight / fleeting notes are saved.",
+      "highlightNotesFolder",
+      DEFAULT_PAPER_WORKSPACE.highlightNotesFolder,
+      {
+        afterSave: (val) => {
+          var _a;
+          this.plugin.settings.fleetingNoteFolder = val;
+          (_a = syncRefs.fleetingFolder) == null ? void 0 : _a.setValue(val);
+        },
+        onInitRef: (ref) => {
+          syncRefs.highlightNotes = ref;
+        }
+      }
+    );
+    addPathRow(
+      "Atomic Notes Folder",
+      "Folder where permanent Atomic Zettels (A - L1 - L2 - L3) live.",
+      "atomicNotesFolder",
+      DEFAULT_PAPER_WORKSPACE.atomicNotesFolder
+    );
+    const zoteroConnCard = container.createDiv({ cls: "zotero-setting-card" });
+    zoteroConnCard.createEl("h3", {
+      text: "Zotero Connection & Keys",
+      cls: "zotero-card-title"
+    });
+    new import_obsidian9.Setting(zoteroConnCard).setName("Zotero Port").setDesc("Port for Better BibTeX JSON-RPC (Default: 23119)").addText(
+      (text) => text.setValue(String(this.plugin.settings.zoteroPort)).onChange(async (value) => {
+        const port = Number(value) || 23119;
+        this.plugin.settings.zoteroPort = port;
+        this.plugin.zotero = new ZoteroService(port);
+        await this.plugin.saveSettings();
+      })
+    );
+    new import_obsidian9.Setting(zoteroConnCard).setName("Fleeting Notes Folder").setDesc(
+      "Folder where exported highlight / fleeting notes are stored (synced with Highlight Notes in Paper Workspace Layout)."
+    ).addText((text) => {
+      var _a;
+      syncRefs.fleetingFolder = text;
+      (_a = text.setPlaceholder) == null ? void 0 : _a.call(text, DEFAULT_PAPER_WORKSPACE.highlightNotesFolder);
+      text.setValue(
+        this.plugin.settings.fleetingNoteFolder || ws.highlightNotesFolder
+      ).onChange(async (value) => {
+        var _a2;
+        const trimmed = value.trim();
+        this.plugin.settings.fleetingNoteFolder = trimmed;
+        ws.highlightNotesFolder = trimmed;
+        (_a2 = syncRefs.highlightNotes) == null ? void 0 : _a2.setValue(trimmed);
+        await this.plugin.saveSettings();
+      });
+    });
+    new import_obsidian9.Setting(zoteroConnCard).setName("Citation Key Name").setDesc(
+      'Frontmatter key storing the Better BibTeX citation key (e.g. "citation-key").'
+    ).addText(
+      (text) => text.setValue(this.plugin.settings.citationKeyName).onChange(async (value) => {
+        this.plugin.settings.citationKeyName = value.trim() || "citation-key";
+        await this.plugin.saveSettings();
+      })
+    );
+    new import_obsidian9.Setting(zoteroConnCard).setName("Annotation Key Name").setDesc(
+      'Frontmatter key identifying an exported Zotero annotation (e.g. "annotation-id").'
+    ).addText(
+      (text) => text.setValue(this.plugin.settings.annotationKeyName).onChange(async (value) => {
+        this.plugin.settings.annotationKeyName = value.trim() || "annotation-id";
+        await this.plugin.saveSettings();
+      })
+    );
+    const projectCard = container.createDiv({ cls: "zotero-setting-card" });
+    projectCard.createEl("h3", {
+      text: "Project Linker",
+      cls: "zotero-card-title"
+    });
+    new import_obsidian9.Setting(projectCard).setName("Projects Folder").setDesc("Folder containing your project notes.").addText(
+      (text) => text.setValue(this.plugin.settings.projectsFolder).onChange(async (value) => {
+        this.plugin.settings.projectsFolder = value;
+        await this.plugin.saveSettings();
+      })
+    );
+    new import_obsidian9.Setting(projectCard).setName("Project Frontmatter Key").setDesc('YAML key updated when linking a project (e.g. "projects").').addText(
+      (text) => text.setValue(this.plugin.settings.projectFrontmatterKey).onChange(async (value) => {
+        this.plugin.settings.projectFrontmatterKey = value;
+        await this.plugin.saveSettings();
+      })
+    );
+    new import_obsidian9.Setting(projectCard).setName("Project ID Key").setDesc(
+      'Frontmatter key on project notes used as link alias (e.g. "project_id").'
+    ).addText(
+      (text) => text.setValue(this.plugin.settings.projectIdKey).onChange(async (value) => {
+        this.plugin.settings.projectIdKey = value;
+        await this.plugin.saveSettings();
+      })
+    );
+  }
+  // -------------------------------------------------------------------------
+  // TAB 2: ZOTERO & HIGHLIGHTS
+  // -------------------------------------------------------------------------
+  renderZoteroSettings(container) {
+    const sortCard = container.createDiv({ cls: "zotero-setting-card" });
+    sortCard.createEl("h3", {
+      text: "Highlight Review Preferences",
+      cls: "zotero-card-title"
+    });
+    new import_obsidian9.Setting(sortCard).setName("Default Annotation Sort").setDesc("Property to sort highlights by in the review modal.").addDropdown(
+      (dropdown) => dropdown.addOption("color", "Color (Group by Color)").addOption("pageLabel", "Page Number").addOption("type", "Annotation Type").addOption("text", "Content Text").setValue(this.plugin.settings.sortProperty).onChange(async (value) => {
+        this.plugin.settings.sortProperty = value;
+        await this.plugin.saveSettings();
+      })
+    );
+    const metaCard = container.createDiv({ cls: "zotero-setting-card" });
+    metaCard.createEl("h3", {
+      text: "Metadata Verification",
+      cls: "zotero-card-title"
+    });
+    const metaList = metaCard.createDiv({ cls: "zotero-settings-list" });
+    this.plugin.settings.metadataMapping.forEach((item, index) => {
+      const block = metaList.createDiv({ cls: "zotero-setting-block" });
+      new import_obsidian9.ToggleComponent(block).setValue(item.enabled).onChange(async (v) => {
+        item.enabled = v;
+        await this.plugin.saveSettings();
+      });
+      new import_obsidian9.TextComponent(block).setPlaceholder("Label").setValue(item.label).onChange(async (v) => {
+        item.label = v;
+        await this.plugin.saveSettings();
+      });
+      new import_obsidian9.TextComponent(block).setPlaceholder("Zotero").setValue(item.zoteroProp).onChange(async (v) => {
+        item.zoteroProp = v;
+        await this.plugin.saveSettings();
+      });
+      block.createSpan({ text: "\u2794" });
+      new import_obsidian9.TextComponent(block).setPlaceholder("Note YAML").setValue(item.noteProp).onChange(async (v) => {
+        item.noteProp = v;
+        await this.plugin.saveSettings();
+      });
+      new import_obsidian9.ButtonComponent(block).setIcon("trash").onClick(async () => {
+        this.plugin.settings.metadataMapping.splice(index, 1);
+        await this.plugin.saveSettings();
+        this.display();
+      });
+    });
+    new import_obsidian9.ButtonComponent(metaCard.createDiv({ cls: "zotero-setting-center-btn" })).setButtonText("+ Add Property").onClick(async () => {
+      this.plugin.settings.metadataMapping.push({
+        label: "New",
+        zoteroProp: "",
+        noteProp: "",
+        enabled: true
+      });
+      await this.plugin.saveSettings();
+      this.display();
+    });
+    const customJsCard = container.createDiv({ cls: "zotero-setting-card" });
+    customJsCard.createEl("h3", {
+      text: "Assistant Custom JS",
+      cls: "zotero-card-title"
+    });
+    new import_obsidian9.Setting(customJsCard).setName("Enable legacy DataviewJS section in Assistant").setDesc(
+      "Render the custom DataviewJS snippet inside zotero-assistant blocks. Disabled by default in favor of native inline highlights."
+    ).addToggle(
+      (toggle) => toggle.setValue(Boolean(this.plugin.settings.enableLegacyAssistantScript)).onChange(async (val) => {
+        this.plugin.settings.enableLegacyAssistantScript = val;
+        await this.plugin.saveSettings();
+      })
+    );
+    const scriptHeaderRow = customJsCard.createDiv({
+      cls: "zotero-legacy-script-bar"
+    });
+    scriptHeaderRow.createSpan({
+      text: "Available params: dv, input",
+      cls: "setting-item-description"
+    });
+    new import_obsidian9.ButtonComponent(scriptHeaderRow).setButtonText("Reset Script").onClick(async () => {
+      this.plugin.settings.assistantScript = DEFAULT_ASSISTANT_SCRIPT;
+      await this.plugin.saveSettings();
+      this.display();
+    });
+    const scriptWrapper = customJsCard.createDiv();
+    mountCodeMirror(
+      scriptWrapper,
+      this.plugin.settings.assistantScript,
+      "javascript",
+      async (val) => {
+        this.plugin.settings.assistantScript = val;
+        await this.plugin.saveSettings();
+      },
+      { height: "240px" }
+    );
+  }
+  // -------------------------------------------------------------------------
+  // TAB 3: TEMPLATES & PROMPTS (FILE-BASED MANAGEMENT)
+  // -------------------------------------------------------------------------
+  async openVaultMarkdownInEditor(rawPath, fallbackContent) {
+    var _a, _b;
+    const trimmed = rawPath.trim();
+    const normalized = normalizePath(
+      /\.[^/\\]+$/.test(trimmed) ? trimmed : `${trimmed}.md`
+    );
+    await this.plugin.paperHub.ensureParentFolder(normalized);
+    const existing = this.app.vault.getAbstractFileByPath(normalized);
+    let fileToOpen;
+    if (existing instanceof import_obsidian9.TFile) {
+      fileToOpen = existing;
+    } else if (typeof this.app.vault.create === "function") {
+      fileToOpen = await this.app.vault.create(normalized, fallbackContent);
+    } else {
+      new import_obsidian9.Notice(`File not found in Vault: ${normalized}`);
+      return normalized;
+    }
+    await this.app.workspace.getLeaf(false).openFile(fileToOpen);
+    (_b = (_a = this.app.setting) == null ? void 0 : _a.close) == null ? void 0 : _b.call(_a);
+    return normalized;
+  }
+  renderPromptsSettings(container) {
+    var _a, _b, _c, _d;
+    const ws = this.plugin.settings.paperWorkspace;
+    const connector = new ZoteroConnectorService(this.app, this.plugin.settings);
+    const tplConfig = this.plugin.settings.zoteroTemplate;
+    const currentFolder = normalizePath(
+      ((_a = ws.templatesFolder) == null ? void 0 : _a.trim()) || DEFAULT_PAPER_WORKSPACE.templatesFolder
+    ).replace(/\/+$/, "");
+    let draftFolder = currentFolder;
+    const addActionBtn = (parent, label, onClick, isCta = false) => {
+      const btn = parent.createEl("button", {
+        cls: isCta ? "mod-cta" : void 0,
+        text: label,
+        attr: { type: "button" }
+      });
+      btn.onclick = () => {
+        void onClick();
+      };
+      return btn;
+    };
+    const folderCard = container.createDiv({ cls: "zotero-setting-card" });
+    folderCard.createEl("h3", {
+      text: "Templates & Prompts Folder",
+      cls: "zotero-card-title"
+    });
+    folderCard.createDiv({
+      text: "Unified Vault folder where customizable note templates and prompts live as standard Markdown files.",
+      cls: "setting-item-description zotero-desc-tight"
+    });
+    const folderRow = folderCard.createDiv({ cls: "zotero-template-folder-row" });
+    const folderInput = folderRow.createEl("input", {
+      cls: "zotero-workspace-path-input zotero-flex-1",
+      attr: {
+        type: "text",
+        placeholder: DEFAULT_PAPER_WORKSPACE.templatesFolder
+      }
+    });
+    folderInput.value = currentFolder;
+    folderInput.oninput = () => {
+      draftFolder = folderInput.value.trim();
+    };
+    addActionBtn(
+      folderRow,
+      "Move Folder",
+      async () => {
+        var _a2;
+        const rawVal = folderInput.value.trim() || draftFolder;
+        const nextFolder = normalizePath(
+          rawVal || DEFAULT_PAPER_WORKSPACE.templatesFolder
+        ).replace(/\/+$/, "");
+        if (!nextFolder) {
+          new import_obsidian9.Notice("Please enter a valid Vault folder path.");
+          return;
+        }
+        const oldFolder = normalizePath(
+          ((_a2 = ws.templatesFolder) == null ? void 0 : _a2.trim()) || DEFAULT_PAPER_WORKSPACE.templatesFolder
+        ).replace(/\/+$/, "");
+        const moved = await this.plugin.paperHub.moveTemplatesFolder(
+          oldFolder,
+          nextFolder
+        );
+        ws.templatesFolder = nextFolder;
+        await this.plugin.saveSettings();
+        new import_obsidian9.Notice(
+          moved > 0 ? `Moved ${moved} template/prompt file${moved === 1 ? "" : "s"} to ${nextFolder}.` : `Templates folder set to ${nextFolder}.`
+        );
+        this.display();
+      },
+      true
+    );
+    addActionBtn(folderRow, "Sync Missing Defaults", async () => {
+      const created = await this.plugin.paperHub.ensureBuiltinTemplatesInVault();
+      await this.plugin.saveSettings();
+      new import_obsidian9.Notice(
+        created > 0 ? `Created ${created} missing default file${created === 1 ? "" : "s"} in Vault.` : "All built-in templates and prompts already exist in Vault."
+      );
+      this.display();
+    });
+    const templatesCard = container.createDiv({ cls: "zotero-setting-card" });
+    templatesCard.createEl("h3", {
+      text: "Note Templates",
+      cls: "zotero-card-title"
+    });
+    templatesCard.createDiv({
+      text: "Standard YAML frontmatter and note templates materialized in your Vault. Click Open to edit directly in Obsidian.",
+      cls: "setting-item-description zotero-desc-tight"
+    });
+    const tplList = templatesCard.createDiv({ cls: "zotero-template-file-list" });
+    const zotDefaultPath = currentFolder ? `${currentFolder}/zotero-note-template.md` : "zotero-note-template.md";
+    const resolvedZotPath = normalizePath(
+      ((_b = tplConfig.vaultPath) == null ? void 0 : _b.trim()) || zotDefaultPath
+    );
+    const zotRow = tplList.createDiv({ cls: "zotero-template-file-row" });
+    const zotInfo = zotRow.createDiv({ cls: "zotero-template-file-info" });
+    zotInfo.createDiv({
+      cls: "zotero-template-file-name",
+      text: "Zotero Note Template"
+    });
+    zotInfo.createDiv({
+      cls: "zotero-template-file-path",
+      text: resolvedZotPath
+    });
+    const zotActions = zotRow.createDiv({ cls: "zotero-template-file-actions" });
+    addActionBtn(zotActions, "Detect", async () => {
+      const detected = connector.detectTemplatePath();
+      if (!detected) {
+        new import_obsidian9.Notice(
+          "Could not auto-detect template path from Zotero Integration."
+        );
+        return;
+      }
+      tplConfig.vaultPath = detected;
+      await this.plugin.saveSettings();
+      new import_obsidian9.Notice(`Detected Zotero template: ${detected}`);
+      this.display();
+    });
+    addActionBtn(
+      zotActions,
+      "Open",
+      async () => {
+        var _a2;
+        const openedPath = await this.openVaultMarkdownInEditor(
+          resolvedZotPath,
+          tplConfig.content || DEFAULT_ZOTERO_TEMPLATE
+        );
+        if (!((_a2 = tplConfig.vaultPath) == null ? void 0 : _a2.trim())) {
+          tplConfig.vaultPath = openedPath;
+          await this.plugin.saveSettings();
+        }
+      },
+      true
+    );
+    addActionBtn(zotActions, "Snapshot", async () => {
+      const loaded = await connector.loadTemplateContent(resolvedZotPath);
+      tplConfig.content = loaded.content;
+      tplConfig.snapshot = loaded.content;
+      await this.plugin.saveSettings();
+      new import_obsidian9.Notice("Saved snapshot for Zotero Note Template.");
+      this.display();
+    });
+    if (tplConfig.snapshot) {
+      addActionBtn(zotActions, "Restore", () => {
+        new ConfirmActionModal(
+          this.app,
+          "Restore Zotero Note Template Snapshot?",
+          `Overwrite ${resolvedZotPath} with your saved snapshot?`,
+          "Restore",
+          async () => {
+            const snap = tplConfig.snapshot || DEFAULT_ZOTERO_TEMPLATE;
+            const savedPath = await connector.saveTemplateToVault(
+              resolvedZotPath,
+              snap
+            );
+            tplConfig.vaultPath = savedPath;
+            tplConfig.content = snap;
+            await this.plugin.saveSettings();
+            new import_obsidian9.Notice("Restored Zotero Note Template snapshot.");
+            this.display();
+          }
+        ).open();
+      });
+    }
+    addActionBtn(zotActions, "Reset", () => {
+      new ConfirmActionModal(
+        this.app,
+        "Reset Zotero Note Template?",
+        `Reset ${resolvedZotPath} to the factory default Nunjucks template?`,
+        "Reset",
+        async () => {
+          const savedPath = await connector.saveTemplateToVault(
+            resolvedZotPath,
+            DEFAULT_ZOTERO_TEMPLATE
+          );
+          tplConfig.vaultPath = savedPath;
+          tplConfig.content = DEFAULT_ZOTERO_TEMPLATE;
+          await this.plugin.saveSettings();
+          new import_obsidian9.Notice("Reset Zotero Note Template to default.");
+          this.display();
+        }
+      ).open();
+    });
+    const noteTemplates = this.plugin.settings.prompts.filter(
+      (entry) => entry.kind === "template"
+    );
+    for (const entry of noteTemplates) {
+      const fallbackPath = `${currentFolder}/${entry.id.replace(/^tpl-/, "")}-note-template.md`;
+      const entryPath = normalizePath(((_c = entry.vaultPath) == null ? void 0 : _c.trim()) || fallbackPath);
+      const row = tplList.createDiv({ cls: "zotero-template-file-row" });
+      const info = row.createDiv({ cls: "zotero-template-file-info" });
+      info.createDiv({ cls: "zotero-template-file-name", text: entry.name });
+      info.createDiv({ cls: "zotero-template-file-path", text: entryPath });
+      const actions = row.createDiv({ cls: "zotero-template-file-actions" });
+      addActionBtn(
+        actions,
+        "Open",
+        async () => {
+          const openedPath = await this.openVaultMarkdownInEditor(
+            entryPath,
+            entry.content
+          );
+          if (entry.vaultPath !== openedPath) {
+            entry.vaultPath = openedPath;
+            await this.plugin.saveSettings();
+          }
+        },
+        true
+      );
+      addActionBtn(actions, "Snapshot", async () => {
+        const live = await this.plugin.paperHub.getPromptContent(entry.id);
+        entry.content = live;
+        entry.snapshot = live;
+        await this.plugin.saveSettings();
+        new import_obsidian9.Notice(`Saved snapshot for ${entry.name}.`);
+        this.display();
+      });
+      if (entry.snapshot) {
+        addActionBtn(actions, "Restore", () => {
+          new ConfirmActionModal(
+            this.app,
+            `Restore "${entry.name}" Snapshot?`,
+            `Overwrite ${entryPath} with your saved snapshot?`,
+            "Restore",
+            async () => {
+              const snap = entry.snapshot || entry.content;
+              entry.vaultPath = entryPath;
+              const savedPath = await this.plugin.paperHub.savePromptToVault(
+                entry,
+                snap
+              );
+              entry.vaultPath = savedPath;
+              entry.content = snap;
+              await this.plugin.saveSettings();
+              new import_obsidian9.Notice(`Restored snapshot for ${entry.name}.`);
+              this.display();
+            }
+          ).open();
+        });
+      }
+      addActionBtn(actions, "Reset", () => {
+        const builtInDefault = this.plugin.paperHub.getBuiltInDefaultContent(
+          entry.id
+        );
+        if (!builtInDefault) return;
+        new ConfirmActionModal(
+          this.app,
+          `Reset "${entry.name}"?`,
+          `Reset ${entryPath} to the factory default template?`,
+          "Reset",
+          async () => {
+            entry.vaultPath = entryPath;
+            const savedPath = await this.plugin.paperHub.savePromptToVault(
+              entry,
+              builtInDefault
+            );
+            entry.vaultPath = savedPath;
+            entry.content = builtInDefault;
+            await this.plugin.saveSettings();
+            new import_obsidian9.Notice(`Reset ${entry.name} to default.`);
+            this.display();
+          }
+        ).open();
+      });
+    }
+    const promptsCard = container.createDiv({ cls: "zotero-setting-card" });
+    const promptsHeader = promptsCard.createDiv({
+      cls: "zotero-template-card-header"
+    });
+    promptsHeader.createEl("h3", {
+      text: "Prompts",
+      cls: "zotero-card-title zotero-no-margin"
+    });
+    addActionBtn(
+      promptsHeader,
+      "+ Add Prompt",
+      () => {
+        const existingIds = new Set(
+          this.plugin.settings.prompts.map((p) => p.id)
+        );
+        new AddPromptModal(this.app, existingIds, async ({ id, name }) => {
+          const targetPath = normalizePath(
+            `${currentFolder}/prompt-${id}.md`
+          );
+          const initialContent = `# ${name}
+
+Write your prompt instructions here.
+`;
+          const newEntry = {
+            id,
+            name,
+            kind: "prompt",
+            vaultPath: targetPath,
+            content: initialContent,
+            builtIn: false
+          };
+          if (typeof this.app.vault.create === "function") {
+            newEntry.vaultPath = await this.plugin.paperHub.savePromptToVault(
+              newEntry,
+              initialContent
+            );
+          }
+          this.plugin.settings.prompts.push(newEntry);
+          await this.plugin.saveSettings();
+          new import_obsidian9.Notice(`Created prompt "${name}".`);
+          this.display();
+        }).open();
+      },
+      true
+    );
+    promptsCard.createDiv({
+      text: "LLM synthesis and research prompts. Click a {{prompt.<id>}} chip to copy its webhook placeholder.",
+      cls: "setting-item-description zotero-desc-tight"
+    });
+    const promptList = promptsCard.createDiv({ cls: "zotero-template-file-list" });
+    const promptEntries = this.plugin.settings.prompts.filter(
+      (entry) => {
+        var _a2;
+        return ((_a2 = entry.kind) != null ? _a2 : "prompt") === "prompt";
+      }
+    );
+    for (const entry of promptEntries) {
+      const fallbackPath = `${currentFolder}/prompt-${entry.id}.md`;
+      const entryPath = normalizePath(((_d = entry.vaultPath) == null ? void 0 : _d.trim()) || fallbackPath);
+      const row = promptList.createDiv({ cls: "zotero-template-file-row" });
+      const info = row.createDiv({ cls: "zotero-template-file-info" });
+      const titleLine = info.createDiv({
+        cls: "zotero-template-file-title-line"
+      });
+      titleLine.createSpan({
+        cls: "zotero-template-file-name",
+        text: entry.name
+      });
+      const placeholderToken = `{{prompt.${entry.id}}}`;
+      const chip = titleLine.createEl("button", {
+        cls: "zotero-placeholder-chip",
+        text: placeholderToken,
+        attr: { type: "button", title: "Click to copy placeholder" }
+      });
+      chip.onclick = async () => {
+        var _a2;
+        if ((_a2 = navigator.clipboard) == null ? void 0 : _a2.writeText) {
+          await navigator.clipboard.writeText(placeholderToken);
+          new import_obsidian9.Notice(`Copied ${placeholderToken}`);
+        }
+      };
+      info.createDiv({ cls: "zotero-template-file-path", text: entryPath });
+      const actions = row.createDiv({ cls: "zotero-template-file-actions" });
+      addActionBtn(
+        actions,
+        "Open",
+        async () => {
+          const openedPath = await this.openVaultMarkdownInEditor(
+            entryPath,
+            entry.content
+          );
+          if (entry.vaultPath !== openedPath) {
+            entry.vaultPath = openedPath;
+            await this.plugin.saveSettings();
+          }
+        },
+        true
+      );
+      addActionBtn(actions, "Copy", async () => {
+        var _a2;
+        const live = await this.plugin.paperHub.getPromptContent(entry.id);
+        if ((_a2 = navigator.clipboard) == null ? void 0 : _a2.writeText) {
+          await navigator.clipboard.writeText(live);
+          new import_obsidian9.Notice(`Copied "${entry.name}" prompt to clipboard.`);
+        }
+      });
+      addActionBtn(actions, "Snapshot", async () => {
+        const live = await this.plugin.paperHub.getPromptContent(entry.id);
+        entry.content = live;
+        entry.snapshot = live;
+        await this.plugin.saveSettings();
+        new import_obsidian9.Notice(`Saved snapshot for ${entry.name}.`);
+        this.display();
+      });
+      if (entry.snapshot) {
+        addActionBtn(actions, "Restore", () => {
+          new ConfirmActionModal(
+            this.app,
+            `Restore "${entry.name}" Snapshot?`,
+            `Overwrite ${entryPath} with your saved snapshot?`,
+            "Restore",
+            async () => {
+              const snap = entry.snapshot || entry.content;
+              entry.vaultPath = entryPath;
+              const savedPath = await this.plugin.paperHub.savePromptToVault(
+                entry,
+                snap
+              );
+              entry.vaultPath = savedPath;
+              entry.content = snap;
+              await this.plugin.saveSettings();
+              new import_obsidian9.Notice(`Restored snapshot for ${entry.name}.`);
+              this.display();
+            }
+          ).open();
+        });
+      }
+      if (entry.builtIn) {
+        addActionBtn(actions, "Reset", () => {
+          const builtInDefault = this.plugin.paperHub.getBuiltInDefaultContent(entry.id);
+          if (!builtInDefault) return;
+          new ConfirmActionModal(
+            this.app,
+            `Reset "${entry.name}"?`,
+            `Reset ${entryPath} to the built-in default prompt?`,
+            "Reset",
+            async () => {
+              entry.vaultPath = entryPath;
+              const savedPath = await this.plugin.paperHub.savePromptToVault(
+                entry,
+                builtInDefault
+              );
+              entry.vaultPath = savedPath;
+              entry.content = builtInDefault;
+              await this.plugin.saveSettings();
+              new import_obsidian9.Notice(`Reset ${entry.name} to default.`);
+              this.display();
+            }
+          ).open();
+        });
+      } else {
+        addActionBtn(actions, "Delete", () => {
+          new ConfirmActionModal(
+            this.app,
+            `Delete "${entry.name}"?`,
+            "Remove this custom prompt from plugin settings? (Any existing .md file in your Vault is preserved.)",
+            "Delete",
+            async () => {
+              this.plugin.settings.prompts = this.plugin.settings.prompts.filter(
+                (p) => p.id !== entry.id
+              );
+              await this.plugin.saveSettings();
+              new import_obsidian9.Notice(`Deleted prompt "${entry.name}".`);
+              this.display();
+            }
+          ).open();
+        });
+      }
+    }
+  }
+  // -------------------------------------------------------------------------
+  // TAB 4: MODULAR WEBHOOKS
+  // -------------------------------------------------------------------------
+  renderWebhookSettings(container) {
+    const topCard = container.createDiv({ cls: "zotero-setting-card" });
+    topCard.createEl("h3", { text: "Modular Webhooks", cls: "zotero-card-title" });
+    topCard.createDiv({
+      text: "Configure modular webhooks for deep research, synthesis, or custom pipelines. Toggle 'Show in Assistant' to display them in note toolbars.",
+      cls: "setting-item-description zotero-desc-tight"
+    });
+    new import_obsidian9.Setting(topCard).setName("Show webhook icon in sidebar").setDesc(
+      "Add an icon in the left sidebar to quickly trigger a webhook for the active note."
+    ).addToggle(
+      (toggle) => toggle.setValue(this.plugin.settings.webhookShowInRibbon).onChange(async (value) => {
+        this.plugin.settings.webhookShowInRibbon = value;
+        await this.plugin.saveSettings();
+        this.plugin.updateWebhookRibbonIcon();
+      })
+    );
+    const debugWarningEl = topCard.createDiv({
+      cls: "zotero-webhook-debug-banner"
+    });
+    debugWarningEl.createSpan({
+      text: "Debug mode logs full request headers and body to the console. Only enable temporarily while troubleshooting."
+    });
+    new import_obsidian9.Setting(topCard).setName("Debug mode").setDesc(
+      "Log webhook request headers and body to the developer console (Ctrl/Cmd+Shift+I) when triggered."
+    ).addToggle(
+      (toggle) => toggle.setValue(this.plugin.settings.webhookDebugMode).onChange(async (value) => {
+        if (value) {
+          new WebhookDebugConfirmModal(
+            this.app,
+            async () => {
+              this.plugin.settings.webhookDebugMode = true;
+              await this.plugin.saveSettings();
+            },
+            () => {
+              this.plugin.settings.webhookDebugMode = false;
+              toggle.setValue(false);
+            }
+          ).open();
+        } else {
+          this.plugin.settings.webhookDebugMode = false;
+          await this.plugin.saveSettings();
+        }
+      })
+    );
+    const webhookList = container.createDiv({ cls: "zotero-settings-list" });
+    this.plugin.settings.webhooks.forEach((hook, idx) => {
+      const box = webhookList.createDiv({
+        cls: "zotero-setting-block zotero-webhook-row"
+      });
+      const titleDiv = box.createDiv({
+        cls: `zotero-webhook-row-title ${hook.hidden ? "is-hidden-hook" : ""}`
+      });
+      if (hook.icon) {
+        const iconSpan = titleDiv.createSpan({ cls: "zotero-webhook-icon" });
+        (0, import_obsidian9.setIcon)(iconSpan, hook.icon);
+      }
+      titleDiv.createSpan({
+        text: hook.name + (hook.hidden ? " (Hidden)" : "")
+      });
+      const btnGroup = box.createDiv({ cls: "zotero-webhook-row-actions" });
+      new import_obsidian9.ButtonComponent(btnGroup).setButtonText("Edit").onClick(() => {
+        new WebhookEditModal(
+          this.app,
+          hook,
+          async (updated) => {
+            this.plugin.settings.webhooks[idx] = updated;
+            await this.plugin.saveSettings();
+            this.display();
+          },
+          this.plugin.settings.prompts
+        ).open();
+      });
+      new import_obsidian9.ButtonComponent(btnGroup).setIcon("trash").onClick(async () => {
+        this.plugin.settings.webhooks.splice(idx, 1);
+        await this.plugin.saveSettings();
+        this.display();
+      });
+    });
+    new import_obsidian9.ButtonComponent(container.createDiv({ cls: "zotero-setting-center-btn" })).setButtonText("+ Create Webhook").setCta().onClick(() => {
+      const newHook = {
+        id: Date.now().toString(),
+        name: "New Webhook",
+        url: "",
+        method: "POST",
+        icon: "send",
+        headers: [],
+        bodyTemplate: '{\n  "citekey": "{{citekey}}",\n  "zotero_note": "{{path.zotero_note}}",\n  "report1": "{{path.report1}}",\n  "report2": "{{path.report2}}",\n  "takeaway": "{{path.takeaway}}"\n}',
+        hidden: false,
+        contentType: "json",
+        inputVariables: []
+      };
+      new WebhookEditModal(
+        this.app,
+        newHook,
+        async (hook) => {
+          this.plugin.settings.webhooks.push(hook);
+          await this.plugin.saveSettings();
+          this.display();
+        },
+        this.plugin.settings.prompts
+      ).open();
+    });
+  }
+  // -------------------------------------------------------------------------
+  // TAB 5: CFP (Call For Paper)
+  // -------------------------------------------------------------------------
+  renderCFPSettings(container) {
+    container.createDiv({
+      text: "Call For Paper: store CFPs as notes. Add URLs to fetch from WikiCFP, CCFDDL (YAML), EasyChair, or OpenResearch; or use WikiCFP Conf Series (A\u2013Z) as core; or add entries manually.",
+      cls: "setting-item-description zotero-cfp-intro-banner"
+    });
+    const basicCard = container.createDiv({ cls: "zotero-setting-card" });
+    basicCard.createEl("h3", { text: "Basic Settings", cls: "zotero-card-title" });
+    new import_obsidian9.Setting(basicCard).setName("CFP note folder").setDesc("Folder where CFP notes are stored (one note per acronym).").addText(
+      (text) => text.setValue(this.plugin.settings.cfpNoteDir).onChange(async (value) => {
+        this.plugin.settings.cfpNoteDir = value || "CFP";
+        await this.plugin.saveSettings();
+      })
+    );
+    new import_obsidian9.Setting(basicCard).setName("Default tags").setDesc("Tags applied to CFP notes (one per line or comma-separated).").addTextArea((text) => {
+      text.setValue((this.plugin.settings.cfpDefaultTags || []).join(", ")).setPlaceholder("cfp, conference").onChange(async (value) => {
+        this.plugin.settings.cfpDefaultTags = value.split(/[,\n]/).map((s) => s.trim()).filter(Boolean);
+        await this.plugin.saveSettings();
+      });
+      text.inputEl.rows = 2;
+    });
+    new import_obsidian9.Setting(basicCard).setName("URL sources refresh (days)").setDesc(
+      "Refresh from WikiCFP URLs, CCFDDL, EasyChair, OpenResearch every N days (default 5). Set 0 to disable."
+    ).addText(
+      (text) => {
+        var _a;
+        return text.setValue(String((_a = this.plugin.settings.cfpRefreshDays) != null ? _a : 5)).onChange(async (value) => {
+          const n = parseInt(value, 10);
+          this.plugin.settings.cfpRefreshDays = isNaN(n) ? 5 : Math.max(0, n);
+          await this.plugin.saveSettings();
+        });
+      }
+    );
+    new import_obsidian9.Setting(basicCard).setName("Series scan interval (days)").setDesc(
+      "Refresh from WikiCFP Conference Series (A\u2013Z) every N days (default 30). Independent from URL sources. Set 0 to disable auto series scan."
+    ).addText(
+      (text) => {
+        var _a;
+        return text.setValue(String((_a = this.plugin.settings.cfpSeriesRefreshDays) != null ? _a : 30)).onChange(async (value) => {
+          const n = parseInt(value, 10);
+          this.plugin.settings.cfpSeriesRefreshDays = isNaN(n) ? 30 : Math.max(0, n);
+          await this.plugin.saveSettings();
+        });
+      }
+    );
+    new import_obsidian9.Setting(basicCard).setName("Conference acronym key (for CFP link)").setDesc(
+      "Frontmatter key to read conference acronym for direct CFP match in Assistant (e.g. conference-acronym)."
+    ).addText(
+      (text) => {
+        var _a;
+        return text.setValue(
+          (_a = this.plugin.settings.cfpAcronymKey) != null ? _a : "conference-acronym"
+        ).setPlaceholder("conference-acronym").onChange(async (value) => {
+          this.plugin.settings.cfpAcronymKey = (value || "conference-acronym").trim();
+          await this.plugin.saveSettings();
+        });
+      }
+    );
+    const seriesCard = container.createDiv({ cls: "zotero-setting-card" });
+    seriesCard.createEl("h3", {
+      text: "WikiCFP Conference Series",
+      cls: "zotero-card-title"
+    });
+    seriesCard.createDiv({
+      text: "Load conference series from WikiCFP's A\u2013Z index. Select specific letters to reduce crawling risk. Auto-refresh uses all configured sources.",
+      cls: "setting-item-description zotero-desc-tight"
+    });
+    const lettersSection = seriesCard.createDiv({
+      cls: "zotero-cfp-letters-section"
+    });
+    lettersSection.createEl("h4", {
+      text: "Index Letters",
+      cls: "zotero-cfp-filter-title"
+    });
+    lettersSection.createDiv({
+      text: "Select letters to load (empty = all A-Z):",
+      cls: "setting-item-description zotero-desc-tight"
+    });
+    const lettersContainer = lettersSection.createDiv({
+      cls: "zotero-cfp-letters-container"
+    });
+    const allLetters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+    const selectedLetters = Array.isArray(
+      this.plugin.settings.cfpSeriesIndexLetters
+    ) ? new Set(this.plugin.settings.cfpSeriesIndexLetters) : /* @__PURE__ */ new Set();
+    const checkboxes = [];
+    allLetters.forEach((letter) => {
+      const letterItem = lettersContainer.createDiv({
+        cls: "zotero-cfp-letter-item"
+      });
+      const checkbox = letterItem.createEl("input", {
+        type: "checkbox",
+        attr: { value: letter, id: `cfp-letter-${letter}` },
+        cls: "zotero-cfp-letter-checkbox"
+      });
+      const label = letterItem.createEl("label", {
+        text: letter,
+        attr: { for: `cfp-letter-${letter}` },
+        cls: "zotero-cfp-letter-label"
+      });
+      checkbox.checked = selectedLetters.has(letter);
+      checkboxes.push(checkbox);
+      const updateSettings = async () => {
+        const current = Array.isArray(
+          this.plugin.settings.cfpSeriesIndexLetters
+        ) ? [...this.plugin.settings.cfpSeriesIndexLetters] : [];
+        if (checkbox.checked) {
+          if (!current.includes(letter)) current.push(letter);
+        } else {
+          const idx = current.indexOf(letter);
+          if (idx >= 0) current.splice(idx, 1);
+        }
+        this.plugin.settings.cfpSeriesIndexLetters = current.sort();
+        await this.plugin.saveSettings();
+      };
+      checkbox.onchange = updateSettings;
+      letterItem.onclick = (e) => {
+        if (e.target !== checkbox && e.target !== label) {
+          checkbox.checked = !checkbox.checked;
+          void updateSettings();
+        }
+      };
+    });
+    const actionsRow = seriesCard.createDiv({
+      cls: "zotero-cfp-series-actions-row"
+    });
+    new import_obsidian9.ButtonComponent(actionsRow).setButtonText("Select All").onClick(async () => {
+      checkboxes.forEach((cb) => cb.checked = true);
+      this.plugin.settings.cfpSeriesIndexLetters = allLetters.slice();
+      await this.plugin.saveSettings();
+    });
+    new import_obsidian9.ButtonComponent(actionsRow).setButtonText("Deselect All").onClick(async () => {
+      checkboxes.forEach((cb) => cb.checked = false);
+      this.plugin.settings.cfpSeriesIndexLetters = [];
+      await this.plugin.saveSettings();
+    });
+    new import_obsidian9.ButtonComponent(actionsRow).setButtonText("Refresh Series").setCta().onClick(() => {
+      new import_obsidian9.Notice(
+        "WikiCFP series refresh started. Notices will show progress."
+      );
+      this.plugin.cfpService.refreshWikiCFPSeries((msg) => new import_obsidian9.Notice(msg)).then(() => new import_obsidian9.Notice("WikiCFP series refresh done.")).catch(
+        () => new import_obsidian9.Notice("WikiCFP series refresh failed. See console.")
+      );
+    });
+    const codeCard = container.createDiv({ cls: "zotero-setting-card" });
+    codeCard.createEl("h3", {
+      text: "Series Note DataviewJS Code",
+      cls: "zotero-card-title"
+    });
+    codeCard.createDiv({
+      text: "Custom DataviewJS code for the refresh button in Series notes. Changes apply to all existing Series notes immediately.",
+      cls: "setting-item-description zotero-desc-tight"
+    });
+    const scriptWrapper = codeCard.createDiv({ cls: "zotero-cfp-script-wrapper" });
+    mountCodeMirror(
+      scriptWrapper,
+      this.plugin.settings.cfpSeriesDataviewJSCode || "",
+      "javascript",
+      async (val) => {
+        this.plugin.settings.cfpSeriesDataviewJSCode = val;
+        await this.plugin.saveSettings();
+        const updated = await this.plugin.cfpService.updateAllSeriesNotesDataviewJS();
+        if (updated > 0) {
+          new import_obsidian9.Notice(`Updated ${updated} Series notes with new code.`);
+        }
+      },
+      { height: "250px" }
+    );
+    const updateBtnRow = codeCard.createDiv({ cls: "zotero-cfp-code-actions-row" });
+    new import_obsidian9.ButtonComponent(updateBtnRow).setButtonText("Update All Series Notes").onClick(async () => {
+      new import_obsidian9.Notice("Updating all Series notes...");
+      const updated = await this.plugin.cfpService.updateAllSeriesNotesDataviewJS();
+      new import_obsidian9.Notice(`Updated ${updated} Series notes.`);
+    });
+    const urlsCard = container.createDiv({ cls: "zotero-setting-card" });
+    urlsCard.createEl("h3", { text: "URL Sources", cls: "zotero-card-title" });
+    urlsCard.createDiv({
+      text: "Add URLs from different sources to fetch CFP data. Each source type is managed separately.",
+      cls: "setting-item-description zotero-desc-tight"
+    });
+    const cfpUrlsWrapper = urlsCard.createDiv({ cls: "zotero-cfp-urls-sections" });
+    const renderUrlSourceSection = (title, desc, getList, setList, onRefresh) => {
+      const sec = cfpUrlsWrapper.createDiv({ cls: "zotero-cfp-url-section" });
+      const header = sec.createDiv({ cls: "zotero-cfp-url-section-header" });
+      header.createEl("h4", { text: title, cls: "zotero-cfp-url-section-title" });
+      new import_obsidian9.ButtonComponent(header).setButtonText("Refresh").setCta().onClick(onRefresh);
+      sec.createDiv({
+        text: desc,
+        cls: "setting-item-description zotero-cfp-url-desc"
+      });
+      const addRow = sec.createDiv({
+        cls: "zotero-setting-block zotero-cfp-add-row"
+      });
+      const inputWrap = addRow.createDiv({ cls: "zotero-flex-1" });
+      const urlInput = new import_obsidian9.TextComponent(inputWrap);
+      urlInput.setPlaceholder("https://...");
+      urlInput.inputEl.addClass("zotero-input-wide");
+      new import_obsidian9.ButtonComponent(addRow).setButtonText("Add URL").onClick(async () => {
+        var _a;
+        const val = (_a = urlInput.getValue()) == null ? void 0 : _a.trim();
+        if (!val) return;
+        const current = [...getList(), val];
+        setList(current);
+        await this.plugin.saveSettings();
+        urlInput.setValue("");
+        this.display();
+      });
+      const listEl = sec.createDiv({ cls: "zotero-settings-list" });
+      getList().forEach((url, idx) => {
+        const row = listEl.createDiv({ cls: "zotero-setting-block" });
+        row.createSpan({
+          text: url || "(empty)",
+          cls: "zotero-cfp-url-display zotero-flex-1"
+        });
+        new import_obsidian9.ButtonComponent(row).setIcon("trash").onClick(async () => {
+          const next = [...getList()];
+          next.splice(idx, 1);
+          setList(next);
+          await this.plugin.saveSettings();
+          this.display();
+        });
+      });
+    };
+    renderUrlSourceSection(
+      "WikiCFP URLs",
+      "e.g. http://www.wikicfp.com/cfp/call?conference=machine%20learning",
+      () => this.plugin.settings.cfpWikicfpUrls || [],
+      (next) => {
+        this.plugin.settings.cfpWikicfpUrls = next;
+      },
+      () => this.plugin.cfpService.refreshWikiCFPUrls()
+    );
+    renderUrlSourceSection(
+      "CCFDDL URLs (YAML)",
+      "Single YAML URL with all conferences. e.g. https://ccfddl.com/conference/allconf.yml",
+      () => this.plugin.settings.cfpCcfddlUrls || [],
+      (next) => {
+        this.plugin.settings.cfpCcfddlUrls = next;
+      },
+      () => this.plugin.cfpService.refreshCcfddlUrls()
+    );
+    renderUrlSourceSection(
+      "EasyChair URLs",
+      "e.g. https://easychair.org/cfp/area.cgi?area=1",
+      () => this.plugin.settings.cfpEasychairUrls || [],
+      (next) => {
+        this.plugin.settings.cfpEasychairUrls = next;
+      },
+      () => this.plugin.cfpService.refreshEasychairUrls()
+    );
+    renderUrlSourceSection(
+      "OpenResearch URLs",
+      "e.g. https://www.openresearch.org/mediawiki/index.php?title=Events&field=Science&type=Science",
+      () => this.plugin.settings.cfpOpenresearchUrls || [],
+      (next) => {
+        this.plugin.settings.cfpOpenresearchUrls = next;
+      },
+      () => this.plugin.cfpService.refreshOpenresearchUrls()
+    );
+    const rankCard = container.createDiv({ cls: "zotero-setting-card" });
+    rankCard.createEl("h3", { text: "Ranking Sources", cls: "zotero-card-title" });
+    rankCard.createDiv({
+      text: "Configure local files for ranking metadata. CORE rankings are loaded from a local CSV; CCF rankings are loaded from allconf.yml.",
+      cls: "setting-item-description zotero-desc-tight"
+    });
+    new import_obsidian9.Setting(rankCard).setName("CORE CSV path").setDesc(
+      "Vault-relative path to CORE.csv. When set, this is the authoritative source for CORE ranks (A*, A, B, C)."
+    ).addText(
+      (text) => text.setPlaceholder("e.g. CFP/CORE/CORE-ICORE2026.csv").setValue(this.plugin.settings.cfpCoreCsvPath || "").onChange(async (value) => {
+        this.plugin.settings.cfpCoreCsvPath = value.trim();
+        await this.plugin.saveSettings();
+      })
+    );
+    new import_obsidian9.Setting(rankCard).setName("Local allconf.yml path").setDesc(
+      "Optional vault-relative path to a local copy of allconf.yml used as fallback for CCF ranks."
+    ).addText(
+      (text) => text.setPlaceholder("e.g. CFP/CCF/allconf.yml").setValue(this.plugin.settings.cfpCcfddlLocalPath || "").onChange(async (value) => {
+        this.plugin.settings.cfpCcfddlLocalPath = value.trim();
+        await this.plugin.saveSettings();
+      })
+    );
+    const actionsCard = container.createDiv({ cls: "zotero-setting-card" });
+    actionsCard.createEl("h3", { text: "Actions", cls: "zotero-card-title" });
+    const btnRow = actionsCard.createDiv({ cls: "zotero-cfp-actions-row" });
+    new import_obsidian9.ButtonComponent(btnRow).setButtonText("Refresh All Sources").setCta().onClick(async () => {
+      await this.plugin.cfpService.refresh();
+    });
+    new import_obsidian9.ButtonComponent(btnRow).setButtonText("Add Manual CFP").setCta().onClick(() => {
+      Promise.resolve().then(() => (init_cfp_manual_modal(), cfp_manual_modal_exports)).then(({ CFPManualModal: CFPManualModal2 }) => {
+        new CFPManualModal2(
+          this.app,
+          this.plugin.settings.cfpDefaultTags || [],
+          (item) => {
+            this.plugin.cfpService.saveManualCFP(item).then(() => new import_obsidian9.Notice("CFP note created.")).catch(() => new import_obsidian9.Notice("Failed to create CFP note."));
+          }
+        ).open();
+      });
+    });
+    const diagRow = actionsCard.createDiv({ cls: "zotero-cfp-actions-row" });
+    new import_obsidian9.ButtonComponent(diagRow).setButtonText("Check ranking sources").onClick(async () => {
+      const s = this.plugin.settings;
+      const corePath = (s.cfpCoreCsvPath || "").trim();
+      const ccfLocal = (s.cfpCcfddlLocalPath || "").trim();
+      const messages = [];
+      if (corePath) {
+        const normalized = normalizePath(corePath);
+        const file = this.app.vault.getAbstractFileByPath(normalized);
+        messages.push(
+          file ? `CORE CSV: found at ${normalized}` : `CORE CSV: not found at ${normalized}`
+        );
+      } else {
+        messages.push("CORE CSV: path not set.");
+      }
+      if (ccfLocal) {
+        const normalized = normalizePath(ccfLocal);
+        const file = this.app.vault.getAbstractFileByPath(normalized);
+        messages.push(
+          file ? `Local allconf.yml: found at ${normalized}` : `Local allconf.yml: not found at ${normalized}`
+        );
+      } else {
+        messages.push("Local allconf.yml: path not set.");
+      }
+      new import_obsidian9.Notice(messages.join("\n"));
+    });
+  }
+};
+var IconSuggestModal = class extends import_obsidian9.FuzzySuggestModal {
+  constructor(app, callback) {
+    super(app);
+    this.callback = callback;
+  }
+  getItems() {
+    return (0, import_obsidian9.getIconIds)();
+  }
+  getItemText(icon) {
+    return icon;
+  }
+  renderSuggestion(match, el) {
+    el.addClass("mod-icon-suggestion");
+    const iconName = match.item;
+    const iconContainer = el.createDiv({ cls: "suggestion-icon" });
+    (0, import_obsidian9.setIcon)(iconContainer, iconName);
+    el.createDiv({ text: iconName });
+  }
+  onChooseItem(icon) {
+    this.callback(icon);
+  }
+};
+var WebhookDebugConfirmModal = class extends import_obsidian9.Modal {
+  constructor(app, onConfirm, onCancel) {
+    super(app);
+    this.onConfirm = onConfirm;
+    this.onCancel = onCancel;
+  }
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.addClass("zotero-webhook-debug-confirm-modal");
+    contentEl.createEl("h2", { text: "Enable Webhook Debug Mode?" });
+    const warning = contentEl.createDiv({ cls: "zotero-debug-confirm-warning" });
+    warning.createEl("p", {
+      text: "Debug mode logs full request headers and body to the developer console. This may expose:"
+    });
+    const list = warning.createEl("ul");
+    list.createEl("li", { text: "API keys and authentication tokens" });
+    list.createEl("li", { text: "Secret header values" });
+    list.createEl("li", { text: "Sensitive data in the request body" });
+    warning.createEl("p", {
+      text: "Only enable when debugging. Turn it off when done."
+    });
+    const footer = contentEl.createDiv({ cls: "zotero-modal-footer" });
+    new import_obsidian9.ButtonComponent(footer).setButtonText("Cancel").onClick(() => {
+      this.onCancel();
+      this.close();
+    });
+    new import_obsidian9.ButtonComponent(footer).setButtonText("Enable anyway").setWarning().onClick(async () => {
+      await this.onConfirm();
+      this.close();
+    });
+  }
+  onClose() {
+    this.contentEl.empty();
+  }
+};
+var WebhookEditModal = class extends import_obsidian9.Modal {
+  constructor(app, webhook, onSave, prompts = []) {
+    super(app);
+    this.jsonEditor = null;
+    this.webhook = JSON.parse(JSON.stringify(webhook));
+    this.onSave = onSave;
+    this.prompts = prompts;
+  }
+  async onOpen() {
+    var _a;
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.addClass("zotero-modal-wide");
+    contentEl.createEl("h2", { text: "Edit Webhook" });
+    const infoContainer = contentEl.createDiv({ cls: "zotero-setting-group" });
+    new import_obsidian9.Setting(infoContainer).setName("Name").addText(
+      (t) => t.setValue(this.webhook.name).onChange((v) => this.webhook.name = v)
+    );
+    new import_obsidian9.Setting(infoContainer).setName("Show in Assistant").setDesc("Display as an icon button in the note Assistant toolbar.").addToggle(
+      (t) => t.setValue(!this.webhook.hidden).onChange((v) => this.webhook.hidden = !v)
+    );
+    const iconSetting = new import_obsidian9.Setting(infoContainer).setName("Icon");
+    const iconContainer = iconSetting.controlEl.createDiv({
+      cls: "zotero-icon-control"
+    });
+    const previewEl = iconContainer.createDiv({ cls: "zotero-icon-preview-box" });
+    (0, import_obsidian9.setIcon)(previewEl, this.webhook.icon || "help-circle");
+    const iconSearcher = new import_obsidian9.ButtonComponent(iconContainer);
+    iconSearcher.setButtonText(this.webhook.icon || "Select").setIcon("search").onClick(() => {
+      new IconSuggestModal(this.app, (selectedIcon) => {
+        this.webhook.icon = selectedIcon;
+        previewEl.empty();
+        (0, import_obsidian9.setIcon)(previewEl, selectedIcon);
+        iconSearcher.setButtonText(selectedIcon);
+      }).open();
+    });
+    const reqContainer = contentEl.createDiv({ cls: "zotero-setting-group" });
+    new import_obsidian9.Setting(reqContainer).setName("URL").addText(
+      (t) => t.setValue(this.webhook.url).onChange((v) => this.webhook.url = v).inputEl.addClass("zotero-input-wide")
+    );
+    new import_obsidian9.Setting(reqContainer).setName("Method").addDropdown(
+      (d) => d.addOption("POST", "POST").addOption("GET", "GET").addOption("PUT", "PUT").addOption("DELETE", "DELETE").setValue(this.webhook.method).onChange((v) => this.webhook.method = v)
+    );
+    new import_obsidian9.Setting(reqContainer).setName("Body Content Type").setDesc("Sets the Content-Type header and body format.").addDropdown(
+      (d) => d.addOption("json", "JSON (application/json)").addOption("text", "Plain Text (text/plain)").addOption("form", "Form (x-www-form-urlencoded)").setValue(this.webhook.contentType || "json").onChange(
+        (v) => this.webhook.contentType = v
+      )
+    );
+    contentEl.createEl("h4", { text: "Body Template (JSON)" });
+    const legacy = this.webhook.inputVariable;
+    if (legacy && !((_a = this.webhook.inputVariables) == null ? void 0 : _a.length)) {
+      this.webhook.inputVariables = [legacy];
+      delete this.webhook.inputVariable;
+    }
+    if (!this.webhook.inputVariables) this.webhook.inputVariables = [];
+    contentEl.createEl("h4", {
+      text: "Input variables",
+      cls: "zotero-input-vars-heading"
+    });
+    contentEl.createDiv({
+      cls: "setting-item-description zotero-desc-tight",
+      text: "Optional variables prompted when triggering this webhook. Use {{name}} in the body template."
+    });
+    const inputVarsList = contentEl.createDiv({ cls: "zotero-input-vars-list" });
+    const renderInputVars = () => {
+      inputVarsList.empty();
+      this.webhook.inputVariables.forEach((iv, idx) => {
+        const card = inputVarsList.createDiv({ cls: "zotero-input-var-card" });
+        const row = card.createDiv({ cls: "zotero-input-var-row" });
+        new import_obsidian9.TextComponent(row).setPlaceholder("Variable name (e.g. custom)").setValue(iv.name).onChange((v) => iv.name = v.trim()).inputEl.addClass("zotero-input-var-name");
+        new import_obsidian9.DropdownComponent(row).addOption("text", "Text").addOption("number", "Number").setValue(iv.type).onChange((v) => iv.type = v).selectEl.addClass("zotero-input-var-type");
+        new import_obsidian9.ButtonComponent(row).setIcon("trash-2").setTooltip("Remove").onClick(() => {
+          this.webhook.inputVariables.splice(idx, 1);
+          renderInputVars();
+        }).buttonEl.addClass("zotero-input-var-remove");
+      });
+      const addWrap = inputVarsList.createDiv({
+        cls: "zotero-input-var-add-wrap"
+      });
+      new import_obsidian9.ButtonComponent(addWrap).setButtonText("+ Add input variable").setIcon("plus").setCta().onClick(() => {
+        this.webhook.inputVariables.push({ name: "", type: "text" });
+        renderInputVars();
+      }).buttonEl.addClass("zotero-btn-fancy", "zotero-input-var-add-btn");
+    };
+    renderInputVars();
+    const chipSection = contentEl.createDiv({ cls: "zotero-placeholder-bar" });
+    chipSection.createDiv({
+      cls: "zotero-placeholder-bar-title",
+      text: "Quick Insert Placeholders (click to insert at cursor):"
+    });
+    const chipContainer = chipSection.createDiv({
+      cls: "zotero-placeholder-chips"
+    });
+    const promptEntries = this.prompts.filter(
+      (p) => {
+        var _a2;
+        return ((_a2 = p.kind) != null ? _a2 : "prompt") === "prompt";
+      }
+    );
+    const quickTokens = [
+      "{{citekey}}",
+      "{{path.zotero_note}}",
+      "{{path.report1}}",
+      "{{path.report2}}",
+      "{{path.takeaway}}",
+      "{{path.core_note}}",
+      ...promptEntries.map((p) => `{{prompt.${p.id}}}`),
+      ...promptEntries.map((p) => `{{path.prompt.${p.id}}}`),
+      "{{filename}}",
+      "{{content}}"
+    ];
+    for (const token of quickTokens) {
+      const chip = chipContainer.createEl("button", {
+        cls: "zotero-placeholder-chip",
+        text: token,
+        attr: { type: "button" }
+      });
+      chip.onclick = () => {
+        if (!this.jsonEditor) return;
+        const sel = this.jsonEditor.state.selection.main;
+        this.jsonEditor.dispatch({
+          changes: { from: sel.from, to: sel.to, insert: token },
+          selection: { anchor: sel.from + token.length }
+        });
+        this.jsonEditor.focus();
+      };
+    }
+    const jsonControls = contentEl.createDiv({ cls: "zotero-json-controls" });
+    new import_obsidian9.ButtonComponent(jsonControls).setButtonText("Format JSON").setIcon("code-glyph").setTooltip("Prettify JSON").onClick(() => {
+      if (!this.jsonEditor) return;
+      try {
+        const current = this.jsonEditor.state.doc.toString();
+        if (!current.trim()) return;
+        const formatted = JSON.stringify(JSON.parse(current), null, 2);
+        this.jsonEditor.dispatch({
+          changes: { from: 0, to: current.length, insert: formatted }
+        });
+        new import_obsidian9.Notice("JSON Formatted!");
+      } catch (e) {
+        new import_obsidian9.Notice("Invalid JSON, cannot format.");
+      }
+    });
+    const jsonWrapper = contentEl.createDiv();
+    this.jsonEditor = mountCodeMirror(
+      jsonWrapper,
+      this.webhook.bodyTemplate,
+      "json",
+      (val) => {
+        this.webhook.bodyTemplate = val;
+      },
+      { height: "250px" }
+    );
+    contentEl.createEl("h4", { text: "Custom Headers" });
+    const headerContainer = contentEl.createDiv();
+    let availableSecrets = [];
+    if (this.app.secretStorage && this.app.secretStorage.listSecrets) {
+      try {
+        availableSecrets = await this.app.secretStorage.listSecrets();
+      } catch (e) {
+      }
+    }
+    const refreshHeaders = () => {
+      headerContainer.empty();
+      this.webhook.headers.forEach((h, i) => {
+        const row = headerContainer.createDiv({ cls: "zotero-setting-block" });
+        new import_obsidian9.TextComponent(row).setPlaceholder("Key").setValue(h.key).onChange((v) => h.key = v).inputEl.addClass("zotero-flex-1");
+        new import_obsidian9.DropdownComponent(row).addOption("text", "Text").addOption("secret", "Secret").setValue(h.type || "text").onChange((v) => {
+          h.type = v;
+          h.value = "";
+          refreshHeaders();
+        });
+        if (h.type === "secret") {
+          const dd = new import_obsidian9.DropdownComponent(row);
+          dd.addOption("", "-- Select Secret --");
+          availableSecrets.forEach((s) => dd.addOption(s, s));
+          dd.setValue(h.value);
+          dd.onChange((v) => h.value = v);
+          if (availableSecrets.length === 0) dd.setDisabled(true);
+          dd.selectEl.addClass("zotero-flex-2");
+        } else {
+          new import_obsidian9.TextComponent(row).setPlaceholder("Value").setValue(h.value).onChange((v) => h.value = v).inputEl.addClass("zotero-flex-2");
+        }
+        new import_obsidian9.ButtonComponent(row).setIcon("trash").onClick(() => {
+          this.webhook.headers.splice(i, 1);
+          refreshHeaders();
+        });
+      });
+      new import_obsidian9.ButtonComponent(headerContainer).setButtonText("+ Add Header").onClick(() => {
+        this.webhook.headers.push({ key: "", value: "", type: "text" });
+        refreshHeaders();
+      });
+    };
+    refreshHeaders();
+    const footer = contentEl.createDiv({ cls: "zotero-modal-footer" });
+    new import_obsidian9.ButtonComponent(footer).setButtonText("Save Webhook").setCta().onClick(() => {
+      if (this.webhook.inputVariables) {
+        this.webhook.inputVariables = this.webhook.inputVariables.filter(
+          (iv) => {
+            var _a2;
+            return (_a2 = iv.name) == null ? void 0 : _a2.trim();
+          }
+        );
+      }
+      this.onSave(this.webhook);
+      this.close();
+    });
+  }
+  onClose() {
+    this.contentEl.empty();
+  }
+};
+
+// src/ui/highlights.ts
+var import_obsidian12 = require("obsidian");
+
 // src/services/obsidian.ts
-var import_obsidian7 = require("obsidian");
+var import_obsidian11 = require("obsidian");
 
 // node_modules/markdown-note-orm/dist/index.mjs
 var fs = __toESM(require("fs/promises"), 1);
 var path = __toESM(require("path"), 1);
-var import_obsidian6 = require("obsidian");
+var import_obsidian10 = require("obsidian");
 var __create2 = Object.create;
 var __defProp2 = Object.defineProperty;
 var __getOwnPropDesc2 = Object.getOwnPropertyDescriptor;
@@ -5977,7 +13123,7 @@ var require_string = __commonJS({
     exports.string = string;
   }
 });
-var require_null = __commonJS({
+var require_null2 = __commonJS({
   "node_modules/yaml/dist/schema/common/null.js"(exports) {
     "use strict";
     var Scalar = require_Scalar();
@@ -6131,7 +13277,7 @@ var require_schema = __commonJS({
   "node_modules/yaml/dist/schema/core/schema.js"(exports) {
     "use strict";
     var map2 = require_map();
-    var _null2 = require_null();
+    var _null2 = require_null2();
     var seq2 = require_seq();
     var string = require_string();
     var bool2 = require_bool();
@@ -6769,7 +13915,7 @@ var require_schema3 = __commonJS({
   "node_modules/yaml/dist/schema/yaml-1.1/schema.js"(exports) {
     "use strict";
     var map2 = require_map();
-    var _null2 = require_null();
+    var _null2 = require_null2();
     var seq2 = require_seq();
     var string = require_string();
     var binary2 = require_binary();
@@ -6811,7 +13957,7 @@ var require_tags = __commonJS({
   "node_modules/yaml/dist/schema/tags.js"(exports) {
     "use strict";
     var map2 = require_map();
-    var _null2 = require_null();
+    var _null2 = require_null2();
     var seq2 = require_seq();
     var string = require_string();
     var bool2 = require_bool();
@@ -11419,8 +18565,8 @@ var ObsidianVaultAdapter = class {
    * @throws {Error} If the path does not point to a valid file.
    */
   async read(path2) {
-    const file = this.app.vault.getAbstractFileByPath((0, import_obsidian6.normalizePath)(path2));
-    if (file instanceof import_obsidian6.TFile) {
+    const file = this.app.vault.getAbstractFileByPath((0, import_obsidian10.normalizePath)(path2));
+    if (file instanceof import_obsidian10.TFile) {
       return await this.app.vault.read(file);
     }
     throw new Error(`File not found: ${path2}`);
@@ -11433,9 +18579,9 @@ var ObsidianVaultAdapter = class {
    * @returns {Promise<void>}
    */
   async write(path2, content) {
-    const normalized = (0, import_obsidian6.normalizePath)(path2.endsWith(".md") ? path2 : `${path2}.md`);
+    const normalized = (0, import_obsidian10.normalizePath)(path2.endsWith(".md") ? path2 : `${path2}.md`);
     const file = this.app.vault.getAbstractFileByPath(normalized);
-    if (file instanceof import_obsidian6.TFile) {
+    if (file instanceof import_obsidian10.TFile) {
       await this.app.vault.modify(file, content);
     } else {
       await this.ensureFolder(normalized);
@@ -11448,7 +18594,7 @@ var ObsidianVaultAdapter = class {
    * @returns {Promise<boolean>}
    */
   async exists(path2) {
-    return this.app.vault.getAbstractFileByPath((0, import_obsidian6.normalizePath)(path2)) instanceof import_obsidian6.TFile;
+    return this.app.vault.getAbstractFileByPath((0, import_obsidian10.normalizePath)(path2)) instanceof import_obsidian10.TFile;
   }
   /**
    * Renames a file. Reuses the `move` logic as these are
@@ -11465,10 +18611,10 @@ var ObsidianVaultAdapter = class {
    * @throws {Error} If the source file is missing.
    */
   async move(oldPath, newPath) {
-    const normalizedOld = (0, import_obsidian6.normalizePath)(oldPath);
-    const normalizedNew = (0, import_obsidian6.normalizePath)(newPath);
+    const normalizedOld = (0, import_obsidian10.normalizePath)(oldPath);
+    const normalizedNew = (0, import_obsidian10.normalizePath)(newPath);
     const file = this.app.vault.getAbstractFileByPath(normalizedOld);
-    if (file instanceof import_obsidian6.TFile) {
+    if (file instanceof import_obsidian10.TFile) {
       await this.ensureFolder(normalizedNew);
       await this.app.fileManager.renameFile(file, normalizedNew);
     } else {
@@ -11480,8 +18626,8 @@ var ObsidianVaultAdapter = class {
    * * @param {string} path - The file to delete.
    */
   async delete(path2) {
-    const file = this.app.vault.getAbstractFileByPath((0, import_obsidian6.normalizePath)(path2));
-    if (file instanceof import_obsidian6.TFile) {
+    const file = this.app.vault.getAbstractFileByPath((0, import_obsidian10.normalizePath)(path2));
+    if (file instanceof import_obsidian10.TFile) {
       await this.app.vault.trash(file, true);
     } else {
       throw new Error(`Delete failed: File not found at ${path2}`);
@@ -11497,8 +18643,8 @@ var ObsidianVaultAdapter = class {
    * console.log(fm.tags);
    */
   getFrontmatter(path2) {
-    const file = this.app.vault.getAbstractFileByPath((0, import_obsidian6.normalizePath)(path2));
-    if (file instanceof import_obsidian6.TFile) {
+    const file = this.app.vault.getAbstractFileByPath((0, import_obsidian10.normalizePath)(path2));
+    if (file instanceof import_obsidian10.TFile) {
       const cache2 = this.app.metadataCache.getFileCache(file);
       return (cache2 == null ? void 0 : cache2.frontmatter) || {};
     }
@@ -11754,6 +18900,7 @@ var ObsidianNoteFactory = class {
 };
 
 // src/services/obsidian.ts
+init_paths();
 var ObsidianService = class {
   constructor(app, settings) {
     this.app = app;
@@ -11764,16 +18911,23 @@ var ObsidianService = class {
    */
   async createLiteratureNote(metadata) {
     const fileName = metadata.title.replace(/[\\/:*?"<>|]/g, "").trim().slice(0, 60);
-    const path2 = normalizePath(`${this.settings.fleetingNoteFolder}/@${metadata.key} - ${fileName}.md`);
+    const path2 = normalizePath(
+      `${this.settings.fleetingNoteFolder}/@${metadata.key} - ${fileName}.md`
+    );
     let note;
     const existing = this.app.vault.getAbstractFileByPath(path2);
-    if (existing instanceof import_obsidian7.TFile) {
+    if (existing instanceof import_obsidian11.TFile) {
       note = await ObsidianNoteFactory.loadAndPatch(this.app, path2);
     } else {
       if (!this.app.vault.getAbstractFileByPath(this.settings.fleetingNoteFolder)) {
         await this.app.vault.createFolder(this.settings.fleetingNoteFolder);
       }
-      note = await ObsidianNoteFactory.createByType(this.app, path2, "literature", metadata.title);
+      note = await ObsidianNoteFactory.createByType(
+        this.app,
+        path2,
+        "literature",
+        metadata.title
+      );
     }
     note.properties.set("zotero-key", String(metadata.key));
     note.properties.set("authors", metadata.creators);
@@ -11793,7 +18947,12 @@ var ObsidianService = class {
     let note;
     if (mode === "create") {
       const path2 = await this.getUniquePath(annotation);
-      note = await ObsidianNoteFactory.createByType(this.app, path2, "fleeting", this.generateTitle(annotation));
+      note = await ObsidianNoteFactory.createByType(
+        this.app,
+        path2,
+        "fleeting",
+        this.generateTitle(annotation)
+      );
       await this.setNoteContent(note, annotation, imageFile || null);
     } else if (mode === "overwrite" && targetFile) {
       note = await ObsidianNoteFactory.loadAndPatch(this.app, targetFile.path);
@@ -11823,10 +18982,12 @@ var ObsidianService = class {
   }
   findLocalImage(annotation) {
     const files = this.app.vault.getFiles();
-    const imageFiles = files.filter((f) => ["png", "jpg", "jpeg"].includes(f.extension.toLowerCase()));
+    const imageFiles = files.filter(
+      (f) => ["png", "jpg", "jpeg"].includes(f.extension.toLowerCase())
+    );
     const keyMatch = imageFiles.find((f) => f.name.includes(annotation.key));
     if (keyMatch) return keyMatch;
-    if (annotation.position && annotation.position.rects && annotation.position.rects.length > 0) {
+    if (typeof annotation.position === "object" && annotation.position !== null && Array.isArray(annotation.position.rects) && annotation.position.rects.length > 0) {
       const rect = annotation.position.rects[0];
       const targetX = Math.round(rect[0]);
       const targetY = Math.round(rect[1]);
@@ -11834,14 +18995,20 @@ var ObsidianService = class {
       return imageFiles.find((f) => {
         const name = f.name;
         if (!name.includes(annotation.citationKey)) return false;
-        if (!name.includes(`p${targetPage}`) && !name.includes(`-${targetPage}-`)) return false;
+        if (!name.includes(`p${targetPage}`) && !name.includes(`-${targetPage}-`))
+          return false;
         return name.includes(`x${targetX}`) && name.includes(`y${targetY}`);
       }) || null;
     }
     return null;
   }
   async modifyToNote(note, ann, replace = false, imageFile) {
-    const lines = [`\`\`\`ad-quote`, `title: Modified at ${ann.date}`, `${ann.text}`, `\`\`\``];
+    const lines = [
+      `\`\`\`ad-quote`,
+      `title: Modified at ${ann.date}`,
+      `${ann.text}`,
+      `\`\`\``
+    ];
     if (imageFile) lines.push("", `![[${imageFile.path}]]`);
     if (replace) {
       const highlightContent = note.content.getSection("Highlight");
@@ -11854,25 +19021,40 @@ var ObsidianService = class {
       }
     }
     note.content.addSection("Highlight", 2, lines);
-    if (ann.comment) note.content.addSection("Thoughts", 2, [`Comment at ${ann.date}`, ann.comment]);
-    new import_obsidian7.Notice("Appended.");
+    if (ann.comment)
+      note.content.addSection("Thoughts", 2, [
+        `Comment at ${ann.date}`,
+        ann.comment
+      ]);
+    new import_obsidian11.Notice("Appended.");
   }
   async setNoteContent(note, ann, img) {
     var _a;
     const activeFile = this.app.workspace.getActiveFile();
     if (activeFile) {
       if (((_a = activeFile.parent) == null ? void 0 : _a.path) && activeFile.parent.path !== "/") {
-        note.addSourceToProps(`[[${activeFile.parent.path}/${activeFile.basename}]]`);
+        note.addSourceToProps(
+          `[[${activeFile.parent.path}/${activeFile.basename}]]`
+        );
       } else {
         note.addSourceToProps(`[[${activeFile.basename}]]`);
       }
     }
     note.properties.set(this.settings.annotationKeyName, ann.key);
     note.properties.set(this.settings.citationKeyName, ann.citationKey);
-    const lines = [`\`\`\`ad-quote`, `title: Modified at ${ann.date}`, `${ann.text}`, `\`\`\``];
+    const lines = [
+      `\`\`\`ad-quote`,
+      `title: Modified at ${ann.date}`,
+      `${ann.text}`,
+      `\`\`\``
+    ];
     if (img) lines.push("", `![[${img.path}]]`);
     note.content.addSection("Highlight", 2, lines);
-    if (ann.comment) note.content.addSection("Thoughts", 2, [`Comment at ${ann.date}`, ann.comment]);
+    if (ann.comment)
+      note.content.addSection("Thoughts", 2, [
+        `Comment at ${ann.date}`,
+        ann.comment
+      ]);
     note.content.addSection("Source", 2, [`[PDF](${ann.link})`]);
     note.content.addSection("Related Projects", 2, ["```project-picker\n```\n"]);
   }
@@ -11891,28 +19073,21 @@ var ObsidianService = class {
   }
 };
 
-// src/services/zotero-connector.ts
-var import_obsidian8 = require("obsidian");
-var ZoteroConnectorService = class {
-  constructor(app, setting) {
-    this.app = app;
-    this.settings = setting;
-  }
-  async triggerZoteroIntegrationImport(citationKey) {
-    const plugin = this.app.plugins.getPlugin("obsidian-zotero-desktop-connector");
-    if (plugin && plugin.settings.exportFormats) {
-      const fmt = plugin.settings.exportFormats[0];
-      if (fmt) await plugin.runImport(fmt.name, String(citationKey));
-      console.error(citationKey);
-      new import_obsidian8.Notice("Triggered Zotero Integration Import");
-    } else {
-      new import_obsidian8.Notice("Obsidian Zotero Desktop Connector plugin not found or configured.");
-    }
-  }
-};
-
 // src/ui/highlights.ts
-var HighlightModal = class extends import_obsidian9.Modal {
+init_zotero_connector();
+function getAnnotationSortValue(ann, prop) {
+  const record = ann;
+  const raw = record[prop];
+  return (raw || "").toString().toLowerCase();
+}
+function formatMetadataField(meta, prop) {
+  const record = meta;
+  const raw = record[prop];
+  const normalized = Array.isArray(raw) ? raw.join(", ") : raw;
+  if (!normalized) return "-";
+  return String(normalized);
+}
+var HighlightModal = class extends import_obsidian12.Modal {
   constructor(app, settings, citationKey, imageMap = {}, onUpdate) {
     super(app);
     this.annotations = [];
@@ -11936,13 +19111,15 @@ var HighlightModal = class extends import_obsidian9.Modal {
       try {
         this.annotations = await this.zotero.getAnnotations(this.citationKey);
       } catch (e) {
-        statusEl.setText(`\u274C Error fetching annotations: ${e.message}`);
+        statusEl.setText(
+          `\u274C Error fetching annotations: ${e.message}`
+        );
         return;
       }
       try {
         this.itemMetadata = await this.zotero.getItemMetadata(this.citationKey);
       } catch (e) {
-        new import_obsidian9.Notice("Metadata fetch failed, but continuing.");
+        new import_obsidian12.Notice("Metadata fetch failed, but continuing.");
       }
       statusEl.remove();
       await this.render();
@@ -11955,7 +19132,10 @@ var HighlightModal = class extends import_obsidian9.Modal {
     const { contentEl } = this;
     contentEl.empty();
     const header = contentEl.createDiv({ cls: "zotero-modal-header-actions" });
-    header.createEl("h2", { text: `Review: ${this.citationKey}`, cls: "zotero-no-margin" });
+    header.createEl("h2", {
+      text: `Review: ${this.citationKey}`,
+      cls: "zotero-no-margin"
+    });
     const btnFetch = header.createEl("button", { text: "\u{1F4E5} Update Paper" });
     btnFetch.addClass("zotero-btn-fancy");
     btnFetch.onclick = () => this.zoteroConnector.triggerZoteroIntegrationImport(this.citationKey);
@@ -11970,8 +19150,8 @@ var HighlightModal = class extends import_obsidian9.Modal {
     } else {
       const sortProp = this.settings.sortProperty || "color";
       this.annotations.sort((a, b) => {
-        const valA = (a[sortProp] || "").toString().toLowerCase();
-        const valB = (b[sortProp] || "").toString().toLowerCase();
+        const valA = getAnnotationSortValue(a, sortProp);
+        const valB = getAnnotationSortValue(b, sortProp);
         if (sortProp === "pageLabel") {
           const numA = parseFloat(valA);
           const numB = parseFloat(valB);
@@ -11991,28 +19171,40 @@ var HighlightModal = class extends import_obsidian9.Modal {
   async renderMetadataSection(container, meta) {
     const section = container.createDiv({ cls: "zotero-metadata-section" });
     const headerDiv = section.createDiv({ cls: "zotero-metadata-header" });
-    headerDiv.createEl("h4", { text: "Metadata Verification", cls: "zotero-no-margin" });
+    headerDiv.createEl("h4", {
+      text: "Metadata Verification",
+      cls: "zotero-no-margin"
+    });
     const debugBtn = headerDiv.createEl("button", { text: "\u{1F50D} Log Raw Data" });
     debugBtn.addClass("zotero-btn-subtle");
     debugBtn.setAttribute("title", "Print raw JSON to Developer Console");
     debugBtn.onclick = async () => {
       const raw = await this.zotero.getRawMetadata(this.citationKey);
       console.log(raw);
-      new import_obsidian9.Notice("Logged to Console");
+      new import_obsidian12.Notice("Logged to Console");
     };
     const activeFile = this.app.workspace.getActiveFile();
     let activeNoteModel = null;
     let noteLoaded = false;
     if (activeFile) {
       try {
-        activeNoteModel = await ObsidianNoteFactory.loadAndPatch(this.app, activeFile.path);
+        activeNoteModel = await ObsidianNoteFactory.loadAndPatch(
+          this.app,
+          activeFile.path
+        );
         noteLoaded = true;
-        section.createDiv({ text: `Target: ${activeFile.basename}`, cls: "zotero-verify-target" });
+        section.createDiv({
+          text: `Target: ${activeFile.basename}`,
+          cls: "zotero-verify-target"
+        });
       } catch (e) {
         console.error(e);
       }
     } else {
-      section.createDiv({ text: "\u26A0\uFE0F No active note found.", cls: "zotero-verify-warning" });
+      section.createDiv({
+        text: "\u26A0\uFE0F No active note found.",
+        cls: "zotero-verify-warning"
+      });
     }
     const table = section.createEl("table", { cls: "zotero-metadata-table" });
     const headerRow = table.createEl("tr");
@@ -12022,17 +19214,20 @@ var HighlightModal = class extends import_obsidian9.Modal {
     const mapping = this.settings.metadataMapping || [];
     for (const mapItem of mapping) {
       if (!mapItem.enabled) continue;
-      let zValue = meta[mapItem.zoteroProp];
-      if (Array.isArray(zValue)) zValue = zValue.join(", ");
-      if (!zValue) zValue = "-";
-      zValue = String(zValue);
+      const zValue = formatMetadataField(meta, mapItem.zoteroProp);
       const row = table.createEl("tr");
       row.createEl("td", { text: mapItem.label, cls: "zotero-cell-label" });
       const displayVal = zValue.length > 50 ? zValue.substring(0, 48) + "..." : zValue;
       row.createEl("td", { text: displayVal, cls: "zotero-metadata-value" });
       const statusCell = row.createEl("td", { cls: "zotero-cell-center" });
       if (noteLoaded && activeNoteModel) {
-        this.renderVerifyButton(statusCell, activeNoteModel, mapItem.noteProp, zValue, mapItem.label);
+        this.renderVerifyButton(
+          statusCell,
+          activeNoteModel,
+          mapItem.noteProp,
+          zValue,
+          mapItem.label
+        );
       } else {
         statusCell.createSpan({ text: "-" });
       }
@@ -12050,7 +19245,7 @@ var HighlightModal = class extends import_obsidian9.Modal {
     } else {
       btn.setText("\u274C");
       btn.addClass("zotero-text-error");
-      new import_obsidian9.Notice(`Mismatch for ${label}`);
+      new import_obsidian12.Notice(`Mismatch for ${label}`);
     }
   }
   async renderAnnotationCard(container, ann) {
@@ -12059,7 +19254,7 @@ var HighlightModal = class extends import_obsidian9.Modal {
     let localImageFile = null;
     if (this.imageMap[ann.key]) {
       const f = this.app.vault.getAbstractFileByPath(this.imageMap[ann.key]);
-      if (f instanceof import_obsidian9.TFile) localImageFile = f;
+      if (f instanceof import_obsidian12.TFile) localImageFile = f;
     }
     if (!localImageFile && (ann.type === "image" || ann.type === "ink")) {
       localImageFile = this.obsidian.findLocalImage(ann);
@@ -12069,7 +19264,10 @@ var HighlightModal = class extends import_obsidian9.Modal {
       const imgEl = imgContainer.createEl("img");
       imgEl.src = this.app.vault.getResourcePath(localImageFile);
       imgEl.addClass("zotero-card-img");
-      imgContainer.createDiv({ text: `\u{1F4F7} ${localImageFile.name}`, cls: "zotero-img-caption" });
+      imgContainer.createDiv({
+        text: `\u{1F4F7} ${localImageFile.name}`,
+        cls: "zotero-img-caption"
+      });
     } else if (ann.type === "image" || ann.type === "ink") {
       const p = card.createDiv({ cls: "zotero-img-placeholder" });
       p.createDiv({ text: "\u{1F4F7} Image Not Found" });
@@ -12077,12 +19275,21 @@ var HighlightModal = class extends import_obsidian9.Modal {
       btn.addClass("zotero-btn-fancy", "zotero-btn-small");
       btn.onclick = () => this.zoteroConnector.triggerZoteroIntegrationImport(this.citationKey);
     }
-    if (ann.text) card.createEl("blockquote", { text: ann.text, cls: "zotero-blockquote-no-margin" });
-    if (ann.comment) card.createDiv({ text: `\u{1F4DD} ${ann.comment}`, cls: "zotero-comment-italic" });
+    if (ann.text)
+      card.createEl("blockquote", {
+        text: ann.text,
+        cls: "zotero-blockquote-no-margin"
+      });
+    if (ann.comment)
+      card.createDiv({ text: `\u{1F4DD} ${ann.comment}`, cls: "zotero-comment-italic" });
     const footer = card.createDiv({ cls: "zotero-card-footer" });
     const left = footer.createDiv({ cls: "zotero-footer-left" });
     left.createSpan({ text: `Page ${ann.pageLabel}` });
-    left.createEl("a", { text: "Open PDF", href: ann.link, attr: { target: "_blank" } });
+    left.createEl("a", {
+      text: "Open PDF",
+      href: ann.link,
+      attr: { target: "_blank" }
+    });
     const right = footer.createDiv({ cls: "zotero-footer-right" });
     const existingNote = await this.obsidian.isAnnotationExported(ann.key);
     if (existingNote) {
@@ -12095,22 +19302,35 @@ var HighlightModal = class extends import_obsidian9.Modal {
       const replaceBtnOpen = right.createEl("button", { text: "Replace Note" });
       replaceBtnOpen.addClass("zotero-btn-fancy", "zotero-btn-secondary");
       replaceBtnOpen.onclick = async () => {
-        await this.obsidian.saveNote(ann, "overwrite", existingNote, localImageFile);
+        await this.obsidian.saveNote(
+          ann,
+          "overwrite",
+          existingNote,
+          localImageFile
+        );
         this.close();
       };
       const appendBtnOpen = right.createEl("button", { text: "Append Note" });
       appendBtnOpen.addClass("zotero-btn-fancy", "zotero-btn-secondary");
       appendBtnOpen.onclick = async () => {
-        await this.obsidian.saveNote(ann, "append", existingNote, localImageFile);
+        await this.obsidian.saveNote(
+          ann,
+          "append",
+          existingNote,
+          localImageFile
+        );
         this.close();
       };
     } else {
-      const btnCreate = right.createEl("button", { text: "Create Note", cls: "mod-cta" });
+      const btnCreate = right.createEl("button", {
+        text: "Create Note",
+        cls: "mod-cta"
+      });
       btnCreate.addClass("zotero-btn-fancy");
       btnCreate.onclick = async () => {
         const scrollPos = this.contentEl.scrollTop;
         await this.obsidian.saveNote(ann, "create", void 0, localImageFile);
-        new import_obsidian9.Notice("Note Created");
+        new import_obsidian12.Notice("Note Created");
         await sleep(200);
         await this.render();
         this.contentEl.scrollTop = scrollPos;
@@ -12120,7 +19340,9 @@ var HighlightModal = class extends import_obsidian9.Modal {
 };
 
 // src/ui/assistant.ts
-var import_obsidian11 = require("obsidian");
+var import_obsidian14 = require("obsidian");
+init_vault_library();
+init_zotero_connector();
 
 // src/utils/parser.ts
 function parseImageMap(rawSource) {
@@ -12129,7 +19351,10 @@ function parseImageMap(rawSource) {
   try {
     return JSON.parse(trimmed);
   } catch (e) {
-    console.warn("[Zotero Assistant] Standard JSON parse failed. Trying to sanitize Windows paths...", e);
+    console.warn(
+      "[Zotero Assistant] Standard JSON parse failed. Trying to sanitize Windows paths...",
+      e
+    );
     try {
       const sanitized = trimmed.replace(/\\(?!["\\/bfnrtu])/g, "\\\\");
       return JSON.parse(sanitized);
@@ -12141,315 +19366,1142 @@ function parseImageMap(rawSource) {
 }
 
 // src/ui/assistant.ts
-var AssistantView = class extends import_obsidian11.MarkdownRenderChild {
+init_paths();
+init_connector_modal();
+function addIconAction(parent, icon, tooltip, onClick, extraCls) {
+  if (typeof import_obsidian14.ExtraButtonComponent === "function") {
+    const btn = new import_obsidian14.ExtraButtonComponent(parent).setIcon(icon).setTooltip(tooltip).onClick(() => {
+      void onClick();
+    });
+    if (extraCls) btn.extraSettingsEl.addClass(extraCls);
+    return btn.extraSettingsEl;
+  }
+  const fallback = parent.createEl("button", {
+    cls: `clickable-icon extra-setting-button${extraCls ? ` ${extraCls}` : ""}`,
+    attr: { "aria-label": tooltip, title: tooltip, type: "button" }
+  });
+  (0, import_obsidian14.setIcon)(fallback, icon);
+  fallback.onclick = () => {
+    void onClick();
+  };
+  return fallback;
+}
+function getFileBasename(file) {
+  if (file.basename) return file.basename;
+  return (file.name || file.path.split("/").pop() || "").replace(/\.md$/i, "");
+}
+function isDoiUrl(rawUrl) {
+  try {
+    const host = new URL(rawUrl).hostname.toLowerCase();
+    return host === "doi.org" || host.endsWith(".doi.org");
+  } catch (e) {
+    return false;
+  }
+}
+function parseWikiDisplay(rawLink) {
+  const inner = rawLink.replace(/^\[\[|\]\]$/g, "").trim();
+  const [target, alias] = inner.split("|");
+  const linkPath = (target || inner).trim();
+  const shortTarget = linkPath.split("/").pop() || linkPath;
+  return {
+    linkPath,
+    label: (alias || shortTarget).trim()
+  };
+}
+var AssistantProjectSuggestModal = class extends import_obsidian14.SuggestModal {
+  constructor(app, projectFolder, onChoose) {
+    var _a;
+    super(app);
+    this.projectFolder = projectFolder;
+    this.onChoose = onChoose;
+    (_a = this.setPlaceholder) == null ? void 0 : _a.call(this, "Select a project to link...");
+  }
+  isDashboard(file) {
+    const base = normalizePath(this.projectFolder).replace(/\/+$/, "") + "/";
+    if (!normalizePath(file.path).startsWith(base)) return false;
+    if (!file.path.toLowerCase().endsWith(".md")) return false;
+    const rest = normalizePath(file.path).slice(base.length);
+    const parts = rest.split("/");
+    return parts.length === 2 && parts[1] === "Dashboard.md";
+  }
+  getDisplayName(file) {
+    var _a, _b, _c, _d, _e;
+    const fm = (_a = this.app.metadataCache.getFileCache(file)) == null ? void 0 : _a.frontmatter;
+    const fromFm = (_e = (_d = (_c = (_b = fm == null ? void 0 : fm["project_name"]) != null ? _b : fm == null ? void 0 : fm["title"]) == null ? void 0 : _c.toString) == null ? void 0 : _d.call(_c)) == null ? void 0 : _e.trim();
+    if (fromFm) return fromFm;
+    const parts = normalizePath(file.path).split("/");
+    if (getFileBasename(file) === "Dashboard" && parts.length >= 2) {
+      return parts[parts.length - 2];
+    }
+    return getFileBasename(file);
+  }
+  getSuggestions(query) {
+    const q = query.toLowerCase();
+    const allFiles = this.app.vault.getMarkdownFiles();
+    const dashboards = allFiles.filter((f) => this.isDashboard(f));
+    const base = normalizePath(this.projectFolder).replace(/\/+$/, "") + "/";
+    const pool = dashboards.length > 0 ? dashboards : allFiles.filter((f) => normalizePath(f.path).startsWith(base));
+    return pool.filter((f) => {
+      const label = this.getDisplayName(f).toLowerCase();
+      return label.includes(q) || f.path.toLowerCase().includes(q);
+    });
+  }
+  renderSuggestion(file, el) {
+    el.createDiv({ text: this.getDisplayName(file) });
+    el.createDiv({ text: file.path, cls: "zotero-text-muted-italic" });
+  }
+  onChooseSuggestion(file) {
+    this.onChoose(file);
+  }
+};
+var AssistantWebhookInputModal = class extends import_obsidian14.Modal {
+  constructor(app, hookName, variables, onSubmit) {
+    super(app);
+    this.hookName = hookName;
+    this.variables = variables;
+    this.onSubmit = onSubmit;
+    this.inputs = /* @__PURE__ */ new Map();
+  }
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.addClass("zotero-webhook-input-modal");
+    contentEl.createEl("h3", {
+      text: this.hookName,
+      cls: "zotero-webhook-input-title"
+    });
+    const form = contentEl.createDiv({ cls: "zotero-webhook-input-form" });
+    for (const iv of this.variables) {
+      const row = form.createDiv({ cls: "zotero-webhook-input-row" });
+      row.createEl("label", {
+        text: `{{${iv.name}}}`,
+        cls: "zotero-webhook-input-label"
+      });
+      const tc = new import_obsidian14.TextComponent(row);
+      tc.inputEl.addClass("zotero-webhook-input-field");
+      if (iv.type === "number") {
+        tc.inputEl.type = "number";
+        tc.setPlaceholder("0");
+      } else {
+        tc.setPlaceholder("Value...");
+      }
+      this.inputs.set(iv.name, tc);
+    }
+    const footer = contentEl.createDiv({ cls: "zotero-webhook-input-footer" });
+    new import_obsidian14.ButtonComponent(footer).setButtonText("Cancel").onClick(() => this.close());
+    new import_obsidian14.ButtonComponent(footer).setButtonText("Trigger").setCta().onClick(() => {
+      var _a, _b;
+      const values = {};
+      for (const iv of this.variables) {
+        const raw = (_b = (_a = this.inputs.get(iv.name)) == null ? void 0 : _a.getValue()) != null ? _b : "";
+        values[iv.name] = iv.type === "number" ? String(Number(raw)) : raw;
+      }
+      this.close();
+      this.onSubmit(values);
+    });
+  }
+  onClose() {
+    this.contentEl.empty();
+  }
+};
+var MAX_INLINE_VENUE_PAPERS = 3;
+var CodeUrlModal = class extends import_obsidian14.Modal {
+  constructor(app, initialUrl, onSave) {
+    super(app);
+    this.initialUrl = initialUrl;
+    this.onSave = onSave;
+  }
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.addClass("zotero-webhook-input-modal");
+    contentEl.createEl("h3", {
+      text: "Repository URL",
+      cls: "zotero-webhook-input-title"
+    });
+    contentEl.createDiv({
+      cls: "zotero-webhook-input-desc",
+      text: "Set or update the code repository URL in this literature note frontmatter."
+    });
+    const form = contentEl.createDiv({ cls: "zotero-webhook-input-form" });
+    const row = form.createDiv({ cls: "zotero-webhook-input-row" });
+    const inputEl = row.createEl("input", {
+      cls: "zotero-webhook-input-field",
+      attr: {
+        type: "text",
+        placeholder: "https://github.com/..."
+      }
+    });
+    inputEl.value = this.initialUrl;
+    const submitSave = async () => {
+      const raw = inputEl.value.trim();
+      if (!raw) {
+        await this.onSave("");
+        this.close();
+        return;
+      }
+      const candidate = !/^https?:\/\//i.test(raw) && !/^[a-z]+:/i.test(raw) && raw.includes(".") ? `https://${raw}` : raw;
+      if (!/^https?:\/\/\S+$/i.test(candidate)) {
+        new import_obsidian14.Notice("Please enter a valid http(s) repository URL.");
+        return;
+      }
+      await this.onSave(candidate);
+      this.close();
+    };
+    inputEl.onkeydown = (ev) => {
+      if (ev.key === "Enter") {
+        ev.preventDefault();
+        void submitSave();
+      }
+    };
+    const footer = contentEl.createDiv({ cls: "zotero-webhook-input-footer" });
+    const clearBtn = footer.createEl("button", {
+      text: "Clear",
+      attr: { type: "button" }
+    });
+    clearBtn.onclick = async () => {
+      await this.onSave("");
+      this.close();
+    };
+    const cancelBtn = footer.createEl("button", {
+      text: "Cancel",
+      attr: { type: "button" }
+    });
+    cancelBtn.onclick = () => this.close();
+    const saveBtn = footer.createEl("button", {
+      cls: "mod-cta",
+      text: "Save",
+      attr: { type: "button" }
+    });
+    saveBtn.onclick = () => {
+      void submitSave();
+    };
+    setTimeout(() => inputEl.focus(), 0);
+  }
+  onClose() {
+    this.contentEl.empty();
+  }
+};
+var AssistantView = class extends import_obsidian14.MarkdownRenderChild {
   constructor(containerEl, plugin) {
     super(containerEl);
     this.plugin = plugin;
-    this.zoteroConnector = new ZoteroConnectorService(this.plugin.app, this.plugin.settings);
+    this.zoteroConnector = new ZoteroConnectorService(
+      this.plugin.app,
+      this.plugin.settings
+    );
   }
   async render(source, ctx) {
-    var _a, _b, _c;
     const el = this.containerEl;
+    el.empty();
     const file = this.plugin.app.vault.getAbstractFileByPath(ctx.sourcePath);
-    if (!(file instanceof import_obsidian11.TFile)) {
+    if (!(file instanceof import_obsidian14.TFile)) {
       el.createDiv({ text: "Assistant only works in notes." });
       return;
     }
     const imageMap = parseImageMap(source);
     const container = el.createDiv({ cls: "zotero-assistant-container" });
-    const header = container.createDiv({ cls: "zotero-assistant-header" });
-    header.createEl("h4", { text: "\u{1F916} Zotero Assistant", cls: "zotero-title" });
-    const btnRow = container.createDiv({ cls: "zotero-assistant-actions" });
-    const cache2 = this.plugin.app.metadataCache.getFileCache(file);
-    const key = ((_a = cache2 == null ? void 0 : cache2.frontmatter) == null ? void 0 : _a[this.plugin.settings.citationKeyName]) || ((_b = cache2 == null ? void 0 : cache2.frontmatter) == null ? void 0 : _b["zotero-key"]) || ((_c = cache2 == null ? void 0 : cache2.frontmatter) == null ? void 0 : _c["citation-key"]);
-    const updateBtn = new import_obsidian11.ButtonComponent(btnRow).setButtonText("Update Metadata").setIcon("lucide-refresh-cw").setDisabled(!key).onClick(() => this.zoteroConnector.triggerZoteroIntegrationImport(key));
-    updateBtn.buttonEl.addClass("zotero-btn-fancy");
-    const reviewBtn = new import_obsidian11.ButtonComponent(btnRow).setButtonText(`Review Highlights`).setIcon("highlighter").setDisabled(!key).onClick(() => {
-      if (key) new HighlightModal(
+    const rerender = async () => {
+      await this.render(source, ctx);
+    };
+    const state = await this.plugin.paperHub.getPaperState(file);
+    if (!state) {
+      container.createDiv({
+        cls: "zotero-assistant-empty-key",
+        text: `No citation key found (${this.plugin.settings.citationKeyName || "citation-key"}).`
+      });
+      if (this.plugin.settings.enableLegacyAssistantScript) {
+        const legacyWrap = container.createDiv({
+          cls: "zotero-local-highlights"
+        });
+        await this.renderLegacyScript(file, legacyWrap, source);
+      }
+      return;
+    }
+    this.renderTopBar(container, file, state, imageMap, rerender);
+    await this.renderCoreNoteBlock(container, file, state, rerender);
+    this.renderProjectsAndLinksBar(container, file, state, rerender);
+    if (state.fleetingNotes.length > 0) {
+      await this.renderInlineCommentsSection(
+        container,
+        state.fleetingNotes,
+        rerender
+      );
+    }
+    if (this.plugin.settings.enableLegacyAssistantScript) {
+      const legacyWrap = container.createDiv({ cls: "zotero-local-highlights" });
+      await this.renderLegacyScript(file, legacyWrap, source);
+    }
+    this.renderVenueAndCfpBar(container, file);
+  }
+  renderTopBar(container, file, state, imageMap, rerender) {
+    var _a, _b, _c;
+    const topbar = container.createDiv({ cls: "zotero-assistant-topbar" });
+    const toolbarRow = topbar.createDiv({ cls: "zotero-assistant-toolbar-row" });
+    const toolbar = toolbarRow.createDiv({ cls: "zotero-assistant-toolbar" });
+    addIconAction(
+      toolbar,
+      "refresh-cw",
+      "Refresh metadata from Zotero",
+      () => this.zoteroConnector.triggerZoteroIntegrationImport(state.citekey)
+    );
+    addIconAction(toolbar, "highlighter", "Review PDF highlights", () => {
+      new HighlightModal(
         this.plugin.app,
         this.plugin.settings,
-        key,
+        state.citekey,
         imageMap,
-        async () => {
-          await this.render(source, ctx);
+        rerender
+      ).open();
+    });
+    const hasCandidates = state.takeawayCandidates.length > 0;
+    addIconAction(
+      toolbar,
+      "link-2",
+      "Connect paper to vault",
+      () => {
+        new ConnectorModal(this.plugin.app, this.plugin, file, rerender).open();
+      },
+      hasCandidates ? "has-badge" : void 0
+    );
+    const visibleHooks = (this.plugin.settings.webhooks || []).filter(
+      (h) => !h.hidden
+    );
+    if (visibleHooks.length > 0) {
+      toolbar.createSpan({ cls: "zotero-assistant-toolbar-divider" });
+      for (const hook of visibleHooks) {
+        const hookBtn = toolbar.createEl("button", {
+          cls: "zotero-webhook-pill",
+          attr: {
+            type: "button",
+            title: `Trigger: ${hook.name}`,
+            "aria-label": `Trigger: ${hook.name}`
+          }
+        });
+        const iconSpan = hookBtn.createSpan({ cls: "zotero-res-pill-icon" });
+        (0, import_obsidian14.setIcon)(iconSpan, hook.icon || "send");
+        hookBtn.createSpan({ text: hook.name });
+        hookBtn.onclick = () => this.triggerWebhookFromToolbar(hook, file);
+      }
+    }
+    const ws = this.plugin.settings.paperWorkspace;
+    const takeawayLabel = ((_a = ws == null ? void 0 : ws.takeawayLabel) == null ? void 0 : _a.trim()) || "Takeaway";
+    const report1Label = ((_b = ws == null ? void 0 : ws.report1Label) == null ? void 0 : _b.trim()) || "Deep Report";
+    const report2Label = ((_c = ws == null ? void 0 : ws.report2Label) == null ? void 0 : _c.trim()) || "External Report";
+    const filesRow = topbar.createDiv({ cls: "zotero-assistant-files-row" });
+    const pills = filesRow.createDiv({ cls: "zotero-assistant-pills" });
+    this.renderReportPill(
+      pills,
+      file,
+      state.citekey,
+      "takeaway",
+      takeawayLabel,
+      "sparkles",
+      state.takeawayFile,
+      "synthesize",
+      true,
+      null,
+      rerender
+    );
+    this.renderReportPill(
+      pills,
+      file,
+      state.citekey,
+      "report1",
+      report1Label,
+      "file-search",
+      state.report1File,
+      "report1",
+      false,
+      state.deepReportUrl,
+      rerender
+    );
+    this.renderReportPill(
+      pills,
+      file,
+      state.citekey,
+      "report2",
+      report2Label,
+      "globe",
+      state.report2File,
+      "report2",
+      false,
+      state.externalReportUrl,
+      rerender
+    );
+    if (state.doiUrl) {
+      const doiLink = pills.createEl("a", {
+        cls: "zotero-res-pill is-external",
+        href: state.doiUrl,
+        attr: {
+          target: "_blank",
+          rel: "noopener noreferrer",
+          title: state.doiUrl
+        }
+      });
+      const iconSpan = doiLink.createSpan({ cls: "zotero-res-pill-icon" });
+      (0, import_obsidian14.setIcon)(iconSpan, "external-link");
+      doiLink.createSpan({ text: isDoiUrl(state.doiUrl) ? "DOI" : "URL" });
+    }
+    const openCodeModal = (currentUrl) => {
+      new CodeUrlModal(this.plugin.app, currentUrl, async (nextUrl) => {
+        await this.plugin.paperHub.updateLiteratureCodeUrl(file, nextUrl);
+        new import_obsidian14.Notice(
+          nextUrl ? "Saved repository URL." : "Cleared repository URL."
+        );
+        await rerender();
+      }).open();
+    };
+    if (state.codeUrl) {
+      const codeGroup = pills.createDiv({ cls: "zotero-res-pill-group" });
+      const codeLink = codeGroup.createEl("a", {
+        cls: "zotero-res-pill is-external is-code",
+        href: state.codeUrl,
+        attr: {
+          target: "_blank",
+          rel: "noopener noreferrer",
+          title: state.codeUrl
+        }
+      });
+      const iconSpan = codeLink.createSpan({ cls: "zotero-res-pill-icon" });
+      (0, import_obsidian14.setIcon)(iconSpan, "code-2");
+      codeLink.createSpan({ text: "Code" });
+      addIconAction(
+        codeGroup,
+        "pencil",
+        "Edit Code URL",
+        () => openCodeModal(state.codeUrl || ""),
+        "zotero-res-pill-edit"
+      );
+    } else {
+      const addCodeBtn = pills.createEl("button", {
+        cls: "zotero-res-pill is-missing is-code-missing",
+        attr: {
+          type: "button",
+          title: "Set code repository URL"
+        }
+      });
+      addCodeBtn.createSpan({ text: "+ Code" });
+      addCodeBtn.onclick = () => openCodeModal("");
+    }
+  }
+  renderReportPill(parent, literatureFile, citekey, kind, label, iconName, existingFile, promptId, isAccent, legacyExternalUrl, rerender) {
+    const group = parent.createDiv({ cls: "zotero-res-pill-group" });
+    if (existingFile) {
+      const pill = group.createEl("button", {
+        cls: `zotero-res-pill is-present${isAccent ? " is-accent" : ""}`,
+        attr: { type: "button", title: `Open ${existingFile.path}` }
+      });
+      const iconSpan = pill.createSpan({ cls: "zotero-res-pill-icon" });
+      (0, import_obsidian14.setIcon)(iconSpan, iconName);
+      pill.createSpan({ text: label });
+      pill.onclick = () => {
+        void this.plugin.app.workspace.getLeaf(false).openFile(existingFile);
+      };
+    } else {
+      const createBtn = group.createEl("button", {
+        cls: "zotero-res-pill is-missing",
+        attr: {
+          type: "button",
+          title: `Create & open ${label} markdown file in Obsidian editor`
+        }
+      });
+      createBtn.createSpan({ text: `+ ${label}` });
+      createBtn.onclick = async () => {
+        var _a;
+        try {
+          const created = await this.plugin.paperHub.createOrOpenReportFile(
+            citekey,
+            kind,
+            literatureFile
+          );
+          await this.plugin.app.workspace.getLeaf(false).openFile(created);
+          await rerender();
+        } catch (err) {
+          console.error(`[AssistantView] Failed to create ${label}`, err);
+          new import_obsidian14.Notice(
+            `Failed to create ${label}: ${(_a = err == null ? void 0 : err.message) != null ? _a : String(err)}`
+          );
+        }
+      };
+      const copyBtn = group.createEl("button", {
+        cls: "zotero-res-pill-copy clickable-icon",
+        attr: {
+          type: "button",
+          title: `Copy ${label} prompt`,
+          "aria-label": `Copy ${label} prompt`
+        }
+      });
+      (0, import_obsidian14.setIcon)(copyBtn, "copy");
+      copyBtn.onclick = async (ev) => {
+        var _a;
+        ev.stopPropagation();
+        const promptText = await this.plugin.paperHub.getPromptContent(promptId);
+        if ((_a = navigator.clipboard) == null ? void 0 : _a.writeText) {
+          await navigator.clipboard.writeText(promptText);
+          new import_obsidian14.Notice(`Copied ${label} prompt to clipboard.`);
+        }
+      };
+    }
+    if (legacyExternalUrl) {
+      const extPill = group.createEl("a", {
+        cls: "zotero-res-pill is-external is-compact-url",
+        href: legacyExternalUrl,
+        attr: {
+          target: "_blank",
+          rel: "noopener noreferrer",
+          title: `Open ${label} external URL: ${legacyExternalUrl}`,
+          "aria-label": `Open ${label} external URL`
+        }
+      });
+      const iconSpan = extPill.createSpan({ cls: "zotero-res-pill-icon" });
+      (0, import_obsidian14.setIcon)(iconSpan, "external-link");
+    }
+  }
+  triggerWebhookFromToolbar(hook, file) {
+    var _a;
+    const vars = ((_a = hook.inputVariables) != null ? _a : []).filter((iv) => {
+      var _a2;
+      return (_a2 = iv.name) == null ? void 0 : _a2.trim();
+    });
+    if (vars.length > 0) {
+      new AssistantWebhookInputModal(
+        this.plugin.app,
+        hook.name,
+        vars,
+        (values) => {
+          void this.plugin.webhookService.triggerWebhook(
+            hook,
+            file,
+            values,
+            this.plugin.settings.webhookDebugMode
+          );
+        }
+      ).open();
+    } else {
+      void this.plugin.webhookService.triggerWebhook(
+        hook,
+        file,
+        void 0,
+        this.plugin.settings.webhookDebugMode
+      );
+    }
+  }
+  async renderCoreNoteBlock(container, file, state, rerender) {
+    const block = container.createDiv({ cls: "zotero-core-note-block" });
+    const header = block.createDiv({ cls: "zotero-core-note-header" });
+    const left = header.createDiv({ cls: "zotero-core-note-title-wrap" });
+    left.createSpan({ cls: "zotero-core-note-title", text: "Core Note" });
+    const right = header.createDiv({ cls: "zotero-core-note-actions" });
+    if (state.takeawaySummary.tldr) {
+      addIconAction(right, "sparkles", "Pull TL;DR from Takeaway", async () => {
+        if (!state.coreNoteFile) {
+          await this.plugin.paperHub.createOrOpenReportFile(
+            state.citekey,
+            "coreNote",
+            file
+          );
+        }
+        const existing = state.coreNote.body.trim();
+        const nextBody = existing ? `${existing}
+
+> **TL;DR**: ${state.takeawaySummary.tldr}` : state.takeawaySummary.tldr;
+        await this.plugin.paperHub.saveCoreNote(
+          state.citekey,
+          { body: nextBody },
+          file
+        );
+        new import_obsidian14.Notice("Pulled TL;DR into Core Note.");
+        await rerender();
+      });
+    }
+    addIconAction(right, "arrow-up-right", "Open Core Note", async () => {
+      var _a;
+      try {
+        const coreFile = await this.plugin.paperHub.createOrOpenReportFile(
+          state.citekey,
+          "coreNote",
+          file
+        );
+        await this.plugin.app.workspace.getLeaf(false).openFile(coreFile);
+      } catch (err) {
+        console.error(
+          "[AssistantView] Failed to open Core Note in editor",
+          err
+        );
+        new import_obsidian14.Notice(
+          `Failed to open Core Note: ${(_a = err == null ? void 0 : err.message) != null ? _a : String(err)}`
+        );
+      }
+    });
+    const bodyWrap = block.createDiv({ cls: "zotero-core-note-body" });
+    const displayEl = bodyWrap.createDiv({ cls: "zotero-core-note-display" });
+    const currentBody = state.coreNote.body.trim();
+    if (currentBody) {
+      await renderMarkdownContent(
+        this.plugin.app,
+        currentBody,
+        displayEl,
+        file.path,
+        this
+      );
+    } else {
+      displayEl.createSpan({
+        cls: "zotero-core-note-placeholder",
+        text: "Click to write core claim & personal takeaways..."
+      });
+    }
+    let editing = false;
+    const enterEditMode = () => {
+      if (editing) return;
+      editing = true;
+      bodyWrap.empty();
+      const textarea = bodyWrap.createEl("textarea", {
+        cls: "zotero-core-note-editor",
+        attr: {
+          placeholder: "Write core claim, personal takeaways, and connections (Ctrl/Cmd+Enter to save, Esc to cancel)..."
+        }
+      });
+      textarea.value = state.coreNote.body;
+      const autoSize = () => {
+        textarea.style.height = "auto";
+        textarea.style.height = `${Math.max(84, textarea.scrollHeight)}px`;
+      };
+      textarea.oninput = autoSize;
+      autoSize();
+      let finished = false;
+      const commit = async () => {
+        if (finished) return;
+        finished = true;
+        const nextVal = textarea.value.trim();
+        if (nextVal !== state.coreNote.body.trim()) {
+          if (!state.coreNoteFile) {
+            await this.plugin.paperHub.createOrOpenReportFile(
+              state.citekey,
+              "coreNote",
+              file
+            );
+          }
+          await this.plugin.paperHub.saveCoreNote(
+            state.citekey,
+            { body: nextVal },
+            file
+          );
+        }
+        await rerender();
+      };
+      const cancel = async () => {
+        if (finished) return;
+        finished = true;
+        await rerender();
+      };
+      textarea.onblur = () => {
+        void commit();
+      };
+      textarea.onkeydown = (ev) => {
+        if ((ev.metaKey || ev.ctrlKey) && ev.key === "Enter") {
+          ev.preventDefault();
+          void commit();
+        } else if (ev.key === "Escape") {
+          ev.preventDefault();
+          void cancel();
+        }
+      };
+      textarea.focus();
+    };
+    displayEl.onclick = (ev) => {
+      var _a;
+      if ((_a = ev.target) == null ? void 0 : _a.closest("a")) return;
+      enterEditMode();
+    };
+  }
+  renderProjectsAndLinksBar(container, file, state, rerender) {
+    const bar = container.createDiv({ cls: "zotero-links-bar" });
+    const projGroup = bar.createDiv({ cls: "zotero-links-group" });
+    projGroup.createSpan({ cls: "zotero-links-label", text: "Projects" });
+    const projChips = projGroup.createDiv({ cls: "zotero-links-chips" });
+    for (const proj of state.projects) {
+      const { linkPath, label } = parseWikiDisplay(proj);
+      const chip = projChips.createSpan({ cls: "zotero-link-chip is-project" });
+      const anchor = chip.createEl("a", { text: label, href: "#" });
+      anchor.onclick = (ev) => {
+        ev.preventDefault();
+        void this.plugin.app.workspace.openLinkText(linkPath, file.path);
+      };
+      const removeEl = chip.createSpan({
+        cls: "zotero-link-chip-remove",
+        text: "\xD7",
+        attr: { title: "Remove project" }
+      });
+      removeEl.onclick = async (ev) => {
+        ev.stopPropagation();
+        const next = state.projects.filter((p) => p !== proj);
+        await this.plugin.paperHub.saveCoreNote(
+          state.citekey,
+          { projects: next },
+          file
+        );
+        await rerender();
+      };
+    }
+    addIconAction(projChips, "plus", "Link a project", () => {
+      new AssistantProjectSuggestModal(
+        this.plugin.app,
+        this.plugin.settings.projectsFolder || "Projects",
+        async (projectFile) => {
+          var _a;
+          const projCache = this.plugin.app.metadataCache.getFileCache(projectFile);
+          const idKey = this.plugin.settings.projectIdKey;
+          const pathWithoutExt = projectFile.path.replace(/\.[^/.]+$/, "");
+          const propVal = (_a = projCache == null ? void 0 : projCache.frontmatter) == null ? void 0 : _a[idKey];
+          const wiki = propVal ? `[[${pathWithoutExt}|${propVal}]]` : `[[${pathWithoutExt}]]`;
+          if (!state.projects.includes(wiki)) {
+            const next = [...state.projects, wiki];
+            await this.plugin.paperHub.saveCoreNote(
+              state.citekey,
+              { projects: next },
+              file
+            );
+            await rerender();
+          }
         }
       ).open();
     });
-    reviewBtn.buttonEl.addClass("zotero-btn-fancy");
-    if (this.plugin.settings.webhooks.length > 0) {
-      this.plugin.settings.webhooks.forEach((hook) => {
-        if (hook.hidden) return;
-        const btn = new import_obsidian11.ButtonComponent(btnRow).setButtonText(hook.name).setIcon(hook.icon || "plane").onClick(async () => {
-          await this.plugin.webhookService.triggerWebhook(hook, file, void 0, this.plugin.settings.webhookDebugMode);
+    const linkedGroup = bar.createDiv({ cls: "zotero-links-group" });
+    linkedGroup.createSpan({ cls: "zotero-links-label", text: "Linked" });
+    const linkedChips = linkedGroup.createDiv({ cls: "zotero-links-chips" });
+    for (const item of state.coreNote.linkedNotes) {
+      const { linkPath, label } = parseWikiDisplay(item);
+      const chip = linkedChips.createSpan({ cls: "zotero-link-chip" });
+      const anchor = chip.createEl("a", { text: label, href: "#" });
+      anchor.onclick = (ev) => {
+        ev.preventDefault();
+        void this.plugin.app.workspace.openLinkText(linkPath, file.path);
+      };
+      const removeEl = chip.createSpan({
+        cls: "zotero-link-chip-remove",
+        text: "\xD7",
+        attr: { title: "Unlink note" }
+      });
+      removeEl.onclick = async (ev) => {
+        ev.stopPropagation();
+        const next = state.coreNote.linkedNotes.filter((n) => n !== item);
+        await this.plugin.paperHub.saveCoreNote(
+          state.citekey,
+          { linkedNotes: next },
+          file
+        );
+        await rerender();
+      };
+    }
+    addIconAction(linkedChips, "plus", "Link an Atomic note", () => {
+      var _a, _b;
+      const atomicBase = (normalizePath(
+        ((_b = (_a = this.plugin.settings.paperWorkspace) == null ? void 0 : _a.atomicNotesFolder) == null ? void 0 : _b.trim()) || "003-Permanent"
+      ).replace(/\/+$/, "") || "003-Permanent") + "/";
+      new VaultMarkdownSuggestModal(
+        this.plugin.app,
+        async (chosen) => {
+          const wiki = `[[${getFileBasename(chosen)}]]`;
+          if (!state.coreNote.linkedNotes.includes(wiki)) {
+            const next = [...state.coreNote.linkedNotes, wiki];
+            await this.plugin.paperHub.saveCoreNote(
+              state.citekey,
+              { linkedNotes: next },
+              file
+            );
+            await rerender();
+          }
+        },
+        (f) => f.path.toLowerCase().endsWith(".md") && normalizePath(f.path).startsWith(atomicBase),
+        "Link an Atomic note..."
+      ).open();
+    });
+  }
+  async renderInlineCommentsSection(container, fleetingNotes, rerender) {
+    const section = container.createDiv({ cls: "zotero-inline-comments" });
+    section.createDiv({
+      cls: "zotero-inline-comments-header",
+      text: `Highlights & Thoughts (${fleetingNotes.length})`
+    });
+    const list = section.createDiv({ cls: "zotero-inline-comments-list" });
+    const renderTasks = [];
+    for (const item of fleetingNotes) {
+      const row = list.createDiv({ cls: "zotero-inline-comment-row" });
+      const textCol = row.createDiv({ cls: "zotero-inline-comment-main" });
+      const noteLink = textCol.createEl("a", {
+        cls: "zotero-inline-comment-link",
+        text: getFileBasename(item.file),
+        href: "#"
+      });
+      noteLink.onclick = (ev) => {
+        ev.preventDefault();
+        void this.plugin.app.workspace.getLeaf(false).openFile(item.file);
+      };
+      if (item.thought) {
+        const snippetEl = textCol.createDiv({
+          cls: "zotero-inline-comment-snippet"
         });
-        btn.buttonEl.addClass("zotero-btn-fancy", "zotero-btn-secondary");
+        renderTasks.push(
+          renderMarkdownContent(
+            this.plugin.app,
+            item.thought,
+            snippetEl,
+            item.file.path,
+            this
+          )
+        );
+      }
+      const toggleBadge = row.createEl("button", {
+        cls: `zotero-read-badge ${item.read ? "is-read" : "is-unread"}`,
+        text: item.read ? "Read" : "Unread",
+        attr: { type: "button", title: "Toggle read state" }
+      });
+      toggleBadge.onclick = async () => {
+        var _a;
+        if ((_a = this.plugin.app.fileManager) == null ? void 0 : _a.processFrontMatter) {
+          await this.plugin.app.fileManager.processFrontMatter(
+            item.file,
+            (fm) => {
+              fm["read"] = !item.read;
+            }
+          );
+        }
+        await rerender();
+      };
+    }
+    await Promise.all(renderTasks);
+  }
+  async renderLegacyScript(file, container, source) {
+    const customScript = this.plugin.settings.assistantScript;
+    if (!customScript || !customScript.trim()) return;
+    if (!this.plugin.dataviewService.isAvailable) {
+      container.createDiv({
+        text: "Dataview plugin not found.",
+        cls: "zotero-text-muted-italic"
+      });
+      return;
+    }
+    const lines = source.trim().split("\n");
+    const params = {};
+    lines.slice(1).forEach((line) => {
+      const [key, value] = line.split(/[=:]/).map((s) => s.trim());
+      if (key && value) {
+        try {
+          params[key] = JSON.parse(value);
+        } catch (e) {
+          params[key] = value.replace(/^["']|["']$/g, "");
+        }
+      }
+    });
+    await this.plugin.dataviewService.executeScript(
+      customScript,
+      container,
+      this,
+      file.path,
+      params
+    );
+  }
+  renderVenueAndCfpBar(container, file) {
+    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m;
+    const fm = (_a = this.plugin.app.metadataCache.getFileCache(file)) == null ? void 0 : _a.frontmatter;
+    if (!fm) return;
+    const acronymKey = ((_b = this.plugin.settings.cfpAcronymKey) == null ? void 0 : _b.trim()) || "conference-acronym";
+    const rawAcronym = String(
+      (_e = (_d = (_c = fm[acronymKey]) != null ? _c : fm["acronym"]) != null ? _d : fm["conference_acronym"]) != null ? _e : ""
+    ).trim();
+    const rawVenue = String((_g = (_f = fm["venue"]) != null ? _f : fm["publication"]) != null ? _g : "").trim();
+    let seriesName = "";
+    let seriesNotePath = "";
+    if (this.plugin.cfpService) {
+      const candidateRaw = rawAcronym || rawVenue;
+      const wikiMatch = candidateRaw.match(/^\[\[([^\]|]+)(?:\|[^\]]*)?\]\]$/);
+      if (wikiMatch) {
+        const linkTarget = wikiMatch[1].trim();
+        const resolved = (_j = (_i = (_h = this.plugin.app.metadataCache).getFirstLinkpathDest) == null ? void 0 : _i.call(
+          _h,
+          linkTarget,
+          file.path
+        )) != null ? _j : this.plugin.app.vault.getAbstractFileByPath(
+          normalizePath(
+            linkTarget.endsWith(".md") ? linkTarget : `${linkTarget}.md`
+          )
+        );
+        if (resolved instanceof import_obsidian14.TFile) {
+          const info = this.plugin.cfpService.getCFPNoteInfoByPath(
+            resolved.path
+          );
+          if (info) {
+            if (info.isSeries) {
+              seriesName = info.seriesName;
+              seriesNotePath = info.seriesNotePath;
+            } else {
+              seriesName = info.event.item.series || info.event.item.acronym;
+              const byAcronym = this.plugin.cfpService.getSeriesInfoByAcronym(
+                seriesName
+              );
+              if (byAcronym) seriesNotePath = byAcronym.seriesNotePath;
+            }
+          }
+        }
+      }
+      if (!seriesNotePath) {
+        const normalizedLookup = normalizeVenueSeries(rawAcronym || rawVenue);
+        if (normalizedLookup) {
+          const sInfo = this.plugin.cfpService.getSeriesInfoByAcronym(normalizedLookup);
+          if (sInfo) {
+            seriesName = sInfo.seriesName;
+            seriesNotePath = sInfo.seriesNotePath;
+          }
+        }
+      }
+    }
+    const displaySeries = seriesName || normalizeVenueSeries(rawAcronym || rawVenue);
+    const sameVenuePapers = this.plugin.vaultLibrary.findSameVenuePapers(
+      file,
+      displaySeries
+    );
+    if (!displaySeries && sameVenuePapers.length === 0) return;
+    let rankCore = "";
+    let rankCcf = "";
+    if (seriesNotePath) {
+      const sFile = this.plugin.app.vault.getAbstractFileByPath(seriesNotePath);
+      if (sFile instanceof import_obsidian14.TFile) {
+        const sFm = (_k = this.plugin.app.metadataCache.getFileCache(sFile)) == null ? void 0 : _k.frontmatter;
+        rankCore = String((_l = sFm == null ? void 0 : sFm["rank_core"]) != null ? _l : "").trim();
+        rankCcf = String((_m = sFm == null ? void 0 : sFm["rank_ccf"]) != null ? _m : "").trim();
+      }
+    }
+    const footer = container.createDiv({ cls: "zotero-venue-bar" });
+    const metaLeft = footer.createDiv({ cls: "zotero-venue-meta" });
+    if (displaySeries) {
+      metaLeft.createSpan({ cls: "zotero-venue-acronym", text: displaySeries });
+    }
+    if (rankCore) {
+      metaLeft.createSpan({
+        cls: "zotero-venue-rank is-core",
+        text: `CORE ${rankCore}`
       });
     }
-    container.createEl("hr");
-    container.createEl("h5", { text: "\u{1F4DD} Related Notes / Highlights" });
-    const highlightsDiv = container.createDiv({ cls: "zotero-local-highlights" });
-    await this.renderLocalHighlights(file, highlightsDiv, source);
-    container.createEl("hr");
-    container.createEl("h5", { text: "\u{1F4C5} CFP context" });
-    const cfpDiv = container.createDiv({ cls: "zotero-cfp-context" });
-    await this.renderCFPContext(file, cfpDiv);
-  }
-  async renderLocalHighlights(file, container, source) {
-    const customScript = this.plugin.settings.assistantScript;
-    if (customScript && customScript.trim().length > 0) {
-      if (this.plugin.dataviewService.isAvailable) {
-        const lines2 = source.trim().split("\n");
-        const params = {};
-        lines2.slice(1).forEach((line) => {
-          const [key, value] = line.split(/[=:]/).map((s) => s.trim());
-          if (key && value) {
-            try {
-              params[key] = JSON.parse(value);
-            } catch (e) {
-              params[key] = value.replace(/^["']|["']$/g, "");
-            }
-          }
+    if (rankCcf) {
+      metaLeft.createSpan({
+        cls: "zotero-venue-rank is-ccf",
+        text: `CCF ${rankCcf}`
+      });
+    }
+    if (seriesNotePath) {
+      const seriesLink = metaLeft.createEl("a", {
+        cls: "zotero-venue-series-link",
+        text: `${seriesName || displaySeries} Series`,
+        href: "#"
+      });
+      seriesLink.onclick = (ev) => {
+        ev.preventDefault();
+        const target = this.plugin.app.vault.getAbstractFileByPath(seriesNotePath);
+        if (target instanceof import_obsidian14.TFile) {
+          void this.plugin.app.workspace.getLeaf(false).openFile(target);
+        }
+      };
+    }
+    if (sameVenuePapers.length > 0) {
+      const peersWrap = footer.createDiv({ cls: "zotero-venue-peers" });
+      for (const peer of sameVenuePapers.slice(0, MAX_INLINE_VENUE_PAPERS)) {
+        const chip = peersWrap.createEl("a", {
+          cls: "zotero-venue-peer-chip",
+          text: peer.shortLabel,
+          href: "#",
+          attr: { title: peer.title }
         });
-        await this.plugin.dataviewService.executeScript(
-          customScript,
-          container,
-          this,
-          file.path,
-          params
-          // Inject { input: params }
+        chip.onclick = (ev) => {
+          ev.preventDefault();
+          void this.plugin.app.workspace.getLeaf(false).openFile(peer.file);
+        };
+      }
+      const jumpText = sameVenuePapers.length > MAX_INLINE_VENUE_PAPERS ? `+${sameVenuePapers.length - MAX_INLINE_VENUE_PAPERS} in Library \u2192` : `Library (${sameVenuePapers.length}) \u2192`;
+      const jumpBtn = peersWrap.createEl("button", {
+        cls: "zotero-venue-library-btn",
+        text: jumpText,
+        attr: { type: "button" }
+      });
+      jumpBtn.onclick = () => {
+        void Promise.resolve().then(() => (init_digest_view(), digest_view_exports)).then(
+          (mod) => mod.openPaperLibrary(this.plugin, displaySeries)
         );
-      } else {
-        container.createDiv({
-          text: "\u26A0\uFE0F Dataview plugin not found. Please install Dataview.",
-          cls: "zotero-text-muted-italic"
-        });
-      }
-      return;
-    }
-    const content = await this.plugin.app.vault.read(file);
-    const lines = content.split("\n");
-    let found = 0;
-    const list = container.createEl("ul", { cls: "zotero-highlight-list" });
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (trimmed.startsWith(">") && !trimmed.includes("[!")) {
-        const text = trimmed.replace(/^>\s*/, "").trim();
-        if (text.length > 0) {
-          const li = list.createEl("li", { cls: "zotero-highlight-item" });
-          li.innerText = text.length > 100 ? text.slice(0, 100) + "..." : text;
-          found++;
-        }
-      } else if (trimmed.includes("==")) {
-        const matches = trimmed.match(/==(.*?)==/g);
-        if (matches) matches.forEach((m) => {
-          const li = list.createEl("li", { cls: "zotero-highlight-item" });
-          li.innerText = m.replace(/==/g, "");
-          found++;
-        });
-      }
-    }
-    if (found === 0) container.createDiv({ text: "No highlights detected.", cls: "zotero-text-muted-italic" });
-  }
-  /** Render CFP context from Conference acronym key (plain string or wiki link). */
-  async renderCFPContext(file, container) {
-    var _a, _b, _c, _d, _e;
-    if (!this.plugin.cfpService) {
-      container.createDiv({ text: "CFP service not available.", cls: "zotero-text-muted-italic" });
-      return;
-    }
-    const cache2 = this.plugin.app.metadataCache.getFileCache(file);
-    const fm = cache2 == null ? void 0 : cache2.frontmatter;
-    if (!fm) {
-      container.createDiv({ text: "No metadata found for CFP matching.", cls: "zotero-text-muted-italic" });
-      return;
-    }
-    const acronymKey = ((_a = this.plugin.settings.cfpAcronymKey) == null ? void 0 : _a.trim()) || "conference-acronym";
-    let raw = ((_b = fm[acronymKey]) != null ? _b : "").toString().trim();
-    if (!raw) {
-      raw = ((_e = (_d = (_c = fm["acronym"]) != null ? _c : fm["conference_acronym"]) != null ? _d : fm["conferenceAbbrev"]) != null ? _e : "").toString().trim();
-    }
-    if (!raw) {
-      container.createDiv({ text: "No conference acronym in this note.", cls: "zotero-text-muted-italic" });
-      return;
-    }
-    const linkMatch = raw.match(/^\[\[([^\]|]+)(?:\|[^\]]*)?\]\]$/);
-    const cfpDir = (this.plugin.settings.cfpNoteDir || "CFP").trim() || "CFP";
-    const cfpDirPrefix = normalizePath(cfpDir + "/");
-    try {
-      if (!linkMatch) {
-        const seriesInfo = this.plugin.cfpService.getSeriesInfoByAcronym(raw);
-        if (!seriesInfo) {
-          container.createDiv({ text: `No matching series in CFP folder for "${raw}".`, cls: "zotero-text-muted-italic" });
-          return;
-        }
-        this.renderSeriesBlock(container, seriesInfo.seriesName, seriesInfo.seriesNotePath, seriesInfo.latestEvent);
-        return;
-      }
-      const linkPath = linkMatch[1].trim();
-      const resolved = this.plugin.app.metadataCache.getFirstLinkpathDest(linkPath, file.path);
-      const targetFile = resolved != null ? resolved : this.plugin.app.vault.getAbstractFileByPath(
-        normalizePath(linkPath.endsWith(".md") ? linkPath : linkPath + ".md")
-      );
-      if (!targetFile || !(targetFile instanceof import_obsidian11.TFile)) {
-        container.createDiv({ text: "Could not resolve link to a note.", cls: "zotero-text-muted-italic" });
-        return;
-      }
-      if (!targetFile.path.startsWith(cfpDirPrefix)) {
-        container.createDiv({ text: "Link is not under CFP folder.", cls: "zotero-text-muted-italic" });
-        return;
-      }
-      const info = this.plugin.cfpService.getCFPNoteInfoByPath(targetFile.path);
-      if (!info) {
-        container.createDiv({ text: "Could not load CFP note info.", cls: "zotero-text-muted-italic" });
-        return;
-      }
-      if (info.isSeries) {
-        this.renderSeriesBlock(container, info.seriesName, info.seriesNotePath, info.latestEvent);
-      } else {
-        this.renderEventBlock(container, info.event, info.latestEvent);
-      }
-    } catch (e) {
-      console.error("[CFP] renderCFPContext failed", e);
-      container.createDiv({ text: "Failed to load CFP context. See console.", cls: "zotero-text-muted-italic" });
-    }
-  }
-  /** Create a clickable link that opens a file. */
-  createFileLink(parent, text, path2, cls) {
-    const link = parent.createEl("a", { text, href: "#", cls });
-    link.onclick = (ev) => {
-      ev.preventDefault();
-      const file = this.plugin.app.vault.getAbstractFileByPath(path2);
-      if (file instanceof import_obsidian11.TFile) this.plugin.app.workspace.getLeaf().openFile(file);
-      else new import_obsidian11.Notice("Note not found.");
-    };
-    return link;
-  }
-  /** Render series block with link and latest conference info. */
-  renderSeriesBlock(container, seriesName, seriesNotePath, latestEvent) {
-    var _a, _b;
-    const titleEl = container.createDiv({ cls: "zotero-cfp-title" });
-    titleEl.createSpan({ text: seriesName, cls: "zotero-cfp-acronym" });
-    titleEl.createSpan({ text: " \u2014 Series overview", cls: "zotero-cfp-fullname" });
-    const metaList = container.createEl("ul", { cls: "zotero-cfp-meta" });
-    const seriesFile = this.plugin.app.vault.getAbstractFileByPath(seriesNotePath);
-    if (seriesFile instanceof import_obsidian11.TFile) {
-      const cache2 = this.plugin.app.metadataCache.getFileCache(seriesFile);
-      const fm = cache2 == null ? void 0 : cache2.frontmatter;
-      if (fm) {
-        const core2 = ((_a = fm["rank_core"]) != null ? _a : "").toString().trim();
-        const ccf = ((_b = fm["rank_ccf"]) != null ? _b : "").toString().trim();
-        const parts = [];
-        if (core2) parts.push(`CORE: ${core2}`);
-        if (ccf) parts.push(`CCF: ${ccf}`);
-        if (parts.length > 0) {
-          metaList.createEl("li").createSpan({ text: parts.join(" | ") });
-        }
-      }
-    }
-    const seriesLi = metaList.createEl("li");
-    seriesLi.createSpan({ text: "Series note: " });
-    this.createFileLink(seriesLi, `${seriesName} Series`, seriesNotePath);
-    if (latestEvent) {
-      const latestLi = metaList.createEl("li");
-      latestLi.createSpan({ text: "Latest: " });
-      this.createFileLink(latestLi, latestEvent.item.acronym, latestEvent.path);
-      const details = [];
-      if (latestEvent.item.submissionDdl) details.push(`DDL: ${latestEvent.item.submissionDdl}`);
-      if (latestEvent.item.location) details.push(latestEvent.item.location);
-      if (details.length) latestLi.createSpan({ text: ` (${details.join(", ")})` });
-    } else {
-      metaList.createEl("li").createSpan({ text: "No conferences found.", cls: "zotero-text-muted-italic" });
-    }
-  }
-  /** Render event block with dates/location and latest conference info in series. */
-  renderEventBlock(container, event, latestEvent) {
-    var _a, _b;
-    const titleEl = container.createDiv({ cls: "zotero-cfp-title" });
-    this.createFileLink(titleEl, event.item.acronym, event.path, "zotero-cfp-acronym");
-    if (event.item.fullName && event.item.fullName !== event.item.acronym) {
-      titleEl.createSpan({ text: ` \u2014 ${event.item.fullName}`, cls: "zotero-cfp-fullname" });
-    }
-    const metaList = container.createEl("ul", { cls: "zotero-cfp-meta" });
-    const dir = this.plugin.settings.cfpNoteDir || "CFP";
-    const prefix = normalizePath(dir) + "/";
-    if (event.path.startsWith(prefix)) {
-      const rel = event.path.slice(prefix.length);
-      const parts = rel.split("/");
-      if (parts.length === 2) {
-        const seriesDirName = parts[0];
-        const seriesNotePath = normalizePath(prefix + seriesDirName + "/" + seriesDirName + " Series.md");
-        const seriesFile = this.plugin.app.vault.getAbstractFileByPath(seriesNotePath);
-        if (seriesFile instanceof import_obsidian11.TFile) {
-          const cache2 = this.plugin.app.metadataCache.getFileCache(seriesFile);
-          const fm = cache2 == null ? void 0 : cache2.frontmatter;
-          if (fm) {
-            const core2 = ((_a = fm["rank_core"]) != null ? _a : "").toString().trim();
-            const ccf = ((_b = fm["rank_ccf"]) != null ? _b : "").toString().trim();
-            const partsText = [];
-            if (core2) partsText.push(`CORE: ${core2}`);
-            if (ccf) partsText.push(`CCF: ${ccf}`);
-            if (partsText.length > 0) {
-              metaList.createEl("li").createSpan({ text: partsText.join(" | ") });
-            }
-          }
-        }
-      }
-    }
-    const dateText = event.item.start && event.item.end ? `${event.item.start} \u2192 ${event.item.end}` : event.item.start || event.item.end || "N/A";
-    metaList.createEl("li").createSpan({ text: `Dates: ${dateText}` });
-    if (event.item.location) metaList.createEl("li").createSpan({ text: `Location: ${event.item.location}` });
-    if (latestEvent && latestEvent.path !== event.path) {
-      const latestLi = metaList.createEl("li");
-      latestLi.createSpan({ text: "Latest in series: " });
-      this.createFileLink(latestLi, latestEvent.item.acronym, latestEvent.path);
-      const details = [];
-      if (latestEvent.item.submissionDdl) details.push(`DDL: ${latestEvent.item.submissionDdl}`);
-      if (latestEvent.item.location) details.push(latestEvent.item.location);
-      if (details.length) latestLi.createSpan({ text: ` (${details.join(", ")})` });
+      };
     }
   }
 };
 
+// src/ui/webhook-modals.ts
+var import_obsidian15 = require("obsidian");
+var WebhookSelectionModal = class extends import_obsidian15.SuggestModal {
+  constructor(app, webhooks, onChoose) {
+    super(app);
+    this.webhooks = webhooks;
+    this.onChoose = onChoose;
+  }
+  getSuggestions(query) {
+    return this.webhooks.filter(
+      (hook) => hook.name.toLowerCase().includes(query.toLowerCase())
+    );
+  }
+  renderSuggestion(hook, el) {
+    el.createDiv({ text: hook.name });
+    el.createDiv({ text: hook.url, cls: "zotero-text-muted-italic" });
+  }
+  onChooseSuggestion(hook) {
+    var _a;
+    this.close();
+    const vars = ((_a = hook.inputVariables) != null ? _a : []).filter((iv) => {
+      var _a2;
+      return (_a2 = iv.name) == null ? void 0 : _a2.trim();
+    });
+    if (vars.length > 0) {
+      new WebhookInputValueModal(this.app, hook.name, vars, (values) => {
+        this.onChoose(hook, values);
+      }).open();
+    } else {
+      this.onChoose(hook);
+    }
+  }
+};
+var WebhookInputValueModal = class extends import_obsidian15.Modal {
+  constructor(app, title, variables, onSubmit) {
+    super(app);
+    this.inputs = /* @__PURE__ */ new Map();
+    this.title = title;
+    this.variables = variables;
+    this.onSubmit = onSubmit;
+  }
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.addClass("zotero-webhook-input-modal");
+    contentEl.createEl("h2", {
+      text: this.title,
+      cls: "zotero-webhook-input-title"
+    });
+    const desc = contentEl.createDiv({ cls: "zotero-webhook-input-desc" });
+    desc.setText("Enter values to substitute in the webhook body.");
+    const form = contentEl.createDiv({ cls: "zotero-webhook-input-form" });
+    this.variables.forEach((iv) => {
+      const row = form.createDiv({ cls: "zotero-webhook-input-row" });
+      row.createEl("label", {
+        text: `{{${iv.name}}}`,
+        cls: "zotero-webhook-input-label"
+      });
+      const tc = new import_obsidian15.TextComponent(row);
+      tc.inputEl.addClass("zotero-webhook-input-field");
+      if (iv.type === "number") {
+        tc.inputEl.type = "number";
+        tc.setPlaceholder("0");
+      } else {
+        tc.setPlaceholder("Optional");
+      }
+      this.inputs.set(iv.name, tc);
+    });
+    const footer = contentEl.createDiv({ cls: "zotero-webhook-input-footer" });
+    new import_obsidian15.ButtonComponent(footer).setButtonText("Cancel").onClick(() => this.close());
+    new import_obsidian15.ButtonComponent(footer).setButtonText("Trigger").setCta().onClick(() => {
+      const values = {};
+      this.variables.forEach((iv) => {
+        var _a, _b;
+        const v = (_b = (_a = this.inputs.get(iv.name)) == null ? void 0 : _a.getValue()) != null ? _b : "";
+        values[iv.name] = iv.type === "number" ? String(Number(v)) : v;
+      });
+      this.close();
+      this.onSubmit(values);
+    }).buttonEl.addClass("zotero-btn-fancy");
+  }
+};
+
 // src/services/webhook.ts
-var import_obsidian12 = require("obsidian");
+var import_obsidian16 = require("obsidian");
+init_paths();
+init_paper_hub();
 var WebhookService = class {
-  constructor(app) {
+  constructor(app, getSettings) {
     this.app = app;
+    this.getSettings = getSettings;
   }
   async triggerWebhook(profile, file, extraVariables, debugMode) {
+    var _a, _b, _c, _d, _e;
     if (!profile.url) {
-      new import_obsidian12.Notice(`\u274C Webhook "${profile.name}" has no URL.`);
+      new import_obsidian16.Notice(`\u274C Webhook "${profile.name}" has no URL.`);
       return;
     }
-    new import_obsidian12.Notice(`\u{1F680} Triggering: ${profile.name}...`);
+    new import_obsidian16.Notice(`\u{1F680} Triggering: ${profile.name}...`);
     try {
       const cache2 = this.app.metadataCache.getFileCache(file);
       const frontmatter = (cache2 == null ? void 0 : cache2.frontmatter) || {};
       const content = await this.app.vault.read(file);
+      const safePath = String((_a = file.path) != null ? _a : "");
+      const safeFilename = String((_b = file.name) != null ? _b : safePath.split("/").pop() || "");
       const variables = {
-        "{{filename}}": file.name,
-        "{{path}}": file.path,
-        "{{content}}": content,
+        "{{filename}}": safeFilename,
+        "{{path}}": safePath,
+        "{{content}}": String(content != null ? content : ""),
         "{{timestamp}}": (/* @__PURE__ */ new Date()).toISOString()
       };
-      if (extraVariables) {
-        for (const [key, val] of Object.entries(extraVariables)) {
-          variables[`{{${key}}}`] = String(val);
-        }
-      }
       Object.keys(frontmatter).forEach((key) => {
         variables[`{{frontmatter.${key}}}`] = String(frontmatter[key]);
       });
+      if (this.getSettings) {
+        const settings = this.getSettings();
+        const fallbackName = (file.basename || safeFilename).replace(
+          /\.md$/i,
+          ""
+        );
+        const rawCitekey = frontmatter[settings.citationKeyName] || frontmatter["citation-key"] || frontmatter["zotero-key"] || fallbackName;
+        const citekey = String(rawCitekey).trim();
+        const paths = resolvePaperPaths(settings.paperWorkspace, citekey);
+        variables["{{citekey}}"] = citekey;
+        variables["{{path.zotero_note}}"] = paths.literatureNote;
+        variables["{{path.report1}}"] = paths.report1;
+        variables["{{path.report2}}"] = paths.report2;
+        variables["{{path.takeaway}}"] = paths.takeaway;
+        variables["{{path.core_note}}"] = paths.coreNote;
+        const promptEntries = (settings.prompts || []).filter(
+          (p) => {
+            var _a2;
+            return ((_a2 = p.kind) != null ? _a2 : "prompt") === "prompt";
+          }
+        );
+        const resolvedPrompts = await Promise.all(
+          promptEntries.map(async (prompt) => {
+            var _a2;
+            const vPath = ((_a2 = prompt.vaultPath) == null ? void 0 : _a2.trim()) ? normalizePath(prompt.vaultPath.trim()) : "";
+            const vaultFile = vPath ? this.app.vault.getAbstractFileByPath(vPath) : null;
+            const promptContent = vaultFile instanceof import_obsidian16.TFile ? await this.app.vault.read(vaultFile) : prompt.content;
+            return { id: prompt.id, content: promptContent, path: vPath };
+          })
+        );
+        for (const item of resolvedPrompts) {
+          variables[`{{prompt.${item.id}}}`] = String((_c = item.content) != null ? _c : "");
+          variables[`{{path.prompt.${item.id}}}`] = String((_d = item.path) != null ? _d : "");
+        }
+      }
+      if (extraVariables) {
+        for (const [key, val] of Object.entries(extraVariables)) {
+          variables[`{{${key}}}`] = String(val != null ? val : "");
+        }
+      }
       let body = void 0;
       if (profile.method !== "GET") {
         const rawTemplate = profile.bodyTemplate || "";
         if (profile.contentType === "json" && rawTemplate.trim().length > 0) {
           try {
             const templateObj = JSON.parse(rawTemplate);
-            const filledObj = this.fillTemplateRecursive(templateObj, variables);
+            const filledObj = this.fillTemplateRecursive(
+              templateObj,
+              variables
+            );
             body = JSON.stringify(filledObj);
           } catch (e) {
-            console.warn("Webhook template is not valid JSON, falling back to raw string replacement.", e);
+            console.warn(
+              "Webhook template is not valid JSON, falling back to raw string replacement.",
+              e
+            );
             body = this.fillStringTemplate(rawTemplate, variables, true);
           }
         } else {
@@ -12457,19 +20509,20 @@ var WebhookService = class {
         }
       }
       const headers = {};
-      if (profile.contentType === "json") headers["Content-Type"] = "application/json";
-      else if (profile.contentType === "form") headers["Content-Type"] = "application/x-www-form-urlencoded";
-      else if (profile.contentType === "text") headers["Content-Type"] = "text/plain";
+      if (profile.contentType === "json")
+        headers["Content-Type"] = "application/json";
+      else if (profile.contentType === "form")
+        headers["Content-Type"] = "application/x-www-form-urlencoded";
+      else if (profile.contentType === "text")
+        headers["Content-Type"] = "text/plain";
       for (const h of profile.headers) {
-        let finalValue = h.value;
-        if (h.type === "secret") {
-          if (this.app.secretStorage) {
-            const secret = await this.app.secretStorage.getSecret(h.value);
-            if (secret) finalValue = secret;
-          }
+        let finalValue = String((_e = h.value) != null ? _e : "");
+        if (h.type === "secret" && this.app.secretStorage) {
+          const secret = await this.app.secretStorage.getSecret(h.value);
+          if (secret) finalValue = secret;
         }
         for (const [vKey, vVal] of Object.entries(variables)) {
-          finalValue = finalValue.split(vKey).join(vVal);
+          finalValue = finalValue.split(vKey).join(String(vVal != null ? vVal : ""));
         }
         headers[h.key] = finalValue;
       }
@@ -12480,55 +20533,49 @@ var WebhookService = class {
         console.log("Headers:", headers);
         console.log("Body:", body != null ? body : "(none)");
         console.groupEnd();
-        new import_obsidian12.Notice(`\u{1F50D} Webhook debug: check console for request details.`);
+        new import_obsidian16.Notice("\u{1F50D} Webhook debug: check console for request details.");
       }
-      const response = await (0, import_obsidian12.requestUrl)({
+      const response = await (0, import_obsidian16.requestUrl)({
         url: profile.url.trim(),
         method: profile.method,
         headers,
         body
       });
       if (response.status >= 200 && response.status < 300) {
-        new import_obsidian12.Notice(`\u2705 ${profile.name} Sent!`);
+        new import_obsidian16.Notice(`\u2705 ${profile.name} Sent!`);
       } else {
-        new import_obsidian12.Notice(`\u26A0\uFE0F ${profile.name} Failed: ${response.status}`);
+        new import_obsidian16.Notice(`\u26A0\uFE0F ${profile.name} Failed: ${response.status}`);
         console.error("Webhook Failed Body:", body || "");
       }
     } catch (e) {
       console.error(e);
-      new import_obsidian12.Notice(`\u274C Webhook Error: ${e.message}`);
+      new import_obsidian16.Notice(`\u274C Webhook Error: ${e.message}`);
     }
   }
-  /**
-   * Recursively traverses a JSON object/array and replaces string values containing placeholders.
-   * This is safer because JSON.stringify() at the end handles all escaping (quotes, newlines).
-   */
   fillTemplateRecursive(item, variables) {
     if (typeof item === "string") {
       let result = item;
       for (const [key, val] of Object.entries(variables)) {
-        result = result.split(key).join(val);
+        result = result.split(key).join(String(val != null ? val : ""));
       }
       return result;
     } else if (Array.isArray(item)) {
       return item.map((child) => this.fillTemplateRecursive(child, variables));
     } else if (typeof item === "object" && item !== null) {
       const newObj = {};
-      for (const key in item) {
-        newObj[key] = this.fillTemplateRecursive(item[key], variables);
+      for (const [key, value] of Object.entries(
+        item
+      )) {
+        newObj[key] = this.fillTemplateRecursive(value, variables);
       }
       return newObj;
     }
     return item;
   }
-  /**
-   * The old "Brittle" method: Manually replacing text in a big string.
-   * Used for non-JSON content types or invalid JSON templates.
-   */
   fillStringTemplate(template, variables, escapeForJson) {
     let body = template;
     for (const [key, val] of Object.entries(variables)) {
-      let safeVal = val;
+      let safeVal = String(val != null ? val : "");
       if (escapeForJson) {
         safeVal = safeVal.replace(/\\/g, "\\\\").replace(/\n/g, "\\n").replace(/"/g, '\\"');
       }
@@ -12544,9 +20591,16 @@ var DataviewService = class {
     this.app = app;
   }
   get api() {
-    const plugin = this.app.plugins.getPlugin("dataview");
-    if (plugin && plugin.settings) {
-      return plugin.api;
+    var _a, _b;
+    const rawPlugin = (_b = (_a = this.app.plugins) == null ? void 0 : _a.getPlugin) == null ? void 0 : _b.call(
+      _a,
+      "dataview"
+    );
+    if (typeof rawPlugin === "object" && rawPlugin !== null) {
+      const plugin = rawPlugin;
+      if (plugin.settings) {
+        return plugin.api;
+      }
     }
     return void 0;
   }
@@ -12562,7 +20616,8 @@ var DataviewService = class {
    * @param params - JSON-serializable parameters to inject as 'input'.
    */
   async executeScript(code, container, component, filePath, params = {}) {
-    if (!this.api) {
+    const api = this.api;
+    if (!api) {
       container.createDiv({ text: "Dataview API not available." });
       return;
     }
@@ -12570,12 +20625,7 @@ var DataviewService = class {
       const codeWithParams = `const input = ${JSON.stringify(params)};
 
 ${code}`;
-      await this.api.executeJs(
-        codeWithParams,
-        container,
-        component,
-        filePath
-      );
+      await api.executeJs(codeWithParams, container, component, filePath);
     } catch (e) {
       console.error("Dataview Script Execution Error:", e);
       container.createDiv({
@@ -12587,27 +20637,21 @@ ${code}`;
 };
 
 // src/services/cfp.ts
-var import_obsidian18 = require("obsidian");
+var import_obsidian22 = require("obsidian");
 
 // src/services/cfp-wikicfp.ts
-var import_obsidian13 = require("obsidian");
-
-// src/utils/series.ts
-function pureSeriesFromAcronym(acronym) {
-  if (!acronym || !acronym.trim()) return "";
-  let s = acronym.trim();
-  s = s.replace(/\s+(1st|2nd|3rd|\d+th)$/i, "");
-  s = s.replace(/\s+\d{2,4}$/, "");
-  s = s.replace(/\d{2,4}$/, "");
-  return s.trim() || acronym.trim();
-}
-
-// src/services/cfp-wikicfp.ts
+var import_obsidian17 = require("obsidian");
+init_series();
 var DELAY_MS = 1500;
 function delay(ms) {
   return new Promise((resolve2) => setTimeout(resolve2, ms));
 }
-var BASIC_ENTITIES = { nbsp: " ", amp: "&", lt: "<", gt: ">" };
+var BASIC_ENTITIES = {
+  nbsp: " ",
+  amp: "&",
+  lt: "<",
+  gt: ">"
+};
 function stripHtml(html) {
   return html.replace(/<[^>]+>/g, " ").replace(/&(nbsp|amp|lt|gt);/g, (_, name) => BASIC_ENTITIES[name]).replace(/\s+/g, " ").trim();
 }
@@ -12634,7 +20678,9 @@ function parseWikiCFPTableRow(rowHtml, pageUrl) {
   let end;
   const whenStr = stripHtml(whenCell).trim();
   if (whenStr && whenStr.toLowerCase() !== "n/a") {
-    const range = whenStr.match(/^([A-Za-z]+\s+\d{1,2},\s+\d{4})\s*-\s*([A-Za-z]+\s+\d{1,2},\s+\d{4})$/);
+    const range = whenStr.match(
+      /^([A-Za-z]+\s+\d{1,2},\s+\d{4})\s*-\s*([A-Za-z]+\s+\d{1,2},\s+\d{4})$/
+    );
     if (range) {
       start = range[1];
       end = range[2];
@@ -12662,7 +20708,8 @@ function parseWikiCFPHtml(html, pageUrl) {
   let rowMatch;
   while ((rowMatch = rowRe.exec(html)) !== null) {
     const rowHtml = rowMatch[1];
-    if (/<th[\s>]|Event\s*<\/|When\s*<\/|Where\s*<\/|Deadline\s*<\//i.test(rowHtml)) continue;
+    if (/<th[\s>]|Event\s*<\/|When\s*<\/|Where\s*<\/|Deadline\s*<\//i.test(rowHtml))
+      continue;
     const item = parseWikiCFPTableRow(rowHtml, pageUrl);
     if (item) {
       const key = item.acronym.toLowerCase();
@@ -12670,7 +20717,10 @@ function parseWikiCFPHtml(html, pageUrl) {
         seenAcronyms.add(key);
         items.push(item);
       } else {
-        console.log("[CFP] parseWikiCFPHtml: skipping duplicate acronym", item.acronym);
+        console.log(
+          "[CFP] parseWikiCFPHtml: skipping duplicate acronym",
+          item.acronym
+        );
       }
     }
   }
@@ -12683,7 +20733,7 @@ async function fetchWikiCFP(urls) {
     const url = (_a = urls[i]) == null ? void 0 : _a.trim();
     if (!url) continue;
     try {
-      const resp = await (0, import_obsidian13.requestUrl)({ url, method: "GET" });
+      const resp = await (0, import_obsidian17.requestUrl)({ url, method: "GET" });
       if (resp.status !== 200) continue;
       const items = parseWikiCFPHtml(resp.text, url);
       results.push(...items);
@@ -12695,3075 +20745,8 @@ async function fetchWikiCFP(urls) {
 }
 
 // src/services/cfp-ccfddl.ts
-var import_obsidian14 = require("obsidian");
-
-// node_modules/js-yaml/dist/js-yaml.mjs
-function getDefaultExportFromCjs(x) {
-  return x && x.__esModule && Object.prototype.hasOwnProperty.call(x, "default") ? x["default"] : x;
-}
-var jsYaml = {};
-var loader = {};
-var common = {};
-var hasRequiredCommon;
-function requireCommon() {
-  if (hasRequiredCommon) return common;
-  hasRequiredCommon = 1;
-  function isNothing(subject) {
-    return typeof subject === "undefined" || subject === null;
-  }
-  function isObject(subject) {
-    return typeof subject === "object" && subject !== null;
-  }
-  function toArray(sequence) {
-    if (Array.isArray(sequence)) return sequence;
-    else if (isNothing(sequence)) return [];
-    return [sequence];
-  }
-  function extend(target, source) {
-    if (source) {
-      const sourceKeys = Object.keys(source);
-      for (let index = 0, length = sourceKeys.length; index < length; index += 1) {
-        const key = sourceKeys[index];
-        target[key] = source[key];
-      }
-    }
-    return target;
-  }
-  function repeat(string, count) {
-    let result = "";
-    for (let cycle = 0; cycle < count; cycle += 1) {
-      result += string;
-    }
-    return result;
-  }
-  function isNegativeZero(number) {
-    return number === 0 && Number.NEGATIVE_INFINITY === 1 / number;
-  }
-  common.isNothing = isNothing;
-  common.isObject = isObject;
-  common.toArray = toArray;
-  common.repeat = repeat;
-  common.isNegativeZero = isNegativeZero;
-  common.extend = extend;
-  return common;
-}
-var exception;
-var hasRequiredException;
-function requireException() {
-  if (hasRequiredException) return exception;
-  hasRequiredException = 1;
-  function formatError(exception2, compact) {
-    let where = "";
-    const message = exception2.reason || "(unknown reason)";
-    if (!exception2.mark) return message;
-    if (exception2.mark.name) {
-      where += 'in "' + exception2.mark.name + '" ';
-    }
-    where += "(" + (exception2.mark.line + 1) + ":" + (exception2.mark.column + 1) + ")";
-    if (!compact && exception2.mark.snippet) {
-      where += "\n\n" + exception2.mark.snippet;
-    }
-    return message + " " + where;
-  }
-  function YAMLException2(reason, mark) {
-    Error.call(this);
-    this.name = "YAMLException";
-    this.reason = reason;
-    this.mark = mark;
-    this.message = formatError(this, false);
-    if (Error.captureStackTrace) {
-      Error.captureStackTrace(this, this.constructor);
-    } else {
-      this.stack = new Error().stack || "";
-    }
-  }
-  YAMLException2.prototype = Object.create(Error.prototype);
-  YAMLException2.prototype.constructor = YAMLException2;
-  YAMLException2.prototype.toString = function toString(compact) {
-    return this.name + ": " + formatError(this, compact);
-  };
-  exception = YAMLException2;
-  return exception;
-}
-var snippet;
-var hasRequiredSnippet;
-function requireSnippet() {
-  if (hasRequiredSnippet) return snippet;
-  hasRequiredSnippet = 1;
-  const common2 = requireCommon();
-  function getLine(buffer, lineStart, lineEnd, position, maxLineLength) {
-    let head = "";
-    let tail = "";
-    const maxHalfLength = Math.floor(maxLineLength / 2) - 1;
-    if (position - lineStart > maxHalfLength) {
-      head = " ... ";
-      lineStart = position - maxHalfLength + head.length;
-    }
-    if (lineEnd - position > maxHalfLength) {
-      tail = " ...";
-      lineEnd = position + maxHalfLength - tail.length;
-    }
-    return {
-      str: head + buffer.slice(lineStart, lineEnd).replace(/\t/g, "\u2192") + tail,
-      pos: position - lineStart + head.length
-      // relative position
-    };
-  }
-  function padStart(string, max) {
-    return common2.repeat(" ", max - string.length) + string;
-  }
-  function makeSnippet(mark, options) {
-    options = Object.create(options || null);
-    if (!mark.buffer) return null;
-    if (!options.maxLength) options.maxLength = 79;
-    if (typeof options.indent !== "number") options.indent = 1;
-    if (typeof options.linesBefore !== "number") options.linesBefore = 3;
-    if (typeof options.linesAfter !== "number") options.linesAfter = 2;
-    const re = /\r?\n|\r|\0/g;
-    const lineStarts = [0];
-    const lineEnds = [];
-    let match;
-    let foundLineNo = -1;
-    while (match = re.exec(mark.buffer)) {
-      lineEnds.push(match.index);
-      lineStarts.push(match.index + match[0].length);
-      if (mark.position <= match.index && foundLineNo < 0) {
-        foundLineNo = lineStarts.length - 2;
-      }
-    }
-    if (foundLineNo < 0) foundLineNo = lineStarts.length - 1;
-    let result = "";
-    const lineNoLength = Math.min(mark.line + options.linesAfter, lineEnds.length).toString().length;
-    const maxLineLength = options.maxLength - (options.indent + lineNoLength + 3);
-    for (let i = 1; i <= options.linesBefore; i++) {
-      if (foundLineNo - i < 0) break;
-      const line2 = getLine(
-        mark.buffer,
-        lineStarts[foundLineNo - i],
-        lineEnds[foundLineNo - i],
-        mark.position - (lineStarts[foundLineNo] - lineStarts[foundLineNo - i]),
-        maxLineLength
-      );
-      result = common2.repeat(" ", options.indent) + padStart((mark.line - i + 1).toString(), lineNoLength) + " | " + line2.str + "\n" + result;
-    }
-    const line = getLine(mark.buffer, lineStarts[foundLineNo], lineEnds[foundLineNo], mark.position, maxLineLength);
-    result += common2.repeat(" ", options.indent) + padStart((mark.line + 1).toString(), lineNoLength) + " | " + line.str + "\n";
-    result += common2.repeat("-", options.indent + lineNoLength + 3 + line.pos) + "^\n";
-    for (let i = 1; i <= options.linesAfter; i++) {
-      if (foundLineNo + i >= lineEnds.length) break;
-      const line2 = getLine(
-        mark.buffer,
-        lineStarts[foundLineNo + i],
-        lineEnds[foundLineNo + i],
-        mark.position - (lineStarts[foundLineNo] - lineStarts[foundLineNo + i]),
-        maxLineLength
-      );
-      result += common2.repeat(" ", options.indent) + padStart((mark.line + i + 1).toString(), lineNoLength) + " | " + line2.str + "\n";
-    }
-    return result.replace(/\n$/, "");
-  }
-  snippet = makeSnippet;
-  return snippet;
-}
-var type;
-var hasRequiredType;
-function requireType() {
-  if (hasRequiredType) return type;
-  hasRequiredType = 1;
-  const YAMLException2 = requireException();
-  const TYPE_CONSTRUCTOR_OPTIONS = [
-    "kind",
-    "multi",
-    "resolve",
-    "construct",
-    "instanceOf",
-    "predicate",
-    "represent",
-    "representName",
-    "defaultStyle",
-    "styleAliases"
-  ];
-  const YAML_NODE_KINDS = [
-    "scalar",
-    "sequence",
-    "mapping"
-  ];
-  function compileStyleAliases(map2) {
-    const result = {};
-    if (map2 !== null) {
-      Object.keys(map2).forEach(function(style) {
-        map2[style].forEach(function(alias) {
-          result[String(alias)] = style;
-        });
-      });
-    }
-    return result;
-  }
-  function Type2(tag, options) {
-    options = options || {};
-    Object.keys(options).forEach(function(name) {
-      if (TYPE_CONSTRUCTOR_OPTIONS.indexOf(name) === -1) {
-        throw new YAMLException2('Unknown option "' + name + '" is met in definition of "' + tag + '" YAML type.');
-      }
-    });
-    this.options = options;
-    this.tag = tag;
-    this.kind = options["kind"] || null;
-    this.resolve = options["resolve"] || function() {
-      return true;
-    };
-    this.construct = options["construct"] || function(data) {
-      return data;
-    };
-    this.instanceOf = options["instanceOf"] || null;
-    this.predicate = options["predicate"] || null;
-    this.represent = options["represent"] || null;
-    this.representName = options["representName"] || null;
-    this.defaultStyle = options["defaultStyle"] || null;
-    this.multi = options["multi"] || false;
-    this.styleAliases = compileStyleAliases(options["styleAliases"] || null);
-    if (YAML_NODE_KINDS.indexOf(this.kind) === -1) {
-      throw new YAMLException2('Unknown kind "' + this.kind + '" is specified for "' + tag + '" YAML type.');
-    }
-  }
-  type = Type2;
-  return type;
-}
-var schema;
-var hasRequiredSchema;
-function requireSchema() {
-  if (hasRequiredSchema) return schema;
-  hasRequiredSchema = 1;
-  const YAMLException2 = requireException();
-  const Type2 = requireType();
-  function compileList(schema2, name) {
-    const result = [];
-    schema2[name].forEach(function(currentType) {
-      let newIndex = result.length;
-      result.forEach(function(previousType, previousIndex) {
-        if (previousType.tag === currentType.tag && previousType.kind === currentType.kind && previousType.multi === currentType.multi) {
-          newIndex = previousIndex;
-        }
-      });
-      result[newIndex] = currentType;
-    });
-    return result;
-  }
-  function compileMap() {
-    const result = {
-      scalar: {},
-      sequence: {},
-      mapping: {},
-      fallback: {},
-      multi: {
-        scalar: [],
-        sequence: [],
-        mapping: [],
-        fallback: []
-      }
-    };
-    function collectType(type2) {
-      if (type2.multi) {
-        result.multi[type2.kind].push(type2);
-        result.multi["fallback"].push(type2);
-      } else {
-        result[type2.kind][type2.tag] = result["fallback"][type2.tag] = type2;
-      }
-    }
-    for (let index = 0, length = arguments.length; index < length; index += 1) {
-      arguments[index].forEach(collectType);
-    }
-    return result;
-  }
-  function Schema2(definition) {
-    return this.extend(definition);
-  }
-  Schema2.prototype.extend = function extend(definition) {
-    let implicit = [];
-    let explicit = [];
-    if (definition instanceof Type2) {
-      explicit.push(definition);
-    } else if (Array.isArray(definition)) {
-      explicit = explicit.concat(definition);
-    } else if (definition && (Array.isArray(definition.implicit) || Array.isArray(definition.explicit))) {
-      if (definition.implicit) implicit = implicit.concat(definition.implicit);
-      if (definition.explicit) explicit = explicit.concat(definition.explicit);
-    } else {
-      throw new YAMLException2("Schema.extend argument should be a Type, [ Type ], or a schema definition ({ implicit: [...], explicit: [...] })");
-    }
-    implicit.forEach(function(type2) {
-      if (!(type2 instanceof Type2)) {
-        throw new YAMLException2("Specified list of YAML types (or a single Type object) contains a non-Type object.");
-      }
-      if (type2.loadKind && type2.loadKind !== "scalar") {
-        throw new YAMLException2("There is a non-scalar type in the implicit list of a schema. Implicit resolving of such types is not supported.");
-      }
-      if (type2.multi) {
-        throw new YAMLException2("There is a multi type in the implicit list of a schema. Multi tags can only be listed as explicit.");
-      }
-    });
-    explicit.forEach(function(type2) {
-      if (!(type2 instanceof Type2)) {
-        throw new YAMLException2("Specified list of YAML types (or a single Type object) contains a non-Type object.");
-      }
-    });
-    const result = Object.create(Schema2.prototype);
-    result.implicit = (this.implicit || []).concat(implicit);
-    result.explicit = (this.explicit || []).concat(explicit);
-    result.compiledImplicit = compileList(result, "implicit");
-    result.compiledExplicit = compileList(result, "explicit");
-    result.compiledTypeMap = compileMap(result.compiledImplicit, result.compiledExplicit);
-    return result;
-  };
-  schema = Schema2;
-  return schema;
-}
-var str;
-var hasRequiredStr;
-function requireStr() {
-  if (hasRequiredStr) return str;
-  hasRequiredStr = 1;
-  const Type2 = requireType();
-  str = new Type2("tag:yaml.org,2002:str", {
-    kind: "scalar",
-    construct: function(data) {
-      return data !== null ? data : "";
-    }
-  });
-  return str;
-}
-var seq;
-var hasRequiredSeq;
-function requireSeq() {
-  if (hasRequiredSeq) return seq;
-  hasRequiredSeq = 1;
-  const Type2 = requireType();
-  seq = new Type2("tag:yaml.org,2002:seq", {
-    kind: "sequence",
-    construct: function(data) {
-      return data !== null ? data : [];
-    }
-  });
-  return seq;
-}
-var map;
-var hasRequiredMap;
-function requireMap() {
-  if (hasRequiredMap) return map;
-  hasRequiredMap = 1;
-  const Type2 = requireType();
-  map = new Type2("tag:yaml.org,2002:map", {
-    kind: "mapping",
-    construct: function(data) {
-      return data !== null ? data : {};
-    }
-  });
-  return map;
-}
-var failsafe;
-var hasRequiredFailsafe;
-function requireFailsafe() {
-  if (hasRequiredFailsafe) return failsafe;
-  hasRequiredFailsafe = 1;
-  const Schema2 = requireSchema();
-  failsafe = new Schema2({
-    explicit: [
-      requireStr(),
-      requireSeq(),
-      requireMap()
-    ]
-  });
-  return failsafe;
-}
-var _null;
-var hasRequired_null;
-function require_null2() {
-  if (hasRequired_null) return _null;
-  hasRequired_null = 1;
-  const Type2 = requireType();
-  function resolveYamlNull(data) {
-    if (data === null) return true;
-    const max = data.length;
-    return max === 1 && data === "~" || max === 4 && (data === "null" || data === "Null" || data === "NULL");
-  }
-  function constructYamlNull() {
-    return null;
-  }
-  function isNull(object) {
-    return object === null;
-  }
-  _null = new Type2("tag:yaml.org,2002:null", {
-    kind: "scalar",
-    resolve: resolveYamlNull,
-    construct: constructYamlNull,
-    predicate: isNull,
-    represent: {
-      canonical: function() {
-        return "~";
-      },
-      lowercase: function() {
-        return "null";
-      },
-      uppercase: function() {
-        return "NULL";
-      },
-      camelcase: function() {
-        return "Null";
-      },
-      empty: function() {
-        return "";
-      }
-    },
-    defaultStyle: "lowercase"
-  });
-  return _null;
-}
-var bool;
-var hasRequiredBool;
-function requireBool() {
-  if (hasRequiredBool) return bool;
-  hasRequiredBool = 1;
-  const Type2 = requireType();
-  function resolveYamlBoolean(data) {
-    if (data === null) return false;
-    const max = data.length;
-    return max === 4 && (data === "true" || data === "True" || data === "TRUE") || max === 5 && (data === "false" || data === "False" || data === "FALSE");
-  }
-  function constructYamlBoolean(data) {
-    return data === "true" || data === "True" || data === "TRUE";
-  }
-  function isBoolean(object) {
-    return Object.prototype.toString.call(object) === "[object Boolean]";
-  }
-  bool = new Type2("tag:yaml.org,2002:bool", {
-    kind: "scalar",
-    resolve: resolveYamlBoolean,
-    construct: constructYamlBoolean,
-    predicate: isBoolean,
-    represent: {
-      lowercase: function(object) {
-        return object ? "true" : "false";
-      },
-      uppercase: function(object) {
-        return object ? "TRUE" : "FALSE";
-      },
-      camelcase: function(object) {
-        return object ? "True" : "False";
-      }
-    },
-    defaultStyle: "lowercase"
-  });
-  return bool;
-}
-var int;
-var hasRequiredInt;
-function requireInt() {
-  if (hasRequiredInt) return int;
-  hasRequiredInt = 1;
-  const common2 = requireCommon();
-  const Type2 = requireType();
-  function isHexCode(c) {
-    return c >= 48 && c <= 57 || c >= 65 && c <= 70 || c >= 97 && c <= 102;
-  }
-  function isOctCode(c) {
-    return c >= 48 && c <= 55;
-  }
-  function isDecCode(c) {
-    return c >= 48 && c <= 57;
-  }
-  function resolveYamlInteger(data) {
-    if (data === null) return false;
-    const max = data.length;
-    let index = 0;
-    let hasDigits = false;
-    if (!max) return false;
-    let ch = data[index];
-    if (ch === "-" || ch === "+") {
-      ch = data[++index];
-    }
-    if (ch === "0") {
-      if (index + 1 === max) return true;
-      ch = data[++index];
-      if (ch === "b") {
-        index++;
-        for (; index < max; index++) {
-          ch = data[index];
-          if (ch !== "0" && ch !== "1") return false;
-          hasDigits = true;
-        }
-        return hasDigits && isFinite(parseYamlInteger(data));
-      }
-      if (ch === "x") {
-        index++;
-        for (; index < max; index++) {
-          if (!isHexCode(data.charCodeAt(index))) return false;
-          hasDigits = true;
-        }
-        return hasDigits && isFinite(parseYamlInteger(data));
-      }
-      if (ch === "o") {
-        index++;
-        for (; index < max; index++) {
-          if (!isOctCode(data.charCodeAt(index))) return false;
-          hasDigits = true;
-        }
-        return hasDigits && isFinite(parseYamlInteger(data));
-      }
-    }
-    for (; index < max; index++) {
-      if (!isDecCode(data.charCodeAt(index))) {
-        return false;
-      }
-      hasDigits = true;
-    }
-    if (!hasDigits) return false;
-    return isFinite(parseYamlInteger(data));
-  }
-  function parseYamlInteger(data) {
-    let value = data;
-    let sign = 1;
-    let ch = value[0];
-    if (ch === "-" || ch === "+") {
-      if (ch === "-") sign = -1;
-      value = value.slice(1);
-      ch = value[0];
-    }
-    if (value === "0") return 0;
-    if (ch === "0") {
-      if (value[1] === "b") return sign * parseInt(value.slice(2), 2);
-      if (value[1] === "x") return sign * parseInt(value.slice(2), 16);
-      if (value[1] === "o") return sign * parseInt(value.slice(2), 8);
-    }
-    return sign * parseInt(value, 10);
-  }
-  function constructYamlInteger(data) {
-    return parseYamlInteger(data);
-  }
-  function isInteger(object) {
-    return Object.prototype.toString.call(object) === "[object Number]" && (object % 1 === 0 && !common2.isNegativeZero(object));
-  }
-  int = new Type2("tag:yaml.org,2002:int", {
-    kind: "scalar",
-    resolve: resolveYamlInteger,
-    construct: constructYamlInteger,
-    predicate: isInteger,
-    represent: {
-      binary: function(obj) {
-        return obj >= 0 ? "0b" + obj.toString(2) : "-0b" + obj.toString(2).slice(1);
-      },
-      octal: function(obj) {
-        return obj >= 0 ? "0o" + obj.toString(8) : "-0o" + obj.toString(8).slice(1);
-      },
-      decimal: function(obj) {
-        return obj.toString(10);
-      },
-      hexadecimal: function(obj) {
-        return obj >= 0 ? "0x" + obj.toString(16).toUpperCase() : "-0x" + obj.toString(16).toUpperCase().slice(1);
-      }
-    },
-    defaultStyle: "decimal",
-    styleAliases: {
-      binary: [2, "bin"],
-      octal: [8, "oct"],
-      decimal: [10, "dec"],
-      hexadecimal: [16, "hex"]
-    }
-  });
-  return int;
-}
-var float;
-var hasRequiredFloat;
-function requireFloat() {
-  if (hasRequiredFloat) return float;
-  hasRequiredFloat = 1;
-  const common2 = requireCommon();
-  const Type2 = requireType();
-  const YAML_FLOAT_PATTERN = new RegExp(
-    // 2.5e4, 2.5 and integers
-    "^(?:[-+]?(?:[0-9]+)(?:\\.[0-9]*)?(?:[eE][-+]?[0-9]+)?|\\.[0-9]+(?:[eE][-+]?[0-9]+)?|[-+]?\\.(?:inf|Inf|INF)|\\.(?:nan|NaN|NAN))$"
-  );
-  const YAML_FLOAT_SPECIAL_PATTERN = new RegExp(
-    "^(?:[-+]?\\.(?:inf|Inf|INF)|\\.(?:nan|NaN|NAN))$"
-  );
-  function resolveYamlFloat(data) {
-    if (data === null) return false;
-    if (!YAML_FLOAT_PATTERN.test(data)) {
-      return false;
-    }
-    if (isFinite(parseFloat(data, 10))) {
-      return true;
-    }
-    return YAML_FLOAT_SPECIAL_PATTERN.test(data);
-  }
-  function constructYamlFloat(data) {
-    let value = data.toLowerCase();
-    const sign = value[0] === "-" ? -1 : 1;
-    if ("+-".indexOf(value[0]) >= 0) {
-      value = value.slice(1);
-    }
-    if (value === ".inf") {
-      return sign === 1 ? Number.POSITIVE_INFINITY : Number.NEGATIVE_INFINITY;
-    } else if (value === ".nan") {
-      return NaN;
-    }
-    return sign * parseFloat(value, 10);
-  }
-  const SCIENTIFIC_WITHOUT_DOT = /^[-+]?[0-9]+e/;
-  function representYamlFloat(object, style) {
-    if (isNaN(object)) {
-      switch (style) {
-        case "lowercase":
-          return ".nan";
-        case "uppercase":
-          return ".NAN";
-        case "camelcase":
-          return ".NaN";
-      }
-    } else if (Number.POSITIVE_INFINITY === object) {
-      switch (style) {
-        case "lowercase":
-          return ".inf";
-        case "uppercase":
-          return ".INF";
-        case "camelcase":
-          return ".Inf";
-      }
-    } else if (Number.NEGATIVE_INFINITY === object) {
-      switch (style) {
-        case "lowercase":
-          return "-.inf";
-        case "uppercase":
-          return "-.INF";
-        case "camelcase":
-          return "-.Inf";
-      }
-    } else if (common2.isNegativeZero(object)) {
-      return "-0.0";
-    }
-    const res = object.toString(10);
-    return SCIENTIFIC_WITHOUT_DOT.test(res) ? res.replace("e", ".e") : res;
-  }
-  function isFloat(object) {
-    return Object.prototype.toString.call(object) === "[object Number]" && (object % 1 !== 0 || common2.isNegativeZero(object));
-  }
-  float = new Type2("tag:yaml.org,2002:float", {
-    kind: "scalar",
-    resolve: resolveYamlFloat,
-    construct: constructYamlFloat,
-    predicate: isFloat,
-    represent: representYamlFloat,
-    defaultStyle: "lowercase"
-  });
-  return float;
-}
-var json2;
-var hasRequiredJson;
-function requireJson() {
-  if (hasRequiredJson) return json2;
-  hasRequiredJson = 1;
-  json2 = requireFailsafe().extend({
-    implicit: [
-      require_null2(),
-      requireBool(),
-      requireInt(),
-      requireFloat()
-    ]
-  });
-  return json2;
-}
-var core;
-var hasRequiredCore;
-function requireCore() {
-  if (hasRequiredCore) return core;
-  hasRequiredCore = 1;
-  core = requireJson();
-  return core;
-}
-var timestamp;
-var hasRequiredTimestamp;
-function requireTimestamp() {
-  if (hasRequiredTimestamp) return timestamp;
-  hasRequiredTimestamp = 1;
-  const Type2 = requireType();
-  const YAML_DATE_REGEXP = new RegExp(
-    "^([0-9][0-9][0-9][0-9])-([0-9][0-9])-([0-9][0-9])$"
-  );
-  const YAML_TIMESTAMP_REGEXP = new RegExp(
-    "^([0-9][0-9][0-9][0-9])-([0-9][0-9]?)-([0-9][0-9]?)(?:[Tt]|[ \\t]+)([0-9][0-9]?):([0-9][0-9]):([0-9][0-9])(?:\\.([0-9]*))?(?:[ \\t]*(Z|([-+])([0-9][0-9]?)(?::([0-9][0-9]))?))?$"
-  );
-  function resolveYamlTimestamp(data) {
-    if (data === null) return false;
-    if (YAML_DATE_REGEXP.exec(data) !== null) return true;
-    if (YAML_TIMESTAMP_REGEXP.exec(data) !== null) return true;
-    return false;
-  }
-  function constructYamlTimestamp(data) {
-    let fraction = 0;
-    let delta = null;
-    let match = YAML_DATE_REGEXP.exec(data);
-    if (match === null) match = YAML_TIMESTAMP_REGEXP.exec(data);
-    if (match === null) throw new Error("Date resolve error");
-    const year = +match[1];
-    const month = +match[2] - 1;
-    const day = +match[3];
-    if (!match[4]) {
-      return new Date(Date.UTC(year, month, day));
-    }
-    const hour = +match[4];
-    const minute = +match[5];
-    const second = +match[6];
-    if (match[7]) {
-      fraction = match[7].slice(0, 3);
-      while (fraction.length < 3) {
-        fraction += "0";
-      }
-      fraction = +fraction;
-    }
-    if (match[9]) {
-      const tzHour = +match[10];
-      const tzMinute = +(match[11] || 0);
-      delta = (tzHour * 60 + tzMinute) * 6e4;
-      if (match[9] === "-") delta = -delta;
-    }
-    const date = new Date(Date.UTC(year, month, day, hour, minute, second, fraction));
-    if (delta) date.setTime(date.getTime() - delta);
-    return date;
-  }
-  function representYamlTimestamp(object) {
-    return object.toISOString();
-  }
-  timestamp = new Type2("tag:yaml.org,2002:timestamp", {
-    kind: "scalar",
-    resolve: resolveYamlTimestamp,
-    construct: constructYamlTimestamp,
-    instanceOf: Date,
-    represent: representYamlTimestamp
-  });
-  return timestamp;
-}
-var merge;
-var hasRequiredMerge;
-function requireMerge() {
-  if (hasRequiredMerge) return merge;
-  hasRequiredMerge = 1;
-  const Type2 = requireType();
-  function resolveYamlMerge(data) {
-    return data === "<<" || data === null;
-  }
-  merge = new Type2("tag:yaml.org,2002:merge", {
-    kind: "scalar",
-    resolve: resolveYamlMerge
-  });
-  return merge;
-}
-var binary;
-var hasRequiredBinary;
-function requireBinary() {
-  if (hasRequiredBinary) return binary;
-  hasRequiredBinary = 1;
-  const Type2 = requireType();
-  const BASE64_MAP = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=\n\r";
-  function resolveYamlBinary(data) {
-    if (data === null) return false;
-    let bitlen = 0;
-    const max = data.length;
-    const map2 = BASE64_MAP;
-    for (let idx = 0; idx < max; idx++) {
-      const code = map2.indexOf(data.charAt(idx));
-      if (code > 64) continue;
-      if (code < 0) return false;
-      bitlen += 6;
-    }
-    return bitlen % 8 === 0;
-  }
-  function constructYamlBinary(data) {
-    const input = data.replace(/[\r\n=]/g, "");
-    const max = input.length;
-    const map2 = BASE64_MAP;
-    let bits = 0;
-    const result = [];
-    for (let idx = 0; idx < max; idx++) {
-      if (idx % 4 === 0 && idx) {
-        result.push(bits >> 16 & 255);
-        result.push(bits >> 8 & 255);
-        result.push(bits & 255);
-      }
-      bits = bits << 6 | map2.indexOf(input.charAt(idx));
-    }
-    const tailbits = max % 4 * 6;
-    if (tailbits === 0) {
-      result.push(bits >> 16 & 255);
-      result.push(bits >> 8 & 255);
-      result.push(bits & 255);
-    } else if (tailbits === 18) {
-      result.push(bits >> 10 & 255);
-      result.push(bits >> 2 & 255);
-    } else if (tailbits === 12) {
-      result.push(bits >> 4 & 255);
-    }
-    return new Uint8Array(result);
-  }
-  function representYamlBinary(object) {
-    let result = "";
-    let bits = 0;
-    const max = object.length;
-    const map2 = BASE64_MAP;
-    for (let idx = 0; idx < max; idx++) {
-      if (idx % 3 === 0 && idx) {
-        result += map2[bits >> 18 & 63];
-        result += map2[bits >> 12 & 63];
-        result += map2[bits >> 6 & 63];
-        result += map2[bits & 63];
-      }
-      bits = (bits << 8) + object[idx];
-    }
-    const tail = max % 3;
-    if (tail === 0) {
-      result += map2[bits >> 18 & 63];
-      result += map2[bits >> 12 & 63];
-      result += map2[bits >> 6 & 63];
-      result += map2[bits & 63];
-    } else if (tail === 2) {
-      result += map2[bits >> 10 & 63];
-      result += map2[bits >> 4 & 63];
-      result += map2[bits << 2 & 63];
-      result += map2[64];
-    } else if (tail === 1) {
-      result += map2[bits >> 2 & 63];
-      result += map2[bits << 4 & 63];
-      result += map2[64];
-      result += map2[64];
-    }
-    return result;
-  }
-  function isBinary(obj) {
-    return Object.prototype.toString.call(obj) === "[object Uint8Array]";
-  }
-  binary = new Type2("tag:yaml.org,2002:binary", {
-    kind: "scalar",
-    resolve: resolveYamlBinary,
-    construct: constructYamlBinary,
-    predicate: isBinary,
-    represent: representYamlBinary
-  });
-  return binary;
-}
-var omap;
-var hasRequiredOmap;
-function requireOmap() {
-  if (hasRequiredOmap) return omap;
-  hasRequiredOmap = 1;
-  const Type2 = requireType();
-  const _hasOwnProperty = Object.prototype.hasOwnProperty;
-  const _toString = Object.prototype.toString;
-  function resolveYamlOmap(data) {
-    if (data === null) return true;
-    const objectKeys = {};
-    const object = data;
-    for (let index = 0, length = object.length; index < length; index += 1) {
-      const pair = object[index];
-      let pairHasKey = false;
-      if (_toString.call(pair) !== "[object Object]") return false;
-      let pairKey;
-      for (pairKey in pair) {
-        if (_hasOwnProperty.call(pair, pairKey)) {
-          if (!pairHasKey) pairHasKey = true;
-          else return false;
-        }
-      }
-      if (!pairHasKey) return false;
-      if (_hasOwnProperty.call(objectKeys, pairKey)) return false;
-      Object.defineProperty(objectKeys, pairKey, { value: true });
-    }
-    return true;
-  }
-  function constructYamlOmap(data) {
-    return data !== null ? data : [];
-  }
-  omap = new Type2("tag:yaml.org,2002:omap", {
-    kind: "sequence",
-    resolve: resolveYamlOmap,
-    construct: constructYamlOmap
-  });
-  return omap;
-}
-var pairs;
-var hasRequiredPairs;
-function requirePairs() {
-  if (hasRequiredPairs) return pairs;
-  hasRequiredPairs = 1;
-  const Type2 = requireType();
-  const _toString = Object.prototype.toString;
-  function resolveYamlPairs(data) {
-    if (data === null) return true;
-    const object = data;
-    const result = new Array(object.length);
-    for (let index = 0, length = object.length; index < length; index += 1) {
-      const pair = object[index];
-      if (_toString.call(pair) !== "[object Object]") return false;
-      const keys = Object.keys(pair);
-      if (keys.length !== 1) return false;
-      result[index] = [keys[0], pair[keys[0]]];
-    }
-    return true;
-  }
-  function constructYamlPairs(data) {
-    if (data === null) return [];
-    const object = data;
-    const result = new Array(object.length);
-    for (let index = 0, length = object.length; index < length; index += 1) {
-      const pair = object[index];
-      const keys = Object.keys(pair);
-      result[index] = [keys[0], pair[keys[0]]];
-    }
-    return result;
-  }
-  pairs = new Type2("tag:yaml.org,2002:pairs", {
-    kind: "sequence",
-    resolve: resolveYamlPairs,
-    construct: constructYamlPairs
-  });
-  return pairs;
-}
-var set;
-var hasRequiredSet;
-function requireSet() {
-  if (hasRequiredSet) return set;
-  hasRequiredSet = 1;
-  const Type2 = requireType();
-  const _hasOwnProperty = Object.prototype.hasOwnProperty;
-  function resolveYamlSet(data) {
-    if (data === null) return true;
-    const object = data;
-    for (const key in object) {
-      if (_hasOwnProperty.call(object, key)) {
-        if (object[key] !== null) return false;
-      }
-    }
-    return true;
-  }
-  function constructYamlSet(data) {
-    return data !== null ? data : {};
-  }
-  set = new Type2("tag:yaml.org,2002:set", {
-    kind: "mapping",
-    resolve: resolveYamlSet,
-    construct: constructYamlSet
-  });
-  return set;
-}
-var _default;
-var hasRequired_default;
-function require_default() {
-  if (hasRequired_default) return _default;
-  hasRequired_default = 1;
-  _default = requireCore().extend({
-    implicit: [
-      requireTimestamp(),
-      requireMerge()
-    ],
-    explicit: [
-      requireBinary(),
-      requireOmap(),
-      requirePairs(),
-      requireSet()
-    ]
-  });
-  return _default;
-}
-var hasRequiredLoader;
-function requireLoader() {
-  if (hasRequiredLoader) return loader;
-  hasRequiredLoader = 1;
-  const common2 = requireCommon();
-  const YAMLException2 = requireException();
-  const makeSnippet = requireSnippet();
-  const DEFAULT_SCHEMA2 = require_default();
-  const _hasOwnProperty = Object.prototype.hasOwnProperty;
-  const CONTEXT_FLOW_IN = 1;
-  const CONTEXT_FLOW_OUT = 2;
-  const CONTEXT_BLOCK_IN = 3;
-  const CONTEXT_BLOCK_OUT = 4;
-  const CHOMPING_CLIP = 1;
-  const CHOMPING_STRIP = 2;
-  const CHOMPING_KEEP = 3;
-  const PATTERN_NON_PRINTABLE = /[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x84\x86-\x9F\uFFFE\uFFFF]|[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?:[^\uD800-\uDBFF]|^)[\uDC00-\uDFFF]/;
-  const PATTERN_NON_ASCII_LINE_BREAKS = /[\x85\u2028\u2029]/;
-  const PATTERN_FLOW_INDICATORS = /[,\[\]{}]/;
-  const PATTERN_TAG_HANDLE = /^(?:!|!!|![0-9A-Za-z-]+!)$/;
-  const PATTERN_TAG_URI = /^(?:!|[^,\[\]{}])(?:%[0-9a-f]{2}|[0-9a-z\-#;/?:@&=+$,_.!~*'()\[\]])*$/i;
-  function _class(obj) {
-    return Object.prototype.toString.call(obj);
-  }
-  function isEol(c) {
-    return c === 10 || c === 13;
-  }
-  function isWhiteSpace(c) {
-    return c === 9 || c === 32;
-  }
-  function isWsOrEol(c) {
-    return c === 9 || c === 32 || c === 10 || c === 13;
-  }
-  function isFlowIndicator(c) {
-    return c === 44 || c === 91 || c === 93 || c === 123 || c === 125;
-  }
-  function fromHexCode(c) {
-    if (c >= 48 && c <= 57) {
-      return c - 48;
-    }
-    const lc = c | 32;
-    if (lc >= 97 && lc <= 102) {
-      return lc - 97 + 10;
-    }
-    return -1;
-  }
-  function escapedHexLen(c) {
-    if (c === 120) {
-      return 2;
-    }
-    if (c === 117) {
-      return 4;
-    }
-    if (c === 85) {
-      return 8;
-    }
-    return 0;
-  }
-  function fromDecimalCode(c) {
-    if (c >= 48 && c <= 57) {
-      return c - 48;
-    }
-    return -1;
-  }
-  function simpleEscapeSequence(c) {
-    switch (c) {
-      case 48:
-        return "\0";
-      case 97:
-        return "\x07";
-      case 98:
-        return "\b";
-      case 116:
-        return "	";
-      case 9:
-        return "	";
-      case 110:
-        return "\n";
-      case 118:
-        return "\v";
-      case 102:
-        return "\f";
-      case 114:
-        return "\r";
-      case 101:
-        return "\x1B";
-      case 32:
-        return " ";
-      case 34:
-        return '"';
-      case 47:
-        return "/";
-      case 92:
-        return "\\";
-      case 78:
-        return "\x85";
-      case 95:
-        return "\xA0";
-      case 76:
-        return "\u2028";
-      case 80:
-        return "\u2029";
-      default:
-        return "";
-    }
-  }
-  function charFromCodepoint(c) {
-    if (c <= 65535) {
-      return String.fromCharCode(c);
-    }
-    return String.fromCharCode(
-      (c - 65536 >> 10) + 55296,
-      (c - 65536 & 1023) + 56320
-    );
-  }
-  function setProperty(object, key, value) {
-    if (key === "__proto__") {
-      Object.defineProperty(object, key, {
-        configurable: true,
-        enumerable: true,
-        writable: true,
-        value
-      });
-    } else {
-      object[key] = value;
-    }
-  }
-  const simpleEscapeCheck = new Array(256);
-  const simpleEscapeMap = new Array(256);
-  for (let i = 0; i < 256; i++) {
-    simpleEscapeCheck[i] = simpleEscapeSequence(i) ? 1 : 0;
-    simpleEscapeMap[i] = simpleEscapeSequence(i);
-  }
-  function State(input, options) {
-    this.input = input;
-    this.filename = options["filename"] || null;
-    this.schema = options["schema"] || DEFAULT_SCHEMA2;
-    this.onWarning = options["onWarning"] || null;
-    this.legacy = options["legacy"] || false;
-    this.json = options["json"] || false;
-    this.listener = options["listener"] || null;
-    this.maxDepth = typeof options["maxDepth"] === "number" ? options["maxDepth"] : 100;
-    this.maxTotalMergeKeys = typeof options["maxTotalMergeKeys"] === "number" ? options["maxTotalMergeKeys"] : 1e4;
-    this.implicitTypes = this.schema.compiledImplicit;
-    this.typeMap = this.schema.compiledTypeMap;
-    this.length = input.length;
-    this.position = 0;
-    this.line = 0;
-    this.lineStart = 0;
-    this.lineIndent = 0;
-    this.depth = 0;
-    this.totalMergeKeys = 0;
-    this.firstTabInLine = -1;
-    this.documents = [];
-    this.anchorMapTransactions = [];
-  }
-  function generateError(state, message) {
-    const mark = {
-      name: state.filename,
-      buffer: state.input.slice(0, -1),
-      // omit trailing \0
-      position: state.position,
-      line: state.line,
-      column: state.position - state.lineStart
-    };
-    mark.snippet = makeSnippet(mark);
-    return new YAMLException2(message, mark);
-  }
-  function throwError(state, message) {
-    throw generateError(state, message);
-  }
-  function throwWarning(state, message) {
-    if (state.onWarning) {
-      state.onWarning.call(null, generateError(state, message));
-    }
-  }
-  function storeAnchor(state, name, value) {
-    const transactions = state.anchorMapTransactions;
-    if (transactions.length !== 0) {
-      const transaction = transactions[transactions.length - 1];
-      if (!_hasOwnProperty.call(transaction, name)) {
-        transaction[name] = {
-          existed: _hasOwnProperty.call(state.anchorMap, name),
-          value: state.anchorMap[name]
-        };
-      }
-    }
-    state.anchorMap[name] = value;
-  }
-  function beginAnchorTransaction(state) {
-    state.anchorMapTransactions.push(/* @__PURE__ */ Object.create(null));
-  }
-  function commitAnchorTransaction(state) {
-    const transaction = state.anchorMapTransactions.pop();
-    const transactions = state.anchorMapTransactions;
-    if (transactions.length === 0) return;
-    const parent = transactions[transactions.length - 1];
-    const names = Object.keys(transaction);
-    for (let index = 0, length = names.length; index < length; index += 1) {
-      const name = names[index];
-      if (!_hasOwnProperty.call(parent, name)) {
-        parent[name] = transaction[name];
-      }
-    }
-  }
-  function rollbackAnchorTransaction(state) {
-    const transaction = state.anchorMapTransactions.pop();
-    const names = Object.keys(transaction);
-    for (let index = names.length - 1; index >= 0; index -= 1) {
-      const entry = transaction[names[index]];
-      if (entry.existed) {
-        state.anchorMap[names[index]] = entry.value;
-      } else {
-        delete state.anchorMap[names[index]];
-      }
-    }
-  }
-  function snapshotState(state) {
-    return {
-      position: state.position,
-      line: state.line,
-      lineStart: state.lineStart,
-      lineIndent: state.lineIndent,
-      firstTabInLine: state.firstTabInLine,
-      tag: state.tag,
-      anchor: state.anchor,
-      kind: state.kind,
-      result: state.result
-    };
-  }
-  function restoreState(state, snapshot) {
-    state.position = snapshot.position;
-    state.line = snapshot.line;
-    state.lineStart = snapshot.lineStart;
-    state.lineIndent = snapshot.lineIndent;
-    state.firstTabInLine = snapshot.firstTabInLine;
-    state.tag = snapshot.tag;
-    state.anchor = snapshot.anchor;
-    state.kind = snapshot.kind;
-    state.result = snapshot.result;
-  }
-  const directiveHandlers = {
-    YAML: function handleYamlDirective(state, name, args) {
-      if (state.version !== null) {
-        throwError(state, "duplication of %YAML directive");
-      }
-      if (args.length !== 1) {
-        throwError(state, "YAML directive accepts exactly one argument");
-      }
-      const match = /^([0-9]+)\.([0-9]+)$/.exec(args[0]);
-      if (match === null) {
-        throwError(state, "ill-formed argument of the YAML directive");
-      }
-      const major = parseInt(match[1], 10);
-      const minor = parseInt(match[2], 10);
-      if (major !== 1) {
-        throwError(state, "unacceptable YAML version of the document");
-      }
-      state.version = args[0];
-      state.checkLineBreaks = minor < 2;
-      if (minor !== 1 && minor !== 2) {
-        throwWarning(state, "unsupported YAML version of the document");
-      }
-    },
-    TAG: function handleTagDirective(state, name, args) {
-      let prefix;
-      if (args.length !== 2) {
-        throwError(state, "TAG directive accepts exactly two arguments");
-      }
-      const handle = args[0];
-      prefix = args[1];
-      if (!PATTERN_TAG_HANDLE.test(handle)) {
-        throwError(state, "ill-formed tag handle (first argument) of the TAG directive");
-      }
-      if (_hasOwnProperty.call(state.tagMap, handle)) {
-        throwError(state, 'there is a previously declared suffix for "' + handle + '" tag handle');
-      }
-      if (!PATTERN_TAG_URI.test(prefix)) {
-        throwError(state, "ill-formed tag prefix (second argument) of the TAG directive");
-      }
-      try {
-        prefix = decodeURIComponent(prefix);
-      } catch (err) {
-        throwError(state, "tag prefix is malformed: " + prefix);
-      }
-      state.tagMap[handle] = prefix;
-    }
-  };
-  function captureSegment(state, start, end, checkJson) {
-    if (start < end) {
-      const _result = state.input.slice(start, end);
-      if (checkJson) {
-        for (let _position = 0, _length = _result.length; _position < _length; _position += 1) {
-          const _character = _result.charCodeAt(_position);
-          if (!(_character === 9 || _character >= 32 && _character <= 1114111)) {
-            throwError(state, "expected valid JSON character");
-          }
-        }
-      } else if (PATTERN_NON_PRINTABLE.test(_result)) {
-        throwError(state, "the stream contains non-printable characters");
-      }
-      state.result += _result;
-    }
-  }
-  function chargeMergeWork(state) {
-    state.totalMergeKeys++;
-    if (state.maxTotalMergeKeys !== -1 && state.totalMergeKeys > state.maxTotalMergeKeys) {
-      throwError(state, "merge keys exceeded maxTotalMergeKeys (" + state.maxTotalMergeKeys + ")");
-    }
-  }
-  function mergeMappings(state, destination, source, overridableKeys) {
-    if (!common2.isObject(source)) {
-      throwError(state, "cannot merge mappings; the provided source object is unacceptable");
-    }
-    chargeMergeWork(state);
-    const sourceKeys = Object.keys(source);
-    for (let index = 0, quantity = sourceKeys.length; index < quantity; index += 1) {
-      const key = sourceKeys[index];
-      chargeMergeWork(state);
-      if (!_hasOwnProperty.call(destination, key)) {
-        setProperty(destination, key, source[key]);
-        overridableKeys[key] = true;
-      }
-    }
-  }
-  function storeMappingPair(state, _result, overridableKeys, keyTag, keyNode, valueNode, startLine, startLineStart, startPos) {
-    if (Array.isArray(keyNode)) {
-      keyNode = Array.prototype.slice.call(keyNode);
-      for (let index = 0, quantity = keyNode.length; index < quantity; index += 1) {
-        if (Array.isArray(keyNode[index])) {
-          throwError(state, "nested arrays are not supported inside keys");
-        }
-        if (typeof keyNode === "object" && _class(keyNode[index]) === "[object Object]") {
-          keyNode[index] = "[object Object]";
-        }
-      }
-    }
-    if (typeof keyNode === "object" && _class(keyNode) === "[object Object]") {
-      keyNode = "[object Object]";
-    }
-    keyNode = String(keyNode);
-    if (_result === null) {
-      _result = {};
-    }
-    if (keyTag === "tag:yaml.org,2002:merge") {
-      if (Array.isArray(valueNode)) {
-        if (valueNode.length > 100) {
-          throwError(state, "abnormal merge sequence size");
-        }
-        for (let index = 0, quantity = valueNode.length; index < quantity; index += 1) {
-          mergeMappings(state, _result, valueNode[index], overridableKeys);
-        }
-      } else {
-        mergeMappings(state, _result, valueNode, overridableKeys);
-      }
-    } else {
-      if (!state.json && !_hasOwnProperty.call(overridableKeys, keyNode) && _hasOwnProperty.call(_result, keyNode)) {
-        state.line = startLine || state.line;
-        state.lineStart = startLineStart || state.lineStart;
-        state.position = startPos || state.position;
-        throwError(state, "duplicated mapping key");
-      }
-      setProperty(_result, keyNode, valueNode);
-      delete overridableKeys[keyNode];
-    }
-    return _result;
-  }
-  function readLineBreak(state) {
-    const ch = state.input.charCodeAt(state.position);
-    if (ch === 10) {
-      state.position++;
-    } else if (ch === 13) {
-      state.position++;
-      if (state.input.charCodeAt(state.position) === 10) {
-        state.position++;
-      }
-    } else {
-      throwError(state, "a line break is expected");
-    }
-    state.line += 1;
-    state.lineStart = state.position;
-    state.firstTabInLine = -1;
-  }
-  function skipSeparationSpace(state, allowComments, checkIndent) {
-    let lineBreaks = 0;
-    let ch = state.input.charCodeAt(state.position);
-    while (ch !== 0) {
-      while (isWhiteSpace(ch)) {
-        if (ch === 9 && state.firstTabInLine === -1) {
-          state.firstTabInLine = state.position;
-        }
-        ch = state.input.charCodeAt(++state.position);
-      }
-      if (allowComments && ch === 35) {
-        do {
-          ch = state.input.charCodeAt(++state.position);
-        } while (ch !== 10 && ch !== 13 && ch !== 0);
-      }
-      if (isEol(ch)) {
-        readLineBreak(state);
-        ch = state.input.charCodeAt(state.position);
-        lineBreaks++;
-        state.lineIndent = 0;
-        while (ch === 32) {
-          state.lineIndent++;
-          ch = state.input.charCodeAt(++state.position);
-        }
-      } else {
-        break;
-      }
-    }
-    if (checkIndent !== -1 && lineBreaks !== 0 && state.lineIndent < checkIndent) {
-      throwWarning(state, "deficient indentation");
-    }
-    return lineBreaks;
-  }
-  function testDocumentSeparator(state) {
-    let _position = state.position;
-    let ch = state.input.charCodeAt(_position);
-    if ((ch === 45 || ch === 46) && ch === state.input.charCodeAt(_position + 1) && ch === state.input.charCodeAt(_position + 2)) {
-      _position += 3;
-      ch = state.input.charCodeAt(_position);
-      if (ch === 0 || isWsOrEol(ch)) {
-        return true;
-      }
-    }
-    return false;
-  }
-  function writeFoldedLines(state, count) {
-    if (count === 1) {
-      state.result += " ";
-    } else if (count > 1) {
-      state.result += common2.repeat("\n", count - 1);
-    }
-  }
-  function readPlainScalar(state, nodeIndent, withinFlowCollection) {
-    let captureStart;
-    let captureEnd;
-    let hasPendingContent;
-    let _line;
-    let _lineStart;
-    let _lineIndent;
-    const _kind = state.kind;
-    const _result = state.result;
-    let ch = state.input.charCodeAt(state.position);
-    if (isWsOrEol(ch) || isFlowIndicator(ch) || ch === 35 || ch === 38 || ch === 42 || ch === 33 || ch === 124 || ch === 62 || ch === 39 || ch === 34 || ch === 37 || ch === 64 || ch === 96) {
-      return false;
-    }
-    if (ch === 63 || ch === 45) {
-      const following = state.input.charCodeAt(state.position + 1);
-      if (isWsOrEol(following) || withinFlowCollection && isFlowIndicator(following)) {
-        return false;
-      }
-    }
-    state.kind = "scalar";
-    state.result = "";
-    captureStart = captureEnd = state.position;
-    hasPendingContent = false;
-    while (ch !== 0) {
-      if (ch === 58) {
-        const following = state.input.charCodeAt(state.position + 1);
-        if (isWsOrEol(following) || withinFlowCollection && isFlowIndicator(following)) {
-          break;
-        }
-      } else if (ch === 35) {
-        const preceding = state.input.charCodeAt(state.position - 1);
-        if (isWsOrEol(preceding)) {
-          break;
-        }
-      } else if (state.position === state.lineStart && testDocumentSeparator(state) || withinFlowCollection && isFlowIndicator(ch)) {
-        break;
-      } else if (isEol(ch)) {
-        _line = state.line;
-        _lineStart = state.lineStart;
-        _lineIndent = state.lineIndent;
-        skipSeparationSpace(state, false, -1);
-        if (state.lineIndent >= nodeIndent) {
-          hasPendingContent = true;
-          ch = state.input.charCodeAt(state.position);
-          continue;
-        } else {
-          state.position = captureEnd;
-          state.line = _line;
-          state.lineStart = _lineStart;
-          state.lineIndent = _lineIndent;
-          break;
-        }
-      }
-      if (hasPendingContent) {
-        captureSegment(state, captureStart, captureEnd, false);
-        writeFoldedLines(state, state.line - _line);
-        captureStart = captureEnd = state.position;
-        hasPendingContent = false;
-      }
-      if (!isWhiteSpace(ch)) {
-        captureEnd = state.position + 1;
-      }
-      ch = state.input.charCodeAt(++state.position);
-    }
-    captureSegment(state, captureStart, captureEnd, false);
-    if (state.result) {
-      return true;
-    }
-    state.kind = _kind;
-    state.result = _result;
-    return false;
-  }
-  function readSingleQuotedScalar(state, nodeIndent) {
-    let captureStart;
-    let captureEnd;
-    let ch = state.input.charCodeAt(state.position);
-    if (ch !== 39) {
-      return false;
-    }
-    state.kind = "scalar";
-    state.result = "";
-    state.position++;
-    captureStart = captureEnd = state.position;
-    while ((ch = state.input.charCodeAt(state.position)) !== 0) {
-      if (ch === 39) {
-        captureSegment(state, captureStart, state.position, true);
-        ch = state.input.charCodeAt(++state.position);
-        if (ch === 39) {
-          captureStart = state.position;
-          state.position++;
-          captureEnd = state.position;
-        } else {
-          return true;
-        }
-      } else if (isEol(ch)) {
-        captureSegment(state, captureStart, captureEnd, true);
-        writeFoldedLines(state, skipSeparationSpace(state, false, nodeIndent));
-        captureStart = captureEnd = state.position;
-      } else if (state.position === state.lineStart && testDocumentSeparator(state)) {
-        throwError(state, "unexpected end of the document within a single quoted scalar");
-      } else {
-        state.position++;
-        if (!isWhiteSpace(ch)) {
-          captureEnd = state.position;
-        }
-      }
-    }
-    throwError(state, "unexpected end of the stream within a single quoted scalar");
-  }
-  function readDoubleQuotedScalar(state, nodeIndent) {
-    let captureStart;
-    let captureEnd;
-    let tmp;
-    let ch = state.input.charCodeAt(state.position);
-    if (ch !== 34) {
-      return false;
-    }
-    state.kind = "scalar";
-    state.result = "";
-    state.position++;
-    captureStart = captureEnd = state.position;
-    while ((ch = state.input.charCodeAt(state.position)) !== 0) {
-      if (ch === 34) {
-        captureSegment(state, captureStart, state.position, true);
-        state.position++;
-        return true;
-      } else if (ch === 92) {
-        captureSegment(state, captureStart, state.position, true);
-        ch = state.input.charCodeAt(++state.position);
-        if (isEol(ch)) {
-          skipSeparationSpace(state, false, nodeIndent);
-        } else if (ch < 256 && simpleEscapeCheck[ch]) {
-          state.result += simpleEscapeMap[ch];
-          state.position++;
-        } else if ((tmp = escapedHexLen(ch)) > 0) {
-          let hexLength = tmp;
-          let hexResult = 0;
-          for (; hexLength > 0; hexLength--) {
-            ch = state.input.charCodeAt(++state.position);
-            if ((tmp = fromHexCode(ch)) >= 0) {
-              hexResult = (hexResult << 4) + tmp;
-            } else {
-              throwError(state, "expected hexadecimal character");
-            }
-          }
-          state.result += charFromCodepoint(hexResult);
-          state.position++;
-        } else {
-          throwError(state, "unknown escape sequence");
-        }
-        captureStart = captureEnd = state.position;
-      } else if (isEol(ch)) {
-        captureSegment(state, captureStart, captureEnd, true);
-        writeFoldedLines(state, skipSeparationSpace(state, false, nodeIndent));
-        captureStart = captureEnd = state.position;
-      } else if (state.position === state.lineStart && testDocumentSeparator(state)) {
-        throwError(state, "unexpected end of the document within a double quoted scalar");
-      } else {
-        state.position++;
-        if (!isWhiteSpace(ch)) {
-          captureEnd = state.position;
-        }
-      }
-    }
-    throwError(state, "unexpected end of the stream within a double quoted scalar");
-  }
-  function readFlowCollection(state, nodeIndent) {
-    let readNext = true;
-    let _line;
-    let _lineStart;
-    let _pos;
-    const _tag = state.tag;
-    let _result;
-    const _anchor = state.anchor;
-    let terminator;
-    let isPair;
-    let isExplicitPair;
-    let isMapping;
-    const overridableKeys = /* @__PURE__ */ Object.create(null);
-    let keyNode;
-    let keyTag;
-    let valueNode;
-    let ch = state.input.charCodeAt(state.position);
-    if (ch === 91) {
-      terminator = 93;
-      isMapping = false;
-      _result = [];
-    } else if (ch === 123) {
-      terminator = 125;
-      isMapping = true;
-      _result = {};
-    } else {
-      return false;
-    }
-    if (state.anchor !== null) {
-      storeAnchor(state, state.anchor, _result);
-    }
-    ch = state.input.charCodeAt(++state.position);
-    while (ch !== 0) {
-      skipSeparationSpace(state, true, nodeIndent);
-      ch = state.input.charCodeAt(state.position);
-      if (ch === terminator) {
-        state.position++;
-        state.tag = _tag;
-        state.anchor = _anchor;
-        state.kind = isMapping ? "mapping" : "sequence";
-        state.result = _result;
-        return true;
-      } else if (!readNext) {
-        throwError(state, "missed comma between flow collection entries");
-      } else if (ch === 44) {
-        throwError(state, "expected the node content, but found ','");
-      }
-      keyTag = keyNode = valueNode = null;
-      isPair = isExplicitPair = false;
-      if (ch === 63) {
-        const following = state.input.charCodeAt(state.position + 1);
-        if (isWsOrEol(following)) {
-          isPair = isExplicitPair = true;
-          state.position++;
-          skipSeparationSpace(state, true, nodeIndent);
-        }
-      }
-      _line = state.line;
-      _lineStart = state.lineStart;
-      _pos = state.position;
-      composeNode(state, nodeIndent, CONTEXT_FLOW_IN, false, true);
-      keyTag = state.tag;
-      keyNode = state.result;
-      skipSeparationSpace(state, true, nodeIndent);
-      ch = state.input.charCodeAt(state.position);
-      if ((isExplicitPair || state.line === _line) && ch === 58) {
-        isPair = true;
-        ch = state.input.charCodeAt(++state.position);
-        skipSeparationSpace(state, true, nodeIndent);
-        composeNode(state, nodeIndent, CONTEXT_FLOW_IN, false, true);
-        valueNode = state.result;
-      }
-      if (isMapping) {
-        storeMappingPair(state, _result, overridableKeys, keyTag, keyNode, valueNode, _line, _lineStart, _pos);
-      } else if (isPair) {
-        _result.push(storeMappingPair(state, null, overridableKeys, keyTag, keyNode, valueNode, _line, _lineStart, _pos));
-      } else {
-        _result.push(keyNode);
-      }
-      skipSeparationSpace(state, true, nodeIndent);
-      ch = state.input.charCodeAt(state.position);
-      if (ch === 44) {
-        readNext = true;
-        ch = state.input.charCodeAt(++state.position);
-      } else {
-        readNext = false;
-      }
-    }
-    throwError(state, "unexpected end of the stream within a flow collection");
-  }
-  function readBlockScalar(state, nodeIndent) {
-    let folding;
-    let chomping = CHOMPING_CLIP;
-    let didReadContent = false;
-    let detectedIndent = false;
-    let textIndent = nodeIndent;
-    let emptyLines = 0;
-    let atMoreIndented = false;
-    let tmp;
-    let ch = state.input.charCodeAt(state.position);
-    if (ch === 124) {
-      folding = false;
-    } else if (ch === 62) {
-      folding = true;
-    } else {
-      return false;
-    }
-    state.kind = "scalar";
-    state.result = "";
-    while (ch !== 0) {
-      ch = state.input.charCodeAt(++state.position);
-      if (ch === 43 || ch === 45) {
-        if (CHOMPING_CLIP === chomping) {
-          chomping = ch === 43 ? CHOMPING_KEEP : CHOMPING_STRIP;
-        } else {
-          throwError(state, "repeat of a chomping mode identifier");
-        }
-      } else if ((tmp = fromDecimalCode(ch)) >= 0) {
-        if (tmp === 0) {
-          throwError(state, "bad explicit indentation width of a block scalar; it cannot be less than one");
-        } else if (!detectedIndent) {
-          textIndent = nodeIndent + tmp - 1;
-          detectedIndent = true;
-        } else {
-          throwError(state, "repeat of an indentation width identifier");
-        }
-      } else {
-        break;
-      }
-    }
-    if (isWhiteSpace(ch)) {
-      do {
-        ch = state.input.charCodeAt(++state.position);
-      } while (isWhiteSpace(ch));
-      if (ch === 35) {
-        do {
-          ch = state.input.charCodeAt(++state.position);
-        } while (!isEol(ch) && ch !== 0);
-      }
-    }
-    while (ch !== 0) {
-      readLineBreak(state);
-      state.lineIndent = 0;
-      ch = state.input.charCodeAt(state.position);
-      while ((!detectedIndent || state.lineIndent < textIndent) && ch === 32) {
-        state.lineIndent++;
-        ch = state.input.charCodeAt(++state.position);
-      }
-      if (!detectedIndent && state.lineIndent > textIndent) {
-        textIndent = state.lineIndent;
-      }
-      if (isEol(ch)) {
-        emptyLines++;
-        continue;
-      }
-      if (!detectedIndent && textIndent === 0) {
-        throwError(state, "missing indentation for block scalar");
-      }
-      if (state.lineIndent < textIndent) {
-        if (chomping === CHOMPING_KEEP) {
-          state.result += common2.repeat("\n", didReadContent ? 1 + emptyLines : emptyLines);
-        } else if (chomping === CHOMPING_CLIP) {
-          if (didReadContent) {
-            state.result += "\n";
-          }
-        }
-        break;
-      }
-      if (folding) {
-        if (isWhiteSpace(ch)) {
-          atMoreIndented = true;
-          state.result += common2.repeat("\n", didReadContent ? 1 + emptyLines : emptyLines);
-        } else if (atMoreIndented) {
-          atMoreIndented = false;
-          state.result += common2.repeat("\n", emptyLines + 1);
-        } else if (emptyLines === 0) {
-          if (didReadContent) {
-            state.result += " ";
-          }
-        } else {
-          state.result += common2.repeat("\n", emptyLines);
-        }
-      } else {
-        state.result += common2.repeat("\n", didReadContent ? 1 + emptyLines : emptyLines);
-      }
-      didReadContent = true;
-      detectedIndent = true;
-      emptyLines = 0;
-      const captureStart = state.position;
-      while (!isEol(ch) && ch !== 0) {
-        ch = state.input.charCodeAt(++state.position);
-      }
-      captureSegment(state, captureStart, state.position, false);
-    }
-    return true;
-  }
-  function readBlockSequence(state, nodeIndent) {
-    const _tag = state.tag;
-    const _anchor = state.anchor;
-    const _result = [];
-    let detected = false;
-    if (state.firstTabInLine !== -1) return false;
-    if (state.anchor !== null) {
-      storeAnchor(state, state.anchor, _result);
-    }
-    let ch = state.input.charCodeAt(state.position);
-    while (ch !== 0) {
-      if (state.firstTabInLine !== -1) {
-        state.position = state.firstTabInLine;
-        throwError(state, "tab characters must not be used in indentation");
-      }
-      if (ch !== 45) {
-        break;
-      }
-      const following = state.input.charCodeAt(state.position + 1);
-      if (!isWsOrEol(following)) {
-        break;
-      }
-      detected = true;
-      state.position++;
-      if (skipSeparationSpace(state, true, -1)) {
-        if (state.lineIndent <= nodeIndent) {
-          _result.push(null);
-          ch = state.input.charCodeAt(state.position);
-          continue;
-        }
-      }
-      const _line = state.line;
-      composeNode(state, nodeIndent, CONTEXT_BLOCK_IN, false, true);
-      _result.push(state.result);
-      skipSeparationSpace(state, true, -1);
-      ch = state.input.charCodeAt(state.position);
-      if ((state.line === _line || state.lineIndent > nodeIndent) && ch !== 0) {
-        throwError(state, "bad indentation of a sequence entry");
-      } else if (state.lineIndent < nodeIndent) {
-        break;
-      }
-    }
-    if (detected) {
-      state.tag = _tag;
-      state.anchor = _anchor;
-      state.kind = "sequence";
-      state.result = _result;
-      return true;
-    }
-    return false;
-  }
-  function readBlockMapping(state, nodeIndent, flowIndent) {
-    let allowCompact;
-    let _keyLine;
-    let _keyLineStart;
-    let _keyPos;
-    const _tag = state.tag;
-    const _anchor = state.anchor;
-    const _result = {};
-    const overridableKeys = /* @__PURE__ */ Object.create(null);
-    let keyTag = null;
-    let keyNode = null;
-    let valueNode = null;
-    let atExplicitKey = false;
-    let detected = false;
-    if (state.firstTabInLine !== -1) return false;
-    if (state.anchor !== null) {
-      storeAnchor(state, state.anchor, _result);
-    }
-    let ch = state.input.charCodeAt(state.position);
-    while (ch !== 0) {
-      if (!atExplicitKey && state.firstTabInLine !== -1) {
-        state.position = state.firstTabInLine;
-        throwError(state, "tab characters must not be used in indentation");
-      }
-      const following = state.input.charCodeAt(state.position + 1);
-      const _line = state.line;
-      if ((ch === 63 || ch === 58) && isWsOrEol(following)) {
-        if (ch === 63) {
-          if (atExplicitKey) {
-            storeMappingPair(state, _result, overridableKeys, keyTag, keyNode, null, _keyLine, _keyLineStart, _keyPos);
-            keyTag = keyNode = valueNode = null;
-          }
-          detected = true;
-          atExplicitKey = true;
-          allowCompact = true;
-        } else if (atExplicitKey) {
-          atExplicitKey = false;
-          allowCompact = true;
-        } else {
-          throwError(state, "incomplete explicit mapping pair; a key node is missed; or followed by a non-tabulated empty line");
-        }
-        state.position += 1;
-        ch = following;
-      } else {
-        _keyLine = state.line;
-        _keyLineStart = state.lineStart;
-        _keyPos = state.position;
-        if (!composeNode(state, flowIndent, CONTEXT_FLOW_OUT, false, true)) {
-          break;
-        }
-        if (state.line === _line) {
-          ch = state.input.charCodeAt(state.position);
-          while (isWhiteSpace(ch)) {
-            ch = state.input.charCodeAt(++state.position);
-          }
-          if (ch === 58) {
-            ch = state.input.charCodeAt(++state.position);
-            if (!isWsOrEol(ch)) {
-              throwError(state, "a whitespace character is expected after the key-value separator within a block mapping");
-            }
-            if (atExplicitKey) {
-              storeMappingPair(state, _result, overridableKeys, keyTag, keyNode, null, _keyLine, _keyLineStart, _keyPos);
-              keyTag = keyNode = valueNode = null;
-            }
-            detected = true;
-            atExplicitKey = false;
-            allowCompact = false;
-            keyTag = state.tag;
-            keyNode = state.result;
-          } else if (detected) {
-            throwError(state, "can not read an implicit mapping pair; a colon is missed");
-          } else {
-            state.tag = _tag;
-            state.anchor = _anchor;
-            return true;
-          }
-        } else if (detected) {
-          throwError(state, "can not read a block mapping entry; a multiline key may not be an implicit key");
-        } else {
-          state.tag = _tag;
-          state.anchor = _anchor;
-          return true;
-        }
-      }
-      if (state.line === _line || state.lineIndent > nodeIndent) {
-        if (atExplicitKey) {
-          _keyLine = state.line;
-          _keyLineStart = state.lineStart;
-          _keyPos = state.position;
-        }
-        if (composeNode(state, nodeIndent, CONTEXT_BLOCK_OUT, true, allowCompact)) {
-          if (atExplicitKey) {
-            keyNode = state.result;
-          } else {
-            valueNode = state.result;
-          }
-        }
-        if (!atExplicitKey) {
-          storeMappingPair(state, _result, overridableKeys, keyTag, keyNode, valueNode, _keyLine, _keyLineStart, _keyPos);
-          keyTag = keyNode = valueNode = null;
-        }
-        skipSeparationSpace(state, true, -1);
-        ch = state.input.charCodeAt(state.position);
-      }
-      if ((state.line === _line || state.lineIndent > nodeIndent) && ch !== 0) {
-        throwError(state, "bad indentation of a mapping entry");
-      } else if (state.lineIndent < nodeIndent) {
-        break;
-      }
-    }
-    if (atExplicitKey) {
-      storeMappingPair(state, _result, overridableKeys, keyTag, keyNode, null, _keyLine, _keyLineStart, _keyPos);
-    }
-    if (detected) {
-      state.tag = _tag;
-      state.anchor = _anchor;
-      state.kind = "mapping";
-      state.result = _result;
-    }
-    return detected;
-  }
-  function readTagProperty(state) {
-    let isVerbatim = false;
-    let isNamed = false;
-    let tagHandle;
-    let tagName;
-    let ch = state.input.charCodeAt(state.position);
-    if (ch !== 33) return false;
-    if (state.tag !== null) {
-      throwError(state, "duplication of a tag property");
-    }
-    ch = state.input.charCodeAt(++state.position);
-    if (ch === 60) {
-      isVerbatim = true;
-      ch = state.input.charCodeAt(++state.position);
-    } else if (ch === 33) {
-      isNamed = true;
-      tagHandle = "!!";
-      ch = state.input.charCodeAt(++state.position);
-    } else {
-      tagHandle = "!";
-    }
-    let _position = state.position;
-    if (isVerbatim) {
-      do {
-        ch = state.input.charCodeAt(++state.position);
-      } while (ch !== 0 && ch !== 62);
-      if (state.position < state.length) {
-        tagName = state.input.slice(_position, state.position);
-        ch = state.input.charCodeAt(++state.position);
-      } else {
-        throwError(state, "unexpected end of the stream within a verbatim tag");
-      }
-    } else {
-      while (ch !== 0 && !isWsOrEol(ch)) {
-        if (ch === 33) {
-          if (!isNamed) {
-            tagHandle = state.input.slice(_position - 1, state.position + 1);
-            if (!PATTERN_TAG_HANDLE.test(tagHandle)) {
-              throwError(state, "named tag handle cannot contain such characters");
-            }
-            isNamed = true;
-            _position = state.position + 1;
-          } else {
-            throwError(state, "tag suffix cannot contain exclamation marks");
-          }
-        }
-        ch = state.input.charCodeAt(++state.position);
-      }
-      tagName = state.input.slice(_position, state.position);
-      if (PATTERN_FLOW_INDICATORS.test(tagName)) {
-        throwError(state, "tag suffix cannot contain flow indicator characters");
-      }
-    }
-    if (tagName && !PATTERN_TAG_URI.test(tagName)) {
-      throwError(state, "tag name cannot contain such characters: " + tagName);
-    }
-    try {
-      tagName = decodeURIComponent(tagName);
-    } catch (err) {
-      throwError(state, "tag name is malformed: " + tagName);
-    }
-    if (isVerbatim) {
-      state.tag = tagName;
-    } else if (_hasOwnProperty.call(state.tagMap, tagHandle)) {
-      state.tag = state.tagMap[tagHandle] + tagName;
-    } else if (tagHandle === "!") {
-      state.tag = "!" + tagName;
-    } else if (tagHandle === "!!") {
-      state.tag = "tag:yaml.org,2002:" + tagName;
-    } else {
-      throwError(state, 'undeclared tag handle "' + tagHandle + '"');
-    }
-    return true;
-  }
-  function readAnchorProperty(state) {
-    let ch = state.input.charCodeAt(state.position);
-    if (ch !== 38) return false;
-    if (state.anchor !== null) {
-      throwError(state, "duplication of an anchor property");
-    }
-    ch = state.input.charCodeAt(++state.position);
-    const _position = state.position;
-    while (ch !== 0 && !isWsOrEol(ch) && !isFlowIndicator(ch)) {
-      ch = state.input.charCodeAt(++state.position);
-    }
-    if (state.position === _position) {
-      throwError(state, "name of an anchor node must contain at least one character");
-    }
-    state.anchor = state.input.slice(_position, state.position);
-    return true;
-  }
-  function readAlias(state) {
-    let ch = state.input.charCodeAt(state.position);
-    if (ch !== 42) return false;
-    ch = state.input.charCodeAt(++state.position);
-    const _position = state.position;
-    while (ch !== 0 && !isWsOrEol(ch) && !isFlowIndicator(ch)) {
-      ch = state.input.charCodeAt(++state.position);
-    }
-    if (state.position === _position) {
-      throwError(state, "name of an alias node must contain at least one character");
-    }
-    const alias = state.input.slice(_position, state.position);
-    if (!_hasOwnProperty.call(state.anchorMap, alias)) {
-      throwError(state, 'unidentified alias "' + alias + '"');
-    }
-    state.result = state.anchorMap[alias];
-    skipSeparationSpace(state, true, -1);
-    return true;
-  }
-  function tryReadBlockMappingFromProperty(state, propertyStart, nodeIndent, flowIndent) {
-    const fallbackState = snapshotState(state);
-    beginAnchorTransaction(state);
-    restoreState(state, propertyStart);
-    state.tag = null;
-    state.anchor = null;
-    state.kind = null;
-    state.result = null;
-    if (readBlockMapping(state, nodeIndent, flowIndent) && state.kind === "mapping") {
-      commitAnchorTransaction(state);
-      return true;
-    }
-    rollbackAnchorTransaction(state);
-    restoreState(state, fallbackState);
-    return false;
-  }
-  function composeNode(state, parentIndent, nodeContext, allowToSeek, allowCompact) {
-    let allowBlockScalars;
-    let allowBlockCollections;
-    let indentStatus = 1;
-    let atNewLine = false;
-    let hasContent = false;
-    let propertyStart = null;
-    let type2;
-    let flowIndent;
-    let blockIndent;
-    if (state.depth >= state.maxDepth) {
-      throwError(state, "nesting exceeded maxDepth (" + state.maxDepth + ")");
-    }
-    state.depth += 1;
-    if (state.listener !== null) {
-      state.listener("open", state);
-    }
-    state.tag = null;
-    state.anchor = null;
-    state.kind = null;
-    state.result = null;
-    const allowBlockStyles = allowBlockScalars = allowBlockCollections = CONTEXT_BLOCK_OUT === nodeContext || CONTEXT_BLOCK_IN === nodeContext;
-    if (allowToSeek) {
-      if (skipSeparationSpace(state, true, -1)) {
-        atNewLine = true;
-        if (state.lineIndent > parentIndent) {
-          indentStatus = 1;
-        } else if (state.lineIndent === parentIndent) {
-          indentStatus = 0;
-        } else if (state.lineIndent < parentIndent) {
-          indentStatus = -1;
-        }
-      }
-    }
-    if (indentStatus === 1) {
-      while (true) {
-        const ch = state.input.charCodeAt(state.position);
-        const propertyState = snapshotState(state);
-        if (atNewLine && (ch === 33 && state.tag !== null || ch === 38 && state.anchor !== null)) {
-          break;
-        }
-        if (!readTagProperty(state) && !readAnchorProperty(state)) {
-          break;
-        }
-        if (propertyStart === null) {
-          propertyStart = propertyState;
-        }
-        if (skipSeparationSpace(state, true, -1)) {
-          atNewLine = true;
-          allowBlockCollections = allowBlockStyles;
-          if (state.lineIndent > parentIndent) {
-            indentStatus = 1;
-          } else if (state.lineIndent === parentIndent) {
-            indentStatus = 0;
-          } else if (state.lineIndent < parentIndent) {
-            indentStatus = -1;
-          }
-        } else {
-          allowBlockCollections = false;
-        }
-      }
-    }
-    if (allowBlockCollections) {
-      allowBlockCollections = atNewLine || allowCompact;
-    }
-    if (indentStatus === 1 || CONTEXT_BLOCK_OUT === nodeContext) {
-      if (CONTEXT_FLOW_IN === nodeContext || CONTEXT_FLOW_OUT === nodeContext) {
-        flowIndent = parentIndent;
-      } else {
-        flowIndent = parentIndent + 1;
-      }
-      blockIndent = state.position - state.lineStart;
-      if (indentStatus === 1) {
-        if (allowBlockCollections && (readBlockSequence(state, blockIndent) || readBlockMapping(state, blockIndent, flowIndent)) || readFlowCollection(state, flowIndent)) {
-          hasContent = true;
-        } else {
-          const ch = state.input.charCodeAt(state.position);
-          if (propertyStart !== null && allowBlockStyles && !allowBlockCollections && ch !== 124 && ch !== 62 && tryReadBlockMappingFromProperty(
-            state,
-            propertyStart,
-            propertyStart.position - propertyStart.lineStart,
-            flowIndent
-          )) {
-            hasContent = true;
-          } else if (allowBlockScalars && readBlockScalar(state, flowIndent) || readSingleQuotedScalar(state, flowIndent) || readDoubleQuotedScalar(state, flowIndent)) {
-            hasContent = true;
-          } else if (readAlias(state)) {
-            hasContent = true;
-            if (state.tag !== null || state.anchor !== null) {
-              throwError(state, "alias node should not have any properties");
-            }
-          } else if (readPlainScalar(state, flowIndent, CONTEXT_FLOW_IN === nodeContext)) {
-            hasContent = true;
-            if (state.tag === null) {
-              state.tag = "?";
-            }
-          }
-          if (state.anchor !== null) {
-            storeAnchor(state, state.anchor, state.result);
-          }
-        }
-      } else if (indentStatus === 0) {
-        hasContent = allowBlockCollections && readBlockSequence(state, blockIndent);
-      }
-    }
-    if (state.tag === null) {
-      if (state.anchor !== null) {
-        storeAnchor(state, state.anchor, state.result);
-      }
-    } else if (state.tag === "?") {
-      if (state.result !== null && state.kind !== "scalar") {
-        throwError(state, 'unacceptable node kind for !<?> tag; it should be "scalar", not "' + state.kind + '"');
-      }
-      for (let typeIndex = 0, typeQuantity = state.implicitTypes.length; typeIndex < typeQuantity; typeIndex += 1) {
-        type2 = state.implicitTypes[typeIndex];
-        if (type2.resolve(state.result)) {
-          state.result = type2.construct(state.result);
-          state.tag = type2.tag;
-          if (state.anchor !== null) {
-            storeAnchor(state, state.anchor, state.result);
-          }
-          break;
-        }
-      }
-    } else if (state.tag !== "!") {
-      if (_hasOwnProperty.call(state.typeMap[state.kind || "fallback"], state.tag)) {
-        type2 = state.typeMap[state.kind || "fallback"][state.tag];
-      } else {
-        type2 = null;
-        const typeList = state.typeMap.multi[state.kind || "fallback"];
-        for (let typeIndex = 0, typeQuantity = typeList.length; typeIndex < typeQuantity; typeIndex += 1) {
-          if (state.tag.slice(0, typeList[typeIndex].tag.length) === typeList[typeIndex].tag) {
-            type2 = typeList[typeIndex];
-            break;
-          }
-        }
-      }
-      if (!type2) {
-        throwError(state, "unknown tag !<" + state.tag + ">");
-      }
-      if (state.result !== null && type2.kind !== state.kind) {
-        throwError(state, "unacceptable node kind for !<" + state.tag + '> tag; it should be "' + type2.kind + '", not "' + state.kind + '"');
-      }
-      if (!type2.resolve(state.result, state.tag)) {
-        throwError(state, "cannot resolve a node with !<" + state.tag + "> explicit tag");
-      } else {
-        state.result = type2.construct(state.result, state.tag);
-        if (state.anchor !== null) {
-          storeAnchor(state, state.anchor, state.result);
-        }
-      }
-    }
-    if (state.listener !== null) {
-      state.listener("close", state);
-    }
-    state.depth -= 1;
-    return state.tag !== null || state.anchor !== null || hasContent;
-  }
-  function readDocument(state) {
-    const documentStart = state.position;
-    let hasDirectives = false;
-    let ch;
-    state.version = null;
-    state.checkLineBreaks = state.legacy;
-    state.tagMap = /* @__PURE__ */ Object.create(null);
-    state.anchorMap = /* @__PURE__ */ Object.create(null);
-    while ((ch = state.input.charCodeAt(state.position)) !== 0) {
-      skipSeparationSpace(state, true, -1);
-      ch = state.input.charCodeAt(state.position);
-      if (state.lineIndent > 0 || ch !== 37) {
-        break;
-      }
-      hasDirectives = true;
-      ch = state.input.charCodeAt(++state.position);
-      let _position = state.position;
-      while (ch !== 0 && !isWsOrEol(ch)) {
-        ch = state.input.charCodeAt(++state.position);
-      }
-      const directiveName = state.input.slice(_position, state.position);
-      const directiveArgs = [];
-      if (directiveName.length < 1) {
-        throwError(state, "directive name must not be less than one character in length");
-      }
-      while (ch !== 0) {
-        while (isWhiteSpace(ch)) {
-          ch = state.input.charCodeAt(++state.position);
-        }
-        if (ch === 35) {
-          do {
-            ch = state.input.charCodeAt(++state.position);
-          } while (ch !== 0 && !isEol(ch));
-          break;
-        }
-        if (isEol(ch)) break;
-        _position = state.position;
-        while (ch !== 0 && !isWsOrEol(ch)) {
-          ch = state.input.charCodeAt(++state.position);
-        }
-        directiveArgs.push(state.input.slice(_position, state.position));
-      }
-      if (ch !== 0) readLineBreak(state);
-      if (_hasOwnProperty.call(directiveHandlers, directiveName)) {
-        directiveHandlers[directiveName](state, directiveName, directiveArgs);
-      } else {
-        throwWarning(state, 'unknown document directive "' + directiveName + '"');
-      }
-    }
-    skipSeparationSpace(state, true, -1);
-    if (state.lineIndent === 0 && state.input.charCodeAt(state.position) === 45 && state.input.charCodeAt(state.position + 1) === 45 && state.input.charCodeAt(state.position + 2) === 45) {
-      state.position += 3;
-      skipSeparationSpace(state, true, -1);
-    } else if (hasDirectives) {
-      throwError(state, "directives end mark is expected");
-    }
-    composeNode(state, state.lineIndent - 1, CONTEXT_BLOCK_OUT, false, true);
-    skipSeparationSpace(state, true, -1);
-    if (state.checkLineBreaks && PATTERN_NON_ASCII_LINE_BREAKS.test(state.input.slice(documentStart, state.position))) {
-      throwWarning(state, "non-ASCII line breaks are interpreted as content");
-    }
-    state.documents.push(state.result);
-    if (state.position === state.lineStart && testDocumentSeparator(state)) {
-      if (state.input.charCodeAt(state.position) === 46) {
-        state.position += 3;
-        skipSeparationSpace(state, true, -1);
-      }
-      return;
-    }
-    if (state.position < state.length - 1) {
-      throwError(state, "end of the stream or a document separator is expected");
-    }
-  }
-  function loadDocuments(input, options) {
-    input = String(input);
-    options = options || {};
-    if (input.length !== 0) {
-      if (input.charCodeAt(input.length - 1) !== 10 && input.charCodeAt(input.length - 1) !== 13) {
-        input += "\n";
-      }
-      if (input.charCodeAt(0) === 65279) {
-        input = input.slice(1);
-      }
-    }
-    const state = new State(input, options);
-    const nullpos = input.indexOf("\0");
-    if (nullpos !== -1) {
-      state.position = nullpos;
-      throwError(state, "null byte is not allowed in input");
-    }
-    state.input += "\0";
-    while (state.input.charCodeAt(state.position) === 32) {
-      state.lineIndent += 1;
-      state.position += 1;
-    }
-    while (state.position < state.length - 1) {
-      readDocument(state);
-    }
-    return state.documents;
-  }
-  function loadAll2(input, iterator, options) {
-    if (iterator !== null && typeof iterator === "object" && typeof options === "undefined") {
-      options = iterator;
-      iterator = null;
-    }
-    const documents = loadDocuments(input, options);
-    if (typeof iterator !== "function") {
-      return documents;
-    }
-    for (let index = 0, length = documents.length; index < length; index += 1) {
-      iterator(documents[index]);
-    }
-  }
-  function load2(input, options) {
-    const documents = loadDocuments(input, options);
-    if (documents.length === 0) {
-      return void 0;
-    } else if (documents.length === 1) {
-      return documents[0];
-    }
-    throw new YAMLException2("expected a single document in the stream, but found more");
-  }
-  loader.loadAll = loadAll2;
-  loader.load = load2;
-  return loader;
-}
-var dumper = {};
-var hasRequiredDumper;
-function requireDumper() {
-  if (hasRequiredDumper) return dumper;
-  hasRequiredDumper = 1;
-  const common2 = requireCommon();
-  const YAMLException2 = requireException();
-  const DEFAULT_SCHEMA2 = require_default();
-  const _toString = Object.prototype.toString;
-  const _hasOwnProperty = Object.prototype.hasOwnProperty;
-  const CHAR_BOM = 65279;
-  const CHAR_TAB = 9;
-  const CHAR_LINE_FEED = 10;
-  const CHAR_CARRIAGE_RETURN = 13;
-  const CHAR_SPACE = 32;
-  const CHAR_EXCLAMATION = 33;
-  const CHAR_DOUBLE_QUOTE = 34;
-  const CHAR_SHARP = 35;
-  const CHAR_PERCENT = 37;
-  const CHAR_AMPERSAND = 38;
-  const CHAR_SINGLE_QUOTE = 39;
-  const CHAR_ASTERISK = 42;
-  const CHAR_COMMA = 44;
-  const CHAR_MINUS = 45;
-  const CHAR_COLON = 58;
-  const CHAR_EQUALS = 61;
-  const CHAR_GREATER_THAN = 62;
-  const CHAR_QUESTION = 63;
-  const CHAR_COMMERCIAL_AT = 64;
-  const CHAR_LEFT_SQUARE_BRACKET = 91;
-  const CHAR_RIGHT_SQUARE_BRACKET = 93;
-  const CHAR_GRAVE_ACCENT = 96;
-  const CHAR_LEFT_CURLY_BRACKET = 123;
-  const CHAR_VERTICAL_LINE = 124;
-  const CHAR_RIGHT_CURLY_BRACKET = 125;
-  const ESCAPE_SEQUENCES = {};
-  ESCAPE_SEQUENCES[0] = "\\0";
-  ESCAPE_SEQUENCES[7] = "\\a";
-  ESCAPE_SEQUENCES[8] = "\\b";
-  ESCAPE_SEQUENCES[9] = "\\t";
-  ESCAPE_SEQUENCES[10] = "\\n";
-  ESCAPE_SEQUENCES[11] = "\\v";
-  ESCAPE_SEQUENCES[12] = "\\f";
-  ESCAPE_SEQUENCES[13] = "\\r";
-  ESCAPE_SEQUENCES[27] = "\\e";
-  ESCAPE_SEQUENCES[34] = '\\"';
-  ESCAPE_SEQUENCES[92] = "\\\\";
-  ESCAPE_SEQUENCES[133] = "\\N";
-  ESCAPE_SEQUENCES[160] = "\\_";
-  ESCAPE_SEQUENCES[8232] = "\\L";
-  ESCAPE_SEQUENCES[8233] = "\\P";
-  const DEPRECATED_BOOLEANS_SYNTAX = [
-    "y",
-    "Y",
-    "yes",
-    "Yes",
-    "YES",
-    "on",
-    "On",
-    "ON",
-    "n",
-    "N",
-    "no",
-    "No",
-    "NO",
-    "off",
-    "Off",
-    "OFF"
-  ];
-  const DEPRECATED_BASE60_SYNTAX = /^[-+]?[0-9_]+(?::[0-9_]+)+(?:\.[0-9_]*)?$/;
-  function compileStyleMap(schema2, map2) {
-    if (map2 === null) return {};
-    const result = {};
-    const keys = Object.keys(map2);
-    for (let index = 0, length = keys.length; index < length; index += 1) {
-      let tag = keys[index];
-      let style = String(map2[tag]);
-      if (tag.slice(0, 2) === "!!") {
-        tag = "tag:yaml.org,2002:" + tag.slice(2);
-      }
-      const type2 = schema2.compiledTypeMap["fallback"][tag];
-      if (type2 && _hasOwnProperty.call(type2.styleAliases, style)) {
-        style = type2.styleAliases[style];
-      }
-      result[tag] = style;
-    }
-    return result;
-  }
-  function encodeHex(character) {
-    let handle;
-    let length;
-    const string = character.toString(16).toUpperCase();
-    if (character <= 255) {
-      handle = "x";
-      length = 2;
-    } else if (character <= 65535) {
-      handle = "u";
-      length = 4;
-    } else if (character <= 4294967295) {
-      handle = "U";
-      length = 8;
-    } else {
-      throw new YAMLException2("code point within a string may not be greater than 0xFFFFFFFF");
-    }
-    return "\\" + handle + common2.repeat("0", length - string.length) + string;
-  }
-  const QUOTING_TYPE_SINGLE = 1;
-  const QUOTING_TYPE_DOUBLE = 2;
-  function State(options) {
-    this.schema = options["schema"] || DEFAULT_SCHEMA2;
-    this.indent = Math.max(1, options["indent"] || 2);
-    this.noArrayIndent = options["noArrayIndent"] || false;
-    this.skipInvalid = options["skipInvalid"] || false;
-    this.flowLevel = common2.isNothing(options["flowLevel"]) ? -1 : options["flowLevel"];
-    this.styleMap = compileStyleMap(this.schema, options["styles"] || null);
-    this.sortKeys = options["sortKeys"] || false;
-    this.lineWidth = options["lineWidth"] || 80;
-    this.noRefs = options["noRefs"] || false;
-    this.noCompatMode = options["noCompatMode"] || false;
-    this.condenseFlow = options["condenseFlow"] || false;
-    this.quotingType = options["quotingType"] === '"' ? QUOTING_TYPE_DOUBLE : QUOTING_TYPE_SINGLE;
-    this.forceQuotes = options["forceQuotes"] || false;
-    this.replacer = typeof options["replacer"] === "function" ? options["replacer"] : null;
-    this.implicitTypes = this.schema.compiledImplicit;
-    this.explicitTypes = this.schema.compiledExplicit;
-    this.tag = null;
-    this.result = "";
-    this.duplicates = [];
-    this.usedDuplicates = null;
-  }
-  function indentString(string, spaces2) {
-    const ind = common2.repeat(" ", spaces2);
-    let position = 0;
-    let result = "";
-    const length = string.length;
-    while (position < length) {
-      let line;
-      const next = string.indexOf("\n", position);
-      if (next === -1) {
-        line = string.slice(position);
-        position = length;
-      } else {
-        line = string.slice(position, next + 1);
-        position = next + 1;
-      }
-      if (line.length && line !== "\n") result += ind;
-      result += line;
-    }
-    return result;
-  }
-  function generateNextLine(state, level) {
-    return "\n" + common2.repeat(" ", state.indent * level);
-  }
-  function testImplicitResolving(state, str2) {
-    for (let index = 0, length = state.implicitTypes.length; index < length; index += 1) {
-      const type2 = state.implicitTypes[index];
-      if (type2.resolve(str2)) {
-        return true;
-      }
-    }
-    return false;
-  }
-  function isWhitespace(c) {
-    return c === CHAR_SPACE || c === CHAR_TAB;
-  }
-  function isPrintable(c) {
-    return c >= 32 && c <= 126 || c >= 161 && c <= 55295 && c !== 8232 && c !== 8233 || c >= 57344 && c <= 65533 && c !== CHAR_BOM || c >= 65536 && c <= 1114111;
-  }
-  function isNsCharOrWhitespace(c) {
-    return isPrintable(c) && c !== CHAR_BOM && // - b-char
-    c !== CHAR_CARRIAGE_RETURN && c !== CHAR_LINE_FEED;
-  }
-  function isPlainSafe(c, prev, inblock) {
-    const cIsNsCharOrWhitespace = isNsCharOrWhitespace(c);
-    const cIsNsChar = cIsNsCharOrWhitespace && !isWhitespace(c);
-    return (
-      // ns-plain-safe
-      (inblock ? cIsNsCharOrWhitespace : cIsNsCharOrWhitespace && // - c-flow-indicator
-      c !== CHAR_COMMA && c !== CHAR_LEFT_SQUARE_BRACKET && c !== CHAR_RIGHT_SQUARE_BRACKET && c !== CHAR_LEFT_CURLY_BRACKET && c !== CHAR_RIGHT_CURLY_BRACKET) && // ns-plain-char
-      c !== CHAR_SHARP && // false on '#'
-      !(prev === CHAR_COLON && !cIsNsChar) || // false on ': '
-      isNsCharOrWhitespace(prev) && !isWhitespace(prev) && c === CHAR_SHARP || // change to true on '[^ ]#'
-      prev === CHAR_COLON && cIsNsChar
-    );
-  }
-  function isPlainSafeFirst(c) {
-    return isPrintable(c) && c !== CHAR_BOM && !isWhitespace(c) && // - s-white
-    // - (c-indicator ::=
-    // “-” | “?” | “:” | “,” | “[” | “]” | “{” | “}”
-    c !== CHAR_MINUS && c !== CHAR_QUESTION && c !== CHAR_COLON && c !== CHAR_COMMA && c !== CHAR_LEFT_SQUARE_BRACKET && c !== CHAR_RIGHT_SQUARE_BRACKET && c !== CHAR_LEFT_CURLY_BRACKET && c !== CHAR_RIGHT_CURLY_BRACKET && // | “#” | “&” | “*” | “!” | “|” | “=” | “>” | “'” | “"”
-    c !== CHAR_SHARP && c !== CHAR_AMPERSAND && c !== CHAR_ASTERISK && c !== CHAR_EXCLAMATION && c !== CHAR_VERTICAL_LINE && c !== CHAR_EQUALS && c !== CHAR_GREATER_THAN && c !== CHAR_SINGLE_QUOTE && c !== CHAR_DOUBLE_QUOTE && // | “%” | “@” | “`”)
-    c !== CHAR_PERCENT && c !== CHAR_COMMERCIAL_AT && c !== CHAR_GRAVE_ACCENT;
-  }
-  function isPlainSafeLast(c) {
-    return !isWhitespace(c) && c !== CHAR_COLON;
-  }
-  function codePointAt(string, pos) {
-    const first = string.charCodeAt(pos);
-    let second;
-    if (first >= 55296 && first <= 56319 && pos + 1 < string.length) {
-      second = string.charCodeAt(pos + 1);
-      if (second >= 56320 && second <= 57343) {
-        return (first - 55296) * 1024 + second - 56320 + 65536;
-      }
-    }
-    return first;
-  }
-  function needIndentIndicator(string) {
-    const leadingSpaceRe = /^\n* /;
-    return leadingSpaceRe.test(string);
-  }
-  const STYLE_PLAIN = 1;
-  const STYLE_SINGLE = 2;
-  const STYLE_LITERAL = 3;
-  const STYLE_FOLDED = 4;
-  const STYLE_DOUBLE = 5;
-  function chooseScalarStyle(string, singleLineOnly, indentPerLevel, lineWidth, testAmbiguousType, quotingType, forceQuotes, inblock) {
-    let i;
-    let char = 0;
-    let prevChar = null;
-    let hasLineBreak = false;
-    let hasFoldableLine = false;
-    const shouldTrackWidth = lineWidth !== -1;
-    let previousLineBreak = -1;
-    let plain = isPlainSafeFirst(codePointAt(string, 0)) && isPlainSafeLast(codePointAt(string, string.length - 1));
-    if (singleLineOnly || forceQuotes) {
-      for (i = 0; i < string.length; char >= 65536 ? i += 2 : i++) {
-        char = codePointAt(string, i);
-        if (!isPrintable(char)) {
-          return STYLE_DOUBLE;
-        }
-        plain = plain && isPlainSafe(char, prevChar, inblock);
-        prevChar = char;
-      }
-    } else {
-      for (i = 0; i < string.length; char >= 65536 ? i += 2 : i++) {
-        char = codePointAt(string, i);
-        if (char === CHAR_LINE_FEED) {
-          hasLineBreak = true;
-          if (shouldTrackWidth) {
-            hasFoldableLine = hasFoldableLine || // Foldable line = too long, and not more-indented.
-            i - previousLineBreak - 1 > lineWidth && string[previousLineBreak + 1] !== " ";
-            previousLineBreak = i;
-          }
-        } else if (!isPrintable(char)) {
-          return STYLE_DOUBLE;
-        }
-        plain = plain && isPlainSafe(char, prevChar, inblock);
-        prevChar = char;
-      }
-      hasFoldableLine = hasFoldableLine || shouldTrackWidth && (i - previousLineBreak - 1 > lineWidth && string[previousLineBreak + 1] !== " ");
-    }
-    if (!hasLineBreak && !hasFoldableLine) {
-      if (plain && !forceQuotes && !testAmbiguousType(string)) {
-        return STYLE_PLAIN;
-      }
-      return quotingType === QUOTING_TYPE_DOUBLE ? STYLE_DOUBLE : STYLE_SINGLE;
-    }
-    if (indentPerLevel > 9 && needIndentIndicator(string)) {
-      return STYLE_DOUBLE;
-    }
-    if (!forceQuotes) {
-      return hasFoldableLine ? STYLE_FOLDED : STYLE_LITERAL;
-    }
-    return quotingType === QUOTING_TYPE_DOUBLE ? STYLE_DOUBLE : STYLE_SINGLE;
-  }
-  function writeScalar(state, string, level, iskey, inblock) {
-    state.dump = (function() {
-      if (string.length === 0) {
-        return state.quotingType === QUOTING_TYPE_DOUBLE ? '""' : "''";
-      }
-      if (!state.noCompatMode) {
-        if (DEPRECATED_BOOLEANS_SYNTAX.indexOf(string) !== -1 || DEPRECATED_BASE60_SYNTAX.test(string)) {
-          return state.quotingType === QUOTING_TYPE_DOUBLE ? '"' + string + '"' : "'" + string + "'";
-        }
-      }
-      const indent = state.indent * Math.max(1, level);
-      const lineWidth = state.lineWidth === -1 ? -1 : Math.max(Math.min(state.lineWidth, 40), state.lineWidth - indent);
-      const singleLineOnly = iskey || // No block styles in flow mode.
-      state.flowLevel > -1 && level >= state.flowLevel;
-      function testAmbiguity(string2) {
-        return testImplicitResolving(state, string2);
-      }
-      switch (chooseScalarStyle(
-        string,
-        singleLineOnly,
-        state.indent,
-        lineWidth,
-        testAmbiguity,
-        state.quotingType,
-        state.forceQuotes && !iskey,
-        inblock
-      )) {
-        case STYLE_PLAIN:
-          return string;
-        case STYLE_SINGLE:
-          return "'" + string.replace(/'/g, "''") + "'";
-        case STYLE_LITERAL:
-          return "|" + blockHeader(string, state.indent) + dropEndingNewline(indentString(string, indent));
-        case STYLE_FOLDED:
-          return ">" + blockHeader(string, state.indent) + dropEndingNewline(indentString(foldString(string, lineWidth), indent));
-        case STYLE_DOUBLE:
-          return '"' + escapeString(string) + '"';
-        default:
-          throw new YAMLException2("impossible error: invalid scalar style");
-      }
-    })();
-  }
-  function blockHeader(string, indentPerLevel) {
-    const indentIndicator = needIndentIndicator(string) ? String(indentPerLevel) : "";
-    const clip = string[string.length - 1] === "\n";
-    const keep = clip && (string[string.length - 2] === "\n" || string === "\n");
-    const chomp = keep ? "+" : clip ? "" : "-";
-    return indentIndicator + chomp + "\n";
-  }
-  function dropEndingNewline(string) {
-    return string[string.length - 1] === "\n" ? string.slice(0, -1) : string;
-  }
-  function foldString(string, width) {
-    const lineRe = /(\n+)([^\n]*)/g;
-    let result = (function() {
-      let nextLF = string.indexOf("\n");
-      nextLF = nextLF !== -1 ? nextLF : string.length;
-      lineRe.lastIndex = nextLF;
-      return foldLine(string.slice(0, nextLF), width);
-    })();
-    let prevMoreIndented = string[0] === "\n" || string[0] === " ";
-    let moreIndented;
-    let match;
-    while (match = lineRe.exec(string)) {
-      const prefix = match[1];
-      const line = match[2];
-      moreIndented = line[0] === " ";
-      result += prefix + (!prevMoreIndented && !moreIndented && line !== "" ? "\n" : "") + foldLine(line, width);
-      prevMoreIndented = moreIndented;
-    }
-    return result;
-  }
-  function foldLine(line, width) {
-    if (line === "" || line[0] === " ") return line;
-    const breakRe = / [^ ]/g;
-    let match;
-    let start = 0;
-    let end;
-    let curr = 0;
-    let next = 0;
-    let result = "";
-    while (match = breakRe.exec(line)) {
-      next = match.index;
-      if (next - start > width) {
-        end = curr > start ? curr : next;
-        result += "\n" + line.slice(start, end);
-        start = end + 1;
-      }
-      curr = next;
-    }
-    result += "\n";
-    if (line.length - start > width && curr > start) {
-      result += line.slice(start, curr) + "\n" + line.slice(curr + 1);
-    } else {
-      result += line.slice(start);
-    }
-    return result.slice(1);
-  }
-  function escapeString(string) {
-    let result = "";
-    let char = 0;
-    for (let i = 0; i < string.length; char >= 65536 ? i += 2 : i++) {
-      char = codePointAt(string, i);
-      const escapeSeq = ESCAPE_SEQUENCES[char];
-      if (!escapeSeq && isPrintable(char)) {
-        result += string[i];
-        if (char >= 65536) result += string[i + 1];
-      } else {
-        result += escapeSeq || encodeHex(char);
-      }
-    }
-    return result;
-  }
-  function writeFlowSequence(state, level, object) {
-    let _result = "";
-    const _tag = state.tag;
-    for (let index = 0, length = object.length; index < length; index += 1) {
-      let value = object[index];
-      if (state.replacer) {
-        value = state.replacer.call(object, String(index), value);
-      }
-      if (writeNode(state, level, value, false, false) || typeof value === "undefined" && writeNode(state, level, null, false, false)) {
-        if (_result !== "") _result += "," + (!state.condenseFlow ? " " : "");
-        _result += state.dump;
-      }
-    }
-    state.tag = _tag;
-    state.dump = "[" + _result + "]";
-  }
-  function writeBlockSequence(state, level, object, compact) {
-    let _result = "";
-    const _tag = state.tag;
-    for (let index = 0, length = object.length; index < length; index += 1) {
-      let value = object[index];
-      if (state.replacer) {
-        value = state.replacer.call(object, String(index), value);
-      }
-      if (writeNode(state, level + 1, value, true, true, false, true) || typeof value === "undefined" && writeNode(state, level + 1, null, true, true, false, true)) {
-        if (!compact || _result !== "") {
-          _result += generateNextLine(state, level);
-        }
-        if (state.dump && CHAR_LINE_FEED === state.dump.charCodeAt(0)) {
-          _result += "-";
-        } else {
-          _result += "- ";
-        }
-        _result += state.dump;
-      }
-    }
-    state.tag = _tag;
-    state.dump = _result || "[]";
-  }
-  function writeFlowMapping(state, level, object) {
-    let _result = "";
-    const _tag = state.tag;
-    const objectKeyList = Object.keys(object);
-    for (let index = 0, length = objectKeyList.length; index < length; index += 1) {
-      let pairBuffer = "";
-      if (_result !== "") pairBuffer += ", ";
-      if (state.condenseFlow) pairBuffer += '"';
-      const objectKey = objectKeyList[index];
-      let objectValue = object[objectKey];
-      if (state.replacer) {
-        objectValue = state.replacer.call(object, objectKey, objectValue);
-      }
-      if (!writeNode(state, level, objectKey, false, false)) {
-        continue;
-      }
-      if (state.dump.length > 1024) pairBuffer += "? ";
-      pairBuffer += state.dump + (state.condenseFlow ? '"' : "") + ":" + (state.condenseFlow ? "" : " ");
-      if (!writeNode(state, level, objectValue, false, false)) {
-        continue;
-      }
-      pairBuffer += state.dump;
-      _result += pairBuffer;
-    }
-    state.tag = _tag;
-    state.dump = "{" + _result + "}";
-  }
-  function writeBlockMapping(state, level, object, compact) {
-    let _result = "";
-    const _tag = state.tag;
-    const objectKeyList = Object.keys(object);
-    if (state.sortKeys === true) {
-      objectKeyList.sort();
-    } else if (typeof state.sortKeys === "function") {
-      objectKeyList.sort(state.sortKeys);
-    } else if (state.sortKeys) {
-      throw new YAMLException2("sortKeys must be a boolean or a function");
-    }
-    for (let index = 0, length = objectKeyList.length; index < length; index += 1) {
-      let pairBuffer = "";
-      if (!compact || _result !== "") {
-        pairBuffer += generateNextLine(state, level);
-      }
-      const objectKey = objectKeyList[index];
-      let objectValue = object[objectKey];
-      if (state.replacer) {
-        objectValue = state.replacer.call(object, objectKey, objectValue);
-      }
-      if (!writeNode(state, level + 1, objectKey, true, true, true)) {
-        continue;
-      }
-      const explicitPair = state.tag !== null && state.tag !== "?" || state.dump && state.dump.length > 1024;
-      if (explicitPair) {
-        if (state.dump && CHAR_LINE_FEED === state.dump.charCodeAt(0)) {
-          pairBuffer += "?";
-        } else {
-          pairBuffer += "? ";
-        }
-      }
-      pairBuffer += state.dump;
-      if (explicitPair) {
-        pairBuffer += generateNextLine(state, level);
-      }
-      if (!writeNode(state, level + 1, objectValue, true, explicitPair)) {
-        continue;
-      }
-      if (state.dump && CHAR_LINE_FEED === state.dump.charCodeAt(0)) {
-        pairBuffer += ":";
-      } else {
-        pairBuffer += ": ";
-      }
-      pairBuffer += state.dump;
-      _result += pairBuffer;
-    }
-    state.tag = _tag;
-    state.dump = _result || "{}";
-  }
-  function detectType(state, object, explicit) {
-    const typeList = explicit ? state.explicitTypes : state.implicitTypes;
-    for (let index = 0, length = typeList.length; index < length; index += 1) {
-      const type2 = typeList[index];
-      if ((type2.instanceOf || type2.predicate) && (!type2.instanceOf || typeof object === "object" && object instanceof type2.instanceOf) && (!type2.predicate || type2.predicate(object))) {
-        if (explicit) {
-          if (type2.multi && type2.representName) {
-            state.tag = type2.representName(object);
-          } else {
-            state.tag = type2.tag;
-          }
-        } else {
-          state.tag = "?";
-        }
-        if (type2.represent) {
-          const style = state.styleMap[type2.tag] || type2.defaultStyle;
-          let _result;
-          if (_toString.call(type2.represent) === "[object Function]") {
-            _result = type2.represent(object, style);
-          } else if (_hasOwnProperty.call(type2.represent, style)) {
-            _result = type2.represent[style](object, style);
-          } else {
-            throw new YAMLException2("!<" + type2.tag + '> tag resolver accepts not "' + style + '" style');
-          }
-          state.dump = _result;
-        }
-        return true;
-      }
-    }
-    return false;
-  }
-  function writeNode(state, level, object, block, compact, iskey, isblockseq) {
-    state.tag = null;
-    state.dump = object;
-    if (!detectType(state, object, false)) {
-      detectType(state, object, true);
-    }
-    const type2 = _toString.call(state.dump);
-    const inblock = block;
-    if (block) {
-      block = state.flowLevel < 0 || state.flowLevel > level;
-    }
-    const objectOrArray = type2 === "[object Object]" || type2 === "[object Array]";
-    let duplicateIndex;
-    let duplicate;
-    if (objectOrArray) {
-      duplicateIndex = state.duplicates.indexOf(object);
-      duplicate = duplicateIndex !== -1;
-    }
-    if (state.tag !== null && state.tag !== "?" || duplicate || state.indent !== 2 && level > 0) {
-      compact = false;
-    }
-    if (duplicate && state.usedDuplicates[duplicateIndex]) {
-      state.dump = "*ref_" + duplicateIndex;
-    } else {
-      if (objectOrArray && duplicate && !state.usedDuplicates[duplicateIndex]) {
-        state.usedDuplicates[duplicateIndex] = true;
-      }
-      if (type2 === "[object Object]") {
-        if (block && Object.keys(state.dump).length !== 0) {
-          writeBlockMapping(state, level, state.dump, compact);
-          if (duplicate) {
-            state.dump = "&ref_" + duplicateIndex + state.dump;
-          }
-        } else {
-          writeFlowMapping(state, level, state.dump);
-          if (duplicate) {
-            state.dump = "&ref_" + duplicateIndex + " " + state.dump;
-          }
-        }
-      } else if (type2 === "[object Array]") {
-        if (block && state.dump.length !== 0) {
-          if (state.noArrayIndent && !isblockseq && level > 0) {
-            writeBlockSequence(state, level - 1, state.dump, compact);
-          } else {
-            writeBlockSequence(state, level, state.dump, compact);
-          }
-          if (duplicate) {
-            state.dump = "&ref_" + duplicateIndex + state.dump;
-          }
-        } else {
-          writeFlowSequence(state, level, state.dump);
-          if (duplicate) {
-            state.dump = "&ref_" + duplicateIndex + " " + state.dump;
-          }
-        }
-      } else if (type2 === "[object String]") {
-        if (state.tag !== "?") {
-          writeScalar(state, state.dump, level, iskey, inblock);
-        }
-      } else if (type2 === "[object Undefined]") {
-        return false;
-      } else {
-        if (state.skipInvalid) return false;
-        throw new YAMLException2("unacceptable kind of an object to dump " + type2);
-      }
-      if (state.tag !== null && state.tag !== "?") {
-        let tagStr = encodeURI(
-          state.tag[0] === "!" ? state.tag.slice(1) : state.tag
-        ).replace(/!/g, "%21");
-        if (state.tag[0] === "!") {
-          tagStr = "!" + tagStr;
-        } else if (tagStr.slice(0, 18) === "tag:yaml.org,2002:") {
-          tagStr = "!!" + tagStr.slice(18);
-        } else {
-          tagStr = "!<" + tagStr + ">";
-        }
-        state.dump = tagStr + " " + state.dump;
-      }
-    }
-    return true;
-  }
-  function getDuplicateReferences(object, state) {
-    const objects = [];
-    const duplicatesIndexes = [];
-    inspectNode(object, objects, duplicatesIndexes);
-    const length = duplicatesIndexes.length;
-    for (let index = 0; index < length; index += 1) {
-      state.duplicates.push(objects[duplicatesIndexes[index]]);
-    }
-    state.usedDuplicates = new Array(length);
-  }
-  function inspectNode(object, objects, duplicatesIndexes) {
-    if (object !== null && typeof object === "object") {
-      const index = objects.indexOf(object);
-      if (index !== -1) {
-        if (duplicatesIndexes.indexOf(index) === -1) {
-          duplicatesIndexes.push(index);
-        }
-      } else {
-        objects.push(object);
-        if (Array.isArray(object)) {
-          for (let i = 0, length = object.length; i < length; i += 1) {
-            inspectNode(object[i], objects, duplicatesIndexes);
-          }
-        } else {
-          const objectKeyList = Object.keys(object);
-          for (let i = 0, length = objectKeyList.length; i < length; i += 1) {
-            inspectNode(object[objectKeyList[i]], objects, duplicatesIndexes);
-          }
-        }
-      }
-    }
-  }
-  function dump2(input, options) {
-    options = options || {};
-    const state = new State(options);
-    if (!state.noRefs) getDuplicateReferences(input, state);
-    let value = input;
-    if (state.replacer) {
-      value = state.replacer.call({ "": value }, "", value);
-    }
-    if (writeNode(state, 0, value, true, true)) return state.dump + "\n";
-    return "";
-  }
-  dumper.dump = dump2;
-  return dumper;
-}
-var hasRequiredJsYaml;
-function requireJsYaml() {
-  if (hasRequiredJsYaml) return jsYaml;
-  hasRequiredJsYaml = 1;
-  const loader2 = requireLoader();
-  const dumper2 = requireDumper();
-  function renamed(from, to) {
-    return function() {
-      throw new Error("Function yaml." + from + " is removed in js-yaml 4. Use yaml." + to + " instead, which is now safe by default.");
-    };
-  }
-  jsYaml.Type = requireType();
-  jsYaml.Schema = requireSchema();
-  jsYaml.FAILSAFE_SCHEMA = requireFailsafe();
-  jsYaml.JSON_SCHEMA = requireJson();
-  jsYaml.CORE_SCHEMA = requireCore();
-  jsYaml.DEFAULT_SCHEMA = require_default();
-  jsYaml.load = loader2.load;
-  jsYaml.loadAll = loader2.loadAll;
-  jsYaml.dump = dumper2.dump;
-  jsYaml.YAMLException = requireException();
-  jsYaml.types = {
-    binary: requireBinary(),
-    float: requireFloat(),
-    map: requireMap(),
-    null: require_null2(),
-    pairs: requirePairs(),
-    set: requireSet(),
-    timestamp: requireTimestamp(),
-    bool: requireBool(),
-    int: requireInt(),
-    merge: requireMerge(),
-    omap: requireOmap(),
-    seq: requireSeq(),
-    str: requireStr()
-  };
-  jsYaml.safeLoad = renamed("safeLoad", "load");
-  jsYaml.safeLoadAll = renamed("safeLoadAll", "loadAll");
-  jsYaml.safeDump = renamed("safeDump", "dump");
-  return jsYaml;
-}
-var jsYamlExports = requireJsYaml();
-var yaml = /* @__PURE__ */ getDefaultExportFromCjs(jsYamlExports);
-var {
-  Type,
-  Schema,
-  FAILSAFE_SCHEMA,
-  JSON_SCHEMA,
-  CORE_SCHEMA,
-  DEFAULT_SCHEMA,
-  load,
-  loadAll,
-  dump,
-  YAMLException,
-  types,
-  safeLoad,
-  safeLoadAll,
-  safeDump
-} = yaml;
-
-// src/services/cfp-ccfddl.ts
+var import_obsidian18 = require("obsidian");
+init_js_yaml();
 var DELAY_MS2 = 1500;
 function delay2(ms) {
   return new Promise((resolve2) => setTimeout(resolve2, ms));
@@ -15771,6 +20754,12 @@ function delay2(ms) {
 var lastCcfRankMap = {};
 function getCcfRankForSeriesTitle(title) {
   return lastCcfRankMap[title] || void 0;
+}
+function extractRankField(rank, key) {
+  if (typeof rank !== "object" || rank === null) return void 0;
+  const raw = rank[key];
+  if (raw === void 0 || raw === null) return void 0;
+  return String(raw).trim();
 }
 function deadlineFromTimeline(timeline) {
   var _a, _b, _c, _d;
@@ -15788,7 +20777,7 @@ function deadlineFromTimeline(timeline) {
   return "N/A";
 }
 function parseCcfddlYaml(text) {
-  var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n;
+  var _a, _b, _c, _d, _e, _f, _g, _h, _i;
   const items = [];
   let data;
   try {
@@ -15802,10 +20791,9 @@ function parseCcfddlYaml(text) {
     const title = ((_a = entry.title) != null ? _a : "").toString().trim();
     const fullName = ((_b = entry.description) != null ? _b : title).toString().trim();
     if (!title) continue;
-    const rankObj = (_c = entry.rank) != null ? _c : {};
-    const ccf = (_e = (_d = rankObj == null ? void 0 : rankObj.ccf) == null ? void 0 : _d.toString()) == null ? void 0 : _e.trim();
-    const thcpl = (_g = (_f = rankObj == null ? void 0 : rankObj.thcpl) == null ? void 0 : _f.toString()) == null ? void 0 : _g.trim();
-    const sub = (_i = (_h = entry.sub) == null ? void 0 : _h.toString()) == null ? void 0 : _i.trim();
+    const ccf = extractRankField(entry.rank, "ccf");
+    const thcpl = extractRankField(entry.rank, "thcpl");
+    const sub = (_d = (_c = entry.sub) == null ? void 0 : _c.toString()) == null ? void 0 : _d.trim();
     if (ccf || thcpl || sub) {
       lastCcfRankMap[title] = {
         ccf: ccf || void 0,
@@ -15813,21 +20801,21 @@ function parseCcfddlYaml(text) {
         sub: sub || void 0
       };
     }
-    const confs = (_j = entry.confs) != null ? _j : [];
+    const confs = (_e = entry.confs) != null ? _e : [];
     for (const conf of confs) {
       const year = conf.year;
       const eventAcronym = year != null ? `${title} ${year}` : title;
-      const submissionDdl = deadlineFromTimeline((_k = conf.timeline) != null ? _k : []);
+      const submissionDdl = deadlineFromTimeline((_f = conf.timeline) != null ? _f : []);
       items.push({
         acronym: eventAcronym,
         series: title,
         fullName: fullName || eventAcronym,
-        location: ((_l = conf.place) != null ? _l : "").toString().trim() || "N/A",
-        start: (_m = conf.date) == null ? void 0 : _m.toString(),
+        location: ((_g = conf.place) != null ? _g : "").toString().trim() || "N/A",
+        start: (_h = conf.date) == null ? void 0 : _h.toString(),
         end: void 0,
         submissionDdl,
         source: "ccfddl",
-        url: (_n = conf.link) == null ? void 0 : _n.toString()
+        url: (_i = conf.link) == null ? void 0 : _i.toString()
       });
     }
   }
@@ -15840,7 +20828,7 @@ async function fetchCcfddl(urls) {
     const url = (_a = urls[i]) == null ? void 0 : _a.trim();
     if (!url) continue;
     try {
-      const resp = await (0, import_obsidian14.requestUrl)({ url, method: "GET" });
+      const resp = await (0, import_obsidian18.requestUrl)({ url, method: "GET" });
       if (resp.status !== 200) continue;
       const list = parseCcfddlYaml(resp.text);
       results.push(...list);
@@ -15852,7 +20840,7 @@ async function fetchCcfddl(urls) {
 }
 
 // src/services/cfp-wikicfp-series.ts
-var import_obsidian15 = require("obsidian");
+var import_obsidian19 = require("obsidian");
 var WIKICFP_BASE = "http://www.wikicfp.com";
 var WIKICFP_SERIES_BASE = "http://www.wikicfp.com/cfp/series?t=c&i=";
 var INDEX_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
@@ -15862,7 +20850,12 @@ function randomDelayMs() {
 function delay3(ms) {
   return new Promise((resolve2) => setTimeout(resolve2, ms));
 }
-var BASIC_ENTITIES2 = { nbsp: " ", amp: "&", lt: "<", gt: ">" };
+var BASIC_ENTITIES2 = {
+  nbsp: " ",
+  amp: "&",
+  lt: "<",
+  gt: ">"
+};
 function stripHtmlLite(html) {
   return html.replace(/<[^>]+>/g, " ").replace(/&(nbsp|amp|lt|gt);/g, (_, name) => BASIC_ENTITIES2[name]).replace(/\s+/g, " ").trim();
 }
@@ -15918,7 +20911,7 @@ async function fetchWikiCFPSeriesIndex(onProgress, letters) {
     const letter = lettersToFetch[i];
     const url = WIKICFP_SERIES_BASE + letter;
     try {
-      const resp = await (0, import_obsidian15.requestUrl)({ url, method: "GET" });
+      const resp = await (0, import_obsidian19.requestUrl)({ url, method: "GET" });
       if (resp.status !== 200) continue;
       const entries = parseSeriesIndexPage(resp.text);
       for (const e of entries) {
@@ -15995,7 +20988,9 @@ function parseSeriesTableToItems(html, programUrl, seriesAcronym) {
     let start;
     let end;
     if (whenText && whenText.toLowerCase() !== "n/a") {
-      const rangeMatch = whenText.match(/([A-Za-z]+\s+\d{1,2},\s+\d{4})\s*-\s*([A-Za-z]+\s+\d{1,2},\s+\d{4})/);
+      const rangeMatch = whenText.match(
+        /([A-Za-z]+\s+\d{1,2},\s+\d{4})\s*-\s*([A-Za-z]+\s+\d{1,2},\s+\d{4})/
+      );
       if (rangeMatch) {
         start = rangeMatch[1];
         end = rangeMatch[2];
@@ -16026,23 +21021,43 @@ function parseSeriesTableToItems(html, programUrl, seriesAcronym) {
   return items;
 }
 async function fetchSeriesEvents(programUrl, seriesAcronym, onProgress) {
-  const resp = await (0, import_obsidian15.requestUrl)({ url: programUrl, method: "GET" });
+  const resp = await (0, import_obsidian19.requestUrl)({ url: programUrl, method: "GET" });
   if (resp.status !== 200) {
-    console.warn("[CFP] fetchSeriesEvents: failed to fetch program page", resp.status);
+    console.warn(
+      "[CFP] fetchSeriesEvents: failed to fetch program page",
+      resp.status
+    );
     return [];
   }
   const tableItems = parseSeriesTableToItems(resp.text, programUrl, seriesAcronym);
   if (tableItems.length > 0) {
-    console.log("[CFP] fetchSeriesEvents: parsed", tableItems.length, "items from series table");
+    console.log(
+      "[CFP] fetchSeriesEvents: parsed",
+      tableItems.length,
+      "items from series table"
+    );
     return tableItems;
   }
   const eventUrls = parseProgramPageForEventUrls(resp.text);
-  console.log("[CFP] fetchSeriesEvents: found", eventUrls.length, "event URLs from program page");
+  console.log(
+    "[CFP] fetchSeriesEvents: found",
+    eventUrls.length,
+    "event URLs from program page"
+  );
   if (eventUrls.length === 0) {
-    console.log("[CFP] fetchSeriesEvents: no event URLs found, parsing program page via fetchWikiCFP fallback");
+    console.log(
+      "[CFP] fetchSeriesEvents: no event URLs found, parsing program page via fetchWikiCFP fallback"
+    );
     const fromTable = await fetchWikiCFP([programUrl]);
-    console.log("[CFP] fetchSeriesEvents: parsed", fromTable.length, "items from fallback table");
-    return fromTable.map((item) => ({ ...item, series: item.series || seriesAcronym }));
+    console.log(
+      "[CFP] fetchSeriesEvents: parsed",
+      fromTable.length,
+      "items from fallback table"
+    );
+    return fromTable.map((item) => ({
+      ...item,
+      series: item.series || seriesAcronym
+    }));
   }
   const all = [];
   const seenAcronyms = /* @__PURE__ */ new Set();
@@ -16053,14 +21068,21 @@ async function fetchSeriesEvents(programUrl, seriesAcronym, onProgress) {
       for (const item of items) {
         const key = item.acronym.toLowerCase();
         if (seenAcronyms.has(key)) {
-          console.log("[CFP] fetchSeriesEvents: skipping duplicate acronym", item.acronym);
+          console.log(
+            "[CFP] fetchSeriesEvents: skipping duplicate acronym",
+            item.acronym
+          );
           continue;
         }
         seenAcronyms.add(key);
         all.push({ ...item, series: item.series || seriesAcronym });
       }
     } catch (e) {
-      console.warn("[CFP] fetchSeriesEvents: failed to fetch event URL", eventUrls[i], e);
+      console.warn(
+        "[CFP] fetchSeriesEvents: failed to fetch event URL",
+        eventUrls[i],
+        e
+      );
     }
     if (i < eventUrls.length - 1) {
       await delay3(800);
@@ -16071,7 +21093,8 @@ async function fetchSeriesEvents(programUrl, seriesAcronym, onProgress) {
 }
 
 // src/services/cfp-easychair.ts
-var import_obsidian16 = require("obsidian");
+var import_obsidian20 = require("obsidian");
+init_series();
 var DELAY_MS3 = 1500;
 function delay4(ms) {
   return new Promise((resolve2) => setTimeout(resolve2, ms));
@@ -16114,7 +21137,10 @@ function parseEasychairHtml(html, pageUrl) {
   let rowMatch;
   while ((rowMatch = rowRe.exec(html)) !== null) {
     const rowHtml = rowMatch[1];
-    if (/<th[\s>]|Acronym\s*<\/|Name\s*<\/|Location\s*<\/|Submission\s*<\//i.test(rowHtml)) continue;
+    if (/<th[\s>]|Acronym\s*<\/|Name\s*<\/|Location\s*<\/|Submission\s*<\//i.test(
+      rowHtml
+    ))
+      continue;
     const item = parseEasychairRow(rowHtml, pageUrl);
     if (item) items.push(item);
   }
@@ -16127,7 +21153,7 @@ async function fetchEasychair(urls) {
     const url = (_a = urls[i]) == null ? void 0 : _a.trim();
     if (!url) continue;
     try {
-      const resp = await (0, import_obsidian16.requestUrl)({ url, method: "GET" });
+      const resp = await (0, import_obsidian20.requestUrl)({ url, method: "GET" });
       if (resp.status !== 200) continue;
       const items = parseEasychairHtml(resp.text, url);
       results.push(...items);
@@ -16139,7 +21165,8 @@ async function fetchEasychair(urls) {
 }
 
 // src/services/cfp-openresearch.ts
-var import_obsidian17 = require("obsidian");
+var import_obsidian21 = require("obsidian");
+init_series();
 var DELAY_MS4 = 1500;
 function delay5(ms) {
   return new Promise((resolve2) => setTimeout(resolve2, ms));
@@ -16187,7 +21214,10 @@ function parseOpenresearchHtml(html, pageUrl) {
   let rowMatch;
   while ((rowMatch = rowRe.exec(html)) !== null) {
     const rowHtml = rowMatch[1];
-    if (/<th[\s>]|Acronym\s*<\/|City\s*<\/|Country\s*<\/|Name\s*<\/|Start\s*<\/|End\s*<\/|Submission\s*<\//i.test(rowHtml)) continue;
+    if (/<th[\s>]|Acronym\s*<\/|City\s*<\/|Country\s*<\/|Name\s*<\/|Start\s*<\/|End\s*<\/|Submission\s*<\//i.test(
+      rowHtml
+    ))
+      continue;
     const item = parseOpenresearchRow(rowHtml, pageUrl);
     if (item) items.push(item);
   }
@@ -16200,7 +21230,7 @@ async function fetchOpenresearch(urls) {
     const url = (_a = urls[i]) == null ? void 0 : _a.trim();
     if (!url) continue;
     try {
-      const resp = await (0, import_obsidian17.requestUrl)({ url, method: "GET" });
+      const resp = await (0, import_obsidian21.requestUrl)({ url, method: "GET" });
       if (resp.status !== 200) continue;
       const items = parseOpenresearchHtml(resp.text, url);
       results.push(...items);
@@ -16210,6 +21240,9 @@ async function fetchOpenresearch(urls) {
   }
   return results;
 }
+
+// src/services/cfp.ts
+init_series();
 
 // src/services/cfp-core.ts
 var CORE_LETTERS = ["A*", "A", "B", "C"];
@@ -16273,7 +21306,7 @@ function parseCoreCsv(text) {
 function getCoreRankForSeries(index, seriesName) {
   const raw = seriesName == null ? void 0 : seriesName.trim();
   if (!raw) return null;
-  const base = raw.replace(/\s+(19|20)\d{2}\b/, "");
+  const base = raw.replace(/\s+/g, " ").replace(/ (?:19|20)\d{2}$/, "");
   const acrKey = normAcronym(base);
   const nameKey = normName(base);
   let candidates = [];
@@ -16316,6 +21349,7 @@ function normaliseCoreLetter(rankRaw) {
 }
 
 // src/services/cfp.ts
+init_paths();
 function sanitizeFileName(name) {
   return name.replace(/[\\/:*?"<>|]/g, "").trim().slice(0, 100) || "cfp";
 }
@@ -16358,7 +21392,8 @@ async function ensureFolder(app, path2) {
     await app.vault.createFolder(normalized);
   } catch (e) {
     const msg = (_a = e == null ? void 0 : e.message) != null ? _a : "";
-    if (!msg.includes("already exists") && !msg.includes("Folder already exists")) throw e;
+    if (!msg.includes("already exists") && !msg.includes("Folder already exists"))
+      throw e;
   }
 }
 function getSeriesRefreshButtonDataviewJS(settings) {
@@ -16383,7 +21418,7 @@ async function createOrOverwriteFile(app, path2, content) {
   var _a;
   const normalized = normalizePath(path2);
   const existing = app.vault.getAbstractFileByPath(normalized);
-  if (existing && existing instanceof import_obsidian18.TFile) {
+  if (existing && existing instanceof import_obsidian22.TFile) {
     await app.vault.modify(existing, content);
     return;
   }
@@ -16393,7 +21428,7 @@ async function createOrOverwriteFile(app, path2, content) {
     const msg = (_a = e == null ? void 0 : e.message) != null ? _a : "";
     if (msg.includes("File already exists") || msg.includes("already exists")) {
       const file = app.vault.getAbstractFileByPath(normalized);
-      if (file && file instanceof import_obsidian18.TFile) await app.vault.modify(file, content);
+      if (file && file instanceof import_obsidian22.TFile) await app.vault.modify(file, content);
       return;
     }
     throw e;
@@ -16420,7 +21455,7 @@ var CFPService = class {
       return this.coreIndex;
     }
     const file = this.app.vault.getAbstractFileByPath(normalized);
-    if (!file || !(file instanceof import_obsidian18.TFile)) {
+    if (!file || !(file instanceof import_obsidian22.TFile)) {
       console.warn("[CFP] CORE CSV file not found at path:", normalized);
       return null;
     }
@@ -16454,12 +21489,16 @@ var CFPService = class {
     try {
       const normalized = normalizePath(localPath);
       const file = this.app.vault.getAbstractFileByPath(normalized);
-      if (!file || !(file instanceof import_obsidian18.TFile)) return null;
+      if (!file || !(file instanceof import_obsidian22.TFile)) return null;
       const text = await this.app.vault.read(file);
       parseCcfddlYaml(text);
       return (_a = getCcfRankForSeriesTitle(seriesTitle)) != null ? _a : null;
     } catch (e) {
-      console.warn("[CFP] failed to load local allconf.yml for CCF rank at", localPath, e);
+      console.warn(
+        "[CFP] failed to load local allconf.yml for CCF rank at",
+        localPath,
+        e
+      );
       return null;
     }
   }
@@ -16543,7 +21582,12 @@ var CFPService = class {
       const notePath = this.itemToPath(basePath, item);
       const existing = this.app.vault.getAbstractFileByPath(notePath);
       if (existing) {
-        console.log("[CFP] skipping existing file:", notePath, "item:", item.acronym);
+        console.log(
+          "[CFP] skipping existing file:",
+          notePath,
+          "item:",
+          item.acronym
+        );
         skipped++;
         continue;
       }
@@ -16556,7 +21600,14 @@ var CFPService = class {
       const path2 = normalizePath(dirPath + "/" + fileName);
       const yaml2 = frontmatterFromItem(item, defaultTags);
       const content = "---\n" + yaml2 + "\n---\n\n";
-      console.log("[CFP] creating file:", path2, "acronym:", item.acronym, "series:", item.series);
+      console.log(
+        "[CFP] creating file:",
+        path2,
+        "acronym:",
+        item.acronym,
+        "series:",
+        item.series
+      );
       try {
         await createOrOverwriteFile(this.app, path2, content);
         created++;
@@ -16564,7 +21615,11 @@ var CFPService = class {
         console.error("[CFP] failed to create file:", path2, e);
       }
     }
-    console.log("[CFP] syncToNotes result:", { total: items.length, created, skipped });
+    console.log("[CFP] syncToNotes result:", {
+      total: items.length,
+      created,
+      skipped
+    });
     return created;
   }
   itemToPath(basePath, item) {
@@ -16578,7 +21633,7 @@ var CFPService = class {
     const title = seriesName + " Series";
     let seriesUrl = programUrl != null ? programUrl : "";
     const existing = this.app.vault.getAbstractFileByPath(seriesPath);
-    if (existing && existing instanceof import_obsidian18.TFile && !programUrl) {
+    if (existing && existing instanceof import_obsidian22.TFile && !programUrl) {
       const cache2 = this.app.metadataCache.getFileCache(existing);
       const existingUrl = (_c = (_b = (_a = cache2 == null ? void 0 : cache2.frontmatter) == null ? void 0 : _a["series-url"]) == null ? void 0 : _b.toString) == null ? void 0 : _c.call(_b);
       if (existingUrl) seriesUrl = existingUrl;
@@ -16595,14 +21650,21 @@ var CFPService = class {
     if (seriesUrl) fmLines.push("series-url: " + JSON.stringify(seriesUrl));
     if (seriesFullName == null ? void 0 : seriesFullName.trim()) {
       const displayName = seriesFullName.includes(":") ? seriesFullName.split(":").slice(1).join(":").trim() : seriesFullName.trim();
-      if (displayName) fmLines.push("series-full-name: " + JSON.stringify(displayName));
+      if (displayName)
+        fmLines.push("series-full-name: " + JSON.stringify(displayName));
     }
     if (ccfRank == null ? void 0 : ccfRank.ccf) fmLines.push("rank_ccf: " + JSON.stringify(ccfRank.ccf));
-    if (ccfRank == null ? void 0 : ccfRank.thcpl) fmLines.push("rank_thcpl: " + JSON.stringify(ccfRank.thcpl));
+    if (ccfRank == null ? void 0 : ccfRank.thcpl)
+      fmLines.push("rank_thcpl: " + JSON.stringify(ccfRank.thcpl));
     if (ccfRank == null ? void 0 : ccfRank.sub) fmLines.push("rank_sub: " + JSON.stringify(ccfRank.sub));
-    if (coreRank == null ? void 0 : coreRank.coreLetter) fmLines.push("rank_core: " + JSON.stringify(coreRank.coreLetter));
-    if (coreRank == null ? void 0 : coreRank.coreStatus) fmLines.push("rank_core_status: " + JSON.stringify(coreRank.coreStatus));
-    if (coreRank == null ? void 0 : coreRank.collection) fmLines.push("rank_core_collection: " + JSON.stringify(coreRank.collection));
+    if (coreRank == null ? void 0 : coreRank.coreLetter)
+      fmLines.push("rank_core: " + JSON.stringify(coreRank.coreLetter));
+    if (coreRank == null ? void 0 : coreRank.coreStatus)
+      fmLines.push("rank_core_status: " + JSON.stringify(coreRank.coreStatus));
+    if (coreRank == null ? void 0 : coreRank.collection)
+      fmLines.push(
+        "rank_core_collection: " + JSON.stringify(coreRank.collection)
+      );
     const fm = fmLines.join("\n");
     const tableQuery = [
       'TABLE file.link as "Event", acronym as "Acronym", "full-name" as "Full Name", location as "Location", submission_ddl as "Deadline", start as "Start", end as "End", cfp-source as "Source", url as "URL"',
@@ -16611,68 +21673,72 @@ var CFPService = class {
     ].join("\n");
     const refreshButtonBlock = seriesUrl ? "\n```dataviewjs\n" + getSeriesRefreshButtonDataviewJS(this.getSettings()) + "\n```\n\n" : "";
     const body = refreshButtonBlock + "```dataview\n" + tableQuery + "\n```\n";
-    await createOrOverwriteFile(this.app, seriesPath, "---\n" + fm + "\n---\n" + body);
+    await createOrOverwriteFile(
+      this.app,
+      seriesPath,
+      "---\n" + fm + "\n---\n" + body
+    );
   }
   async refresh() {
-    new import_obsidian18.Notice("Refreshing CFP from all sources...");
+    new import_obsidian22.Notice("Refreshing CFP from all sources...");
     try {
       const items = await this.fetchAll();
       const synced = await this.syncToNotes(items);
       await this.setLastFetchTime(Date.now());
-      new import_obsidian18.Notice(`CFP refresh done. ${synced} items synced.`);
+      new import_obsidian22.Notice(`CFP refresh done. ${synced} items synced.`);
     } catch (e) {
       console.error("[CFP] refresh failed", e);
-      new import_obsidian18.Notice("CFP refresh failed. See console.");
+      new import_obsidian22.Notice("CFP refresh failed. See console.");
     }
   }
   async refreshWikiCFPUrls() {
     var _a;
-    new import_obsidian18.Notice("Refreshing WikiCFP URLs...");
+    new import_obsidian22.Notice("Refreshing WikiCFP URLs...");
     try {
       const s = this.getSettings();
       const items = ((_a = s.cfpWikicfpUrls) == null ? void 0 : _a.length) ? await fetchWikiCFP(s.cfpWikicfpUrls) : [];
       const synced = await this.syncToNotes(items);
-      new import_obsidian18.Notice(`WikiCFP URLs refreshed. ${synced} items synced.`);
+      new import_obsidian22.Notice(`WikiCFP URLs refreshed. ${synced} items synced.`);
     } catch (e) {
       console.error("[CFP] WikiCFP URLs refresh failed", e);
-      new import_obsidian18.Notice("WikiCFP URLs refresh failed. See console.");
+      new import_obsidian22.Notice("WikiCFP URLs refresh failed. See console.");
     }
   }
   async refreshCcfddlUrls() {
-    new import_obsidian18.Notice("Refreshing CCFDDL URLs...");
+    new import_obsidian22.Notice("Refreshing CCFDDL URLs...");
     try {
       const items = await this.fetchCcfddlWithFallback();
       const synced = await this.syncToNotes(items);
-      new import_obsidian18.Notice(`CCFDDL URLs refreshed. ${synced} items synced.`);
+      new import_obsidian22.Notice(`CCFDDL URLs refreshed. ${synced} items synced.`);
     } catch (e) {
       console.error("[CFP] CCFDDL URLs refresh failed", e);
-      new import_obsidian18.Notice("CCFDDL URLs refresh failed. See console.");
+      new import_obsidian22.Notice("CCFDDL URLs refresh failed. See console.");
     }
   }
   async refreshEasychairUrls() {
     var _a;
-    new import_obsidian18.Notice("Refreshing EasyChair URLs...");
+    new import_obsidian22.Notice("Refreshing EasyChair URLs...");
     try {
       const s = this.getSettings();
       const items = ((_a = s.cfpEasychairUrls) == null ? void 0 : _a.length) ? await fetchEasychair(s.cfpEasychairUrls) : [];
       const synced = await this.syncToNotes(items);
-      new import_obsidian18.Notice(`EasyChair URLs refreshed. ${synced} items synced.`);
+      new import_obsidian22.Notice(`EasyChair URLs refreshed. ${synced} items synced.`);
     } catch (e) {
       console.error("[CFP] EasyChair URLs refresh failed", e);
-      new import_obsidian18.Notice("EasyChair URLs refresh failed. See console.");
+      new import_obsidian22.Notice("EasyChair URLs refresh failed. See console.");
     }
   }
   async refreshOpenresearchUrls() {
     var _a;
-    new import_obsidian18.Notice("Refreshing OpenResearch URLs...");
+    new import_obsidian22.Notice("Refreshing OpenResearch URLs...");
     try {
       const s = this.getSettings();
       const items = ((_a = s.cfpOpenresearchUrls) == null ? void 0 : _a.length) ? await fetchOpenresearch(s.cfpOpenresearchUrls) : [];
       const synced = await this.syncToNotes(items);
-      new import_obsidian18.Notice(`OpenResearch URLs refreshed. ${synced} items synced.`);
+      new import_obsidian22.Notice(`OpenResearch URLs refreshed. ${synced} items synced.`);
     } catch (e) {
       console.error("[CFP] OpenResearch URLs refresh failed", e);
-      new import_obsidian18.Notice("OpenResearch URLs refresh failed. See console.");
+      new import_obsidian22.Notice("OpenResearch URLs refresh failed. See console.");
     }
   }
   /** Fetch CFP items from CCFDDL URLs with optional local allconf.yml fallback. */
@@ -16685,21 +21751,28 @@ var CFPService = class {
       try {
         items = await fetchCcfddl(urls);
       } catch (e) {
-        console.warn("[CFP] CCFDDL URL fetch failed, will try local fallback if configured.", e);
+        console.warn(
+          "[CFP] CCFDDL URL fetch failed, will try local fallback if configured.",
+          e
+        );
       }
     }
     if (items.length === 0 && s.cfpCcfddlLocalPath) {
       try {
         const localPath = normalizePath(s.cfpCcfddlLocalPath);
         const file = this.app.vault.getAbstractFileByPath(localPath);
-        if (file && file instanceof import_obsidian18.TFile) {
+        if (file && file instanceof import_obsidian22.TFile) {
           const text = await this.app.vault.read(file);
           items = parseCcfddlYaml(text);
         } else {
           console.warn("[CFP] Local allconf.yml not found at", localPath);
         }
       } catch (e) {
-        console.warn("[CFP] Failed to read/parse local allconf.yml fallback at", s.cfpCcfddlLocalPath, e);
+        console.warn(
+          "[CFP] Failed to read/parse local allconf.yml fallback at",
+          s.cfpCcfddlLocalPath,
+          e
+        );
       }
     }
     return items;
@@ -16712,10 +21785,14 @@ var CFPService = class {
     var _a;
     const s = this.getSettings();
     const baseDir = (s.cfpNoteDir || "CFP").trim() || "CFP";
-    const seriesFolder = normalizePath(baseDir + "/" + sanitizeFileName(seriesName));
-    const seriesPath = normalizePath(seriesFolder + "/" + sanitizeFileName(seriesName) + " Series.md");
+    const seriesFolder = normalizePath(
+      baseDir + "/" + sanitizeFileName(seriesName)
+    );
+    const seriesPath = normalizePath(
+      seriesFolder + "/" + sanitizeFileName(seriesName) + " Series.md"
+    );
     const file = this.app.vault.getAbstractFileByPath(seriesPath);
-    if (!file || !(file instanceof import_obsidian18.TFile)) return;
+    if (!file || !(file instanceof import_obsidian22.TFile)) return;
     const [ccfRank, coreRank] = await Promise.all([
       this.getCcfRankForSeries(seriesName),
       this.getCoreRankForSeries(seriesName)
@@ -16728,14 +21805,22 @@ var CFPService = class {
     const lines = yamlPart.split("\n");
     const cleaned = lines.filter((line) => {
       const trimmed = line.trim();
-      return !/^(rank_ccf|rank_thcpl|rank_sub|rank_core|rank_core_status|rank_core_collection)\s*:/.test(trimmed);
+      return !/^(rank_ccf|rank_thcpl|rank_sub|rank_core|rank_core_status|rank_core_collection)\s*:/.test(
+        trimmed
+      );
     });
     if (ccfRank == null ? void 0 : ccfRank.ccf) cleaned.push("rank_ccf: " + JSON.stringify(ccfRank.ccf));
-    if (ccfRank == null ? void 0 : ccfRank.thcpl) cleaned.push("rank_thcpl: " + JSON.stringify(ccfRank.thcpl));
+    if (ccfRank == null ? void 0 : ccfRank.thcpl)
+      cleaned.push("rank_thcpl: " + JSON.stringify(ccfRank.thcpl));
     if (ccfRank == null ? void 0 : ccfRank.sub) cleaned.push("rank_sub: " + JSON.stringify(ccfRank.sub));
-    if (coreRank == null ? void 0 : coreRank.coreLetter) cleaned.push("rank_core: " + JSON.stringify(coreRank.coreLetter));
-    if (coreRank == null ? void 0 : coreRank.coreStatus) cleaned.push("rank_core_status: " + JSON.stringify(coreRank.coreStatus));
-    if (coreRank == null ? void 0 : coreRank.collection) cleaned.push("rank_core_collection: " + JSON.stringify(coreRank.collection));
+    if (coreRank == null ? void 0 : coreRank.coreLetter)
+      cleaned.push("rank_core: " + JSON.stringify(coreRank.coreLetter));
+    if (coreRank == null ? void 0 : coreRank.coreStatus)
+      cleaned.push("rank_core_status: " + JSON.stringify(coreRank.coreStatus));
+    if (coreRank == null ? void 0 : coreRank.collection)
+      cleaned.push(
+        "rank_core_collection: " + JSON.stringify(coreRank.collection)
+      );
     const newYaml = cleaned.join("\n");
     const newContent = `---
 ${newYaml}
@@ -16752,7 +21837,9 @@ ${body}`;
     const s = this.getSettings();
     const letters = Array.isArray(s.cfpSeriesIndexLetters) && s.cfpSeriesIndexLetters.length > 0 ? s.cfpSeriesIndexLetters : void 0;
     const lettersDesc = letters ? ` (${letters.join(", ")})` : " (A\u2013Z)";
-    onProgress == null ? void 0 : onProgress(`Fetching WikiCFP series index${lettersDesc} (5\u201310s between pages)...`);
+    onProgress == null ? void 0 : onProgress(
+      `Fetching WikiCFP series index${lettersDesc} (5\u201310s between pages)...`
+    );
     const entries = await fetchWikiCFPSeriesIndex(
       (letter, count) => onProgress == null ? void 0 : onProgress(`Index ${letter}: ${count} series`),
       letters
@@ -16762,25 +21849,45 @@ ${body}`;
     await ensureFolder(this.app, basePath);
     const map2 = this.getSeriesMap();
     for (const entry of entries) {
-      const dirPath = normalizePath(basePath + "/" + sanitizeFileName(entry.seriesAcronym));
+      const dirPath = normalizePath(
+        basePath + "/" + sanitizeFileName(entry.seriesAcronym)
+      );
       await ensureFolder(this.app, dirPath);
-      await this.ensureSeriesNote(dirPath, entry.seriesAcronym, defaultTags, entry.programUrl, entry.fullName);
+      await this.ensureSeriesNote(
+        dirPath,
+        entry.seriesAcronym,
+        defaultTags,
+        entry.programUrl,
+        entry.fullName
+      );
       const key = entry.seriesAcronym;
       if (!map2[key] || map2[key].programUrl !== entry.programUrl) {
-        map2[key] = { programUrl: entry.programUrl, lastUpdate: (_b = (_a = map2[key]) == null ? void 0 : _a.lastUpdate) != null ? _b : 0 };
+        map2[key] = {
+          programUrl: entry.programUrl,
+          lastUpdate: (_b = (_a = map2[key]) == null ? void 0 : _a.lastUpdate) != null ? _b : 0
+        };
       }
     }
     await this.saveSeriesMap(map2);
     await this.setLastSeriesFetchTime(Date.now());
-    onProgress == null ? void 0 : onProgress('WikiCFP series index done. Use "Refresh events" on a Series note or wait for daily refresh.');
+    onProgress == null ? void 0 : onProgress(
+      'WikiCFP series index done. Use "Refresh events" on a Series note or wait for daily refresh.'
+    );
   }
   /** Fetch events for one series by program URL and sync to notes. Updates series lastUpdate. */
   async refreshSeriesByUrl(programUrl, seriesAcronym, onProgress) {
     onProgress == null ? void 0 : onProgress("Fetching events...");
     const events = await fetchSeriesEvents(programUrl, seriesAcronym, onProgress);
     onProgress == null ? void 0 : onProgress(`Found ${events.length} events, syncing to notes...`);
-    console.log("[CFP] refreshSeriesByUrl:", { programUrl, seriesAcronym, eventCount: events.length });
-    console.log("[CFP] events:", events.map((e) => ({ acronym: e.acronym, series: e.series, url: e.url })));
+    console.log("[CFP] refreshSeriesByUrl:", {
+      programUrl,
+      seriesAcronym,
+      eventCount: events.length
+    });
+    console.log(
+      "[CFP] events:",
+      events.map((e) => ({ acronym: e.acronym, series: e.series, url: e.url }))
+    );
     const synced = await this.syncToNotes(events);
     console.log("[CFP] synced count:", synced);
     const map2 = this.getSeriesMap();
@@ -16789,7 +21896,11 @@ ${body}`;
     try {
       await this.updateSeriesNoteRank(seriesAcronym);
     } catch (e) {
-      console.warn("[CFP] failed to update Series rank after refreshSeriesByUrl for", seriesAcronym, e);
+      console.warn(
+        "[CFP] failed to update Series rank after refreshSeriesByUrl for",
+        seriesAcronym,
+        e
+      );
     }
     onProgress == null ? void 0 : onProgress(`Synced ${synced} events.`);
   }
@@ -16810,7 +21921,11 @@ ${body}`;
       const { key } = toRefresh[i];
       const programUrl = map2[key].programUrl;
       setTimeout(() => {
-        this.refreshSeriesByUrl(programUrl, key, (msg) => console.log("[CFP]", key, msg)).then(() => new import_obsidian18.Notice(`CFP: ${key} refreshed.`)).catch((e) => console.warn("[CFP] daily refresh failed", key, e));
+        this.refreshSeriesByUrl(
+          programUrl,
+          key,
+          (msg) => console.log("[CFP]", key, msg)
+        ).then(() => new import_obsidian22.Notice(`CFP: ${key} refreshed.`)).catch((e) => console.warn("[CFP] daily refresh failed", key, e));
       }, i * MIN_GAP_MS);
     }
   }
@@ -16843,7 +21958,10 @@ ${body}`;
     const prefix = dirPath + "/";
     const files = this.app.vault.getMarkdownFiles().filter((f) => f.path.startsWith(prefix));
     if (files.length === 0) {
-      console.log("[CFP] findBestMatchingCFPForConference: no CFP notes found under", dirPath);
+      console.log(
+        "[CFP] findBestMatchingCFPForConference: no CFP notes found under",
+        dirPath
+      );
       return { event: null };
     }
     const events = [];
@@ -16854,7 +21972,7 @@ ${body}`;
       const submissionDdl = ((_b = (_a = fm["submission-ddl"]) != null ? _a : fm["submission_ddl"]) != null ? _b : "").toString();
       const item = {
         acronym: ((_c = fm["acronym"]) != null ? _c : "").toString(),
-        series: ((_e = (_d = fm["series"]) == null ? void 0 : _d.toString()) == null ? void 0 : _e.replace(/^\[\[|\]\]$/g, "").replace(/\s+Series$/, "")) || void 0,
+        series: ((_e = (_d = fm["series"]) == null ? void 0 : _d.toString()) == null ? void 0 : _e.replace(/^\[\[|\]\]$/g, "").replace(/\s+/g, " ").replace(/ Series$/, "")) || void 0,
         fullName: ((_g = (_f = fm["full-name"]) != null ? _f : fm["title"]) != null ? _g : "").toString(),
         location: ((_h = fm["location"]) != null ? _h : "").toString(),
         start: (_i = fm["start"]) == null ? void 0 : _i.toString(),
@@ -16867,7 +21985,11 @@ ${body}`;
       events.push({ item, path: file.path });
     }
     if (events.length === 0) {
-      console.log("[CFP] findBestMatchingCFPForConference: no event notes found under", dirPath, "(check CFP folder path in settings)");
+      console.log(
+        "[CFP] findBestMatchingCFPForConference: no event notes found under",
+        dirPath,
+        "(check CFP folder path in settings)"
+      );
       return { event: null };
     }
     const norm = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim().replace(/\s+/g, " ");
@@ -16881,19 +22003,28 @@ ${body}`;
           return a === noteNorm || a.startsWith(noteNorm + " ") || series === noteNorm;
         });
         const trySeriesOnlyFallback = () => {
-          const seriesCandidates = [noteAcronym, pureSeriesFromAcronym(noteAcronym)];
+          const seriesCandidates = [
+            noteAcronym,
+            pureSeriesFromAcronym(noteAcronym)
+          ];
           for (const candidate of seriesCandidates) {
             const seriesName2 = candidate.trim();
             if (!seriesName2) continue;
-            const seriesFolder = normalizePath(dirPath + "/" + sanitizeFileName(seriesName2));
-            const seriesNotePath = normalizePath(seriesFolder + "/" + sanitizeFileName(seriesName2) + " Series.md");
+            const seriesFolder = normalizePath(
+              dirPath + "/" + sanitizeFileName(seriesName2)
+            );
+            const seriesNotePath = normalizePath(
+              seriesFolder + "/" + sanitizeFileName(seriesName2) + " Series.md"
+            );
             const file = this.app.vault.getAbstractFileByPath(seriesNotePath);
-            if (file && file instanceof import_obsidian18.TFile) {
+            if (file && file instanceof import_obsidian22.TFile) {
               let latestTs = 0;
               let latestStr;
               for (const e of events) {
-                if (!e.item.series && pureSeriesFromAcronym(e.item.acronym) !== seriesName2) continue;
-                if (e.item.series && e.item.series !== seriesName2) continue;
+                if (!e.item.series && pureSeriesFromAcronym(e.item.acronym) !== seriesName2)
+                  continue;
+                if (e.item.series && e.item.series !== seriesName2)
+                  continue;
                 const ddl = e.item.submissionDdl;
                 if (!ddl) continue;
                 const d = new Date(ddl);
@@ -16903,24 +22034,34 @@ ${body}`;
                   latestStr = ddl;
                 }
               }
-              console.log("[CFP] findBestMatchingCFPForConference: series-only fallback by acronymFromNote", {
-                seriesName: seriesName2,
+              console.log(
+                "[CFP] findBestMatchingCFPForConference: series-only fallback by acronymFromNote",
+                {
+                  seriesName: seriesName2,
+                  seriesNotePath,
+                  latestSeriesDdl: latestStr
+                }
+              );
+              return {
+                event: null,
                 seriesNotePath,
                 latestSeriesDdl: latestStr
-              });
-              return { event: null, seriesNotePath, latestSeriesDdl: latestStr };
+              };
             }
           }
           return null;
         };
         if (exactMatches.length === 0) {
-          console.log("[CFP] findBestMatchingCFPForConference: acronymFromNote had no exact match", {
-            acronymFromNote: noteAcronym,
-            noteNorm,
-            cfpDir: dirPath,
-            eventCount: events.length,
-            sampleAcronyms: events.slice(0, 8).map((e) => e.item.acronym)
-          });
+          console.log(
+            "[CFP] findBestMatchingCFPForConference: acronymFromNote had no exact match",
+            {
+              acronymFromNote: noteAcronym,
+              noteNorm,
+              cfpDir: dirPath,
+              eventCount: events.length,
+              sampleAcronyms: events.slice(0, 8).map((e) => e.item.acronym)
+            }
+          );
           const fallback = trySeriesOnlyFallback();
           if (fallback) return fallback;
         } else {
@@ -16939,16 +22080,28 @@ ${body}`;
             return { event: null };
           }
           const best2 = yearMatches[0];
-          console.log("[CFP] findBestMatchingCFPForConference: exact match by acronymFromNote", { acronymFromNote: noteAcronym, year: meta.year, chosen: best2.item.acronym });
+          console.log(
+            "[CFP] findBestMatchingCFPForConference: exact match by acronymFromNote",
+            {
+              acronymFromNote: noteAcronym,
+              year: meta.year,
+              chosen: best2.item.acronym
+            }
+          );
           const result2 = { event: best2 };
           const seriesName2 = best2.item.series || pureSeriesFromAcronym(best2.item.acronym);
           if (seriesName2) {
-            const seriesFolder = normalizePath(dirPath + "/" + sanitizeFileName(seriesName2));
-            result2.seriesNotePath = normalizePath(seriesFolder + "/" + sanitizeFileName(seriesName2) + " Series.md");
+            const seriesFolder = normalizePath(
+              dirPath + "/" + sanitizeFileName(seriesName2)
+            );
+            result2.seriesNotePath = normalizePath(
+              seriesFolder + "/" + sanitizeFileName(seriesName2) + " Series.md"
+            );
             let latestTs = 0;
             let latestStr;
             for (const e of events) {
-              if (!e.item.series && pureSeriesFromAcronym(e.item.acronym) !== seriesName2) continue;
+              if (!e.item.series && pureSeriesFromAcronym(e.item.acronym) !== seriesName2)
+                continue;
               if (e.item.series && e.item.series !== seriesName2) continue;
               const ddl = e.item.submissionDdl;
               if (!ddl) continue;
@@ -17035,7 +22188,8 @@ ${body}`;
         const targetTokens = (acronymNorm + " " + fullNameNorm).split(/\s+/).filter(Boolean);
         let overlap = 0;
         for (const t of targetTokens) {
-          if (t.length > 1 && !STOPWORDS.has(t) && meaningfulNameTokens.has(t)) overlap++;
+          if (t.length > 1 && !STOPWORDS.has(t) && meaningfulNameTokens.has(t))
+            overlap++;
         }
         if (overlap > 0) score += Math.min(overlap * 5, 25);
       }
@@ -17063,12 +22217,15 @@ ${body}`;
     }
     const MIN_SCORE = 100;
     if (!best || bestScore < MIN_SCORE) {
-      console.log("[CFP] findBestMatchingCFPForConference: no strong match found", {
-        rawName,
-        place,
-        year,
-        bestScore
-      });
+      console.log(
+        "[CFP] findBestMatchingCFPForConference: no strong match found",
+        {
+          rawName,
+          place,
+          year,
+          bestScore
+        }
+      );
       return { event: null };
     }
     console.log("[CFP] findBestMatchingCFPForConference: match found", {
@@ -17082,12 +22239,17 @@ ${body}`;
     const result = { event: best };
     const seriesName = best.item.series || pureSeriesFromAcronym(best.item.acronym);
     if (seriesName) {
-      const seriesFolder = normalizePath(dirPath + "/" + sanitizeFileName(seriesName));
-      result.seriesNotePath = normalizePath(seriesFolder + "/" + sanitizeFileName(seriesName) + " Series.md");
+      const seriesFolder = normalizePath(
+        dirPath + "/" + sanitizeFileName(seriesName)
+      );
+      result.seriesNotePath = normalizePath(
+        seriesFolder + "/" + sanitizeFileName(seriesName) + " Series.md"
+      );
       let latestTs = 0;
       let latestStr;
       for (const e of events) {
-        if (!e.item.series && pureSeriesFromAcronym(e.item.acronym) !== seriesName) continue;
+        if (!e.item.series && pureSeriesFromAcronym(e.item.acronym) !== seriesName)
+          continue;
         if (e.item.series && e.item.series !== seriesName) continue;
         const ddl = e.item.submissionDdl;
         if (!ddl) continue;
@@ -17128,7 +22290,10 @@ ${body}`;
         const codeBlockRe = /```dataviewjs\n([\s\S]*?)\n```/;
         const match = content.match(codeBlockRe);
         if (match) {
-          const newContent = content.replace(codeBlockRe, "```dataviewjs\n" + code + "\n```");
+          const newContent = content.replace(
+            codeBlockRe,
+            "```dataviewjs\n" + code + "\n```"
+          );
           if (newContent !== content) {
             await this.app.vault.modify(file, newContent);
             updated++;
@@ -17136,7 +22301,10 @@ ${body}`;
         } else {
           const tableBlockRe = /(```dataview\n[\s\S]*?```)/;
           if (tableBlockRe.test(content)) {
-            const newContent = content.replace(tableBlockRe, "```dataviewjs\n" + code + "\n```\n\n$1");
+            const newContent = content.replace(
+              tableBlockRe,
+              "```dataviewjs\n" + code + "\n```\n\n$1"
+            );
             await this.app.vault.modify(file, newContent);
             updated++;
           }
@@ -17152,7 +22320,7 @@ ${body}`;
     var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l;
     return {
       acronym: ((_a = fm["acronym"]) != null ? _a : "").toString(),
-      series: ((_c = (_b = fm["series"]) == null ? void 0 : _b.toString()) == null ? void 0 : _c.replace(/^\[\[|\]\]$/g, "").replace(/\s+Series$/, "")) || void 0,
+      series: ((_c = (_b = fm["series"]) == null ? void 0 : _b.toString()) == null ? void 0 : _c.replace(/^\[\[|\]\]$/g, "").replace(/\s+/g, " ").replace(/ Series$/, "")) || void 0,
       fullName: ((_e = (_d = fm["full-name"]) != null ? _d : fm["title"]) != null ? _e : "").toString(),
       location: ((_f = fm["location"]) != null ? _f : "").toString(),
       start: (_g = fm["start"]) == null ? void 0 : _g.toString(),
@@ -17200,9 +22368,15 @@ ${body}`;
     const { events, dirPath } = this.getEventsUnderCfpDir();
     for (const seriesName of [trimmed, pureSeriesFromAcronym(trimmed)]) {
       if (!(seriesName == null ? void 0 : seriesName.trim())) continue;
-      const seriesNotePath = normalizePath(`${dirPath}/${sanitizeFileName(seriesName)}/${sanitizeFileName(seriesName)} Series.md`);
-      if (this.app.vault.getAbstractFileByPath(seriesNotePath) instanceof import_obsidian18.TFile) {
-        return { seriesNotePath, latestEvent: this.findLatestInSeries(events, seriesName), seriesName: seriesName.trim() };
+      const seriesNotePath = normalizePath(
+        `${dirPath}/${sanitizeFileName(seriesName)}/${sanitizeFileName(seriesName)} Series.md`
+      );
+      if (this.app.vault.getAbstractFileByPath(seriesNotePath) instanceof import_obsidian22.TFile) {
+        return {
+          seriesNotePath,
+          latestEvent: this.findLatestInSeries(events, seriesName),
+          seriesName: seriesName.trim()
+        };
       }
     }
     return null;
@@ -17214,17 +22388,26 @@ ${body}`;
     const prefix = normalizePath(dir) + "/";
     if (!filePath.startsWith(prefix)) return null;
     const file = this.app.vault.getAbstractFileByPath(filePath);
-    if (!(file instanceof import_obsidian18.TFile)) return null;
+    if (!(file instanceof import_obsidian22.TFile)) return null;
     const fm = (_a = this.app.metadataCache.getFileCache(file)) == null ? void 0 : _a.frontmatter;
     if (!fm) return null;
     const { events } = this.getEventsUnderCfpDir();
     if (fm["cfp-series"] === true) {
-      const seriesName2 = (file.basename || "").replace(/\s+Series$/i, "").trim();
-      return { isSeries: true, seriesNotePath: file.path, latestEvent: this.findLatestInSeries(events, seriesName2), seriesName: seriesName2 };
+      const seriesName2 = (file.basename || "").replace(/\s+/g, " ").replace(/ Series$/i, "").trim();
+      return {
+        isSeries: true,
+        seriesNotePath: file.path,
+        latestEvent: this.findLatestInSeries(events, seriesName2),
+        seriesName: seriesName2
+      };
     }
     const item = this.parseCFPItemFromFrontmatter(fm);
     const seriesName = ((_b = item.series) == null ? void 0 : _b.trim()) || (((_c = file.parent) == null ? void 0 : _c.name) !== dir ? (_d = file.parent) == null ? void 0 : _d.name : null) || pureSeriesFromAcronym(item.acronym);
-    return { isSeries: false, latestEvent: seriesName ? this.findLatestInSeries(events, seriesName) : void 0, event: { item, path: file.path } };
+    return {
+      isSeries: false,
+      latestEvent: seriesName ? this.findLatestInSeries(events, seriesName) : void 0,
+      event: { item, path: file.path }
+    };
   }
   /** Read all CFP notes from the folder; return upcoming and past, each with item + path for opening. */
   async getCFPNotesForDisplay() {
@@ -17253,7 +22436,7 @@ ${body}`;
       const submissionDdl = ((_b = (_a = fm["submission-ddl"]) != null ? _a : fm["submission_ddl"]) != null ? _b : "").toString();
       const item = {
         acronym: ((_c = fm["acronym"]) != null ? _c : "").toString(),
-        series: ((_e = (_d = fm["series"]) == null ? void 0 : _d.toString()) == null ? void 0 : _e.replace(/^\[\[|\]\]$/g, "").replace(/\s+Series$/, "")) || void 0,
+        series: ((_e = (_d = fm["series"]) == null ? void 0 : _d.toString()) == null ? void 0 : _e.replace(/^\[\[|\]\]$/g, "").replace(/\s+/g, " ").replace(/ Series$/, "")) || void 0,
         fullName: ((_g = (_f = fm["full-name"]) != null ? _f : fm["title"]) != null ? _g : "").toString(),
         location: ((_h = fm["location"]) != null ? _h : "").toString(),
         start: (_i = fm["start"]) == null ? void 0 : _i.toString(),
@@ -17282,7 +22465,7 @@ ${body}`;
     });
     let updated = 0;
     for (const file of files) {
-      const base = file.basename.replace(/\s+Series$/i, "").trim();
+      const base = file.basename.replace(/\s+/g, " ").replace(/ Series$/i, "").trim();
       if (!base) continue;
       try {
         await this.updateSeriesNoteRank(base);
@@ -17295,9 +22478,13 @@ ${body}`;
   }
 };
 
+// src/main.ts
+init_paper_hub();
+init_vault_library();
+
 // src/ui/project-selector.ts
-var import_obsidian19 = require("obsidian");
-var ProjectSelectorView = class extends import_obsidian19.MarkdownRenderChild {
+var import_obsidian23 = require("obsidian");
+var ProjectSelectorView = class extends import_obsidian23.MarkdownRenderChild {
   constructor(containerEl, plugin) {
     super(containerEl);
     this.plugin = plugin;
@@ -17309,10 +22496,14 @@ var ProjectSelectorView = class extends import_obsidian19.MarkdownRenderChild {
   render(currentProjects) {
     var _a;
     this.containerEl.empty();
-    const container = this.containerEl.createDiv({ cls: "project-selector-container" });
+    const container = this.containerEl.createDiv({
+      cls: "project-selector-container"
+    });
     const file = this.plugin.app.workspace.getActiveFile();
     if (!file) {
-      container.createDiv({ text: "Please open a note to use the Project Linker." });
+      container.createDiv({
+        text: "Please open a note to use the Project Linker."
+      });
       return;
     }
     let projects = [];
@@ -17379,10 +22570,14 @@ var ProjectSelectorView = class extends import_obsidian19.MarkdownRenderChild {
       });
     }
     const btnContainer = container.createDiv();
-    const btn = new import_obsidian19.ButtonComponent(btnContainer).setButtonText("Add Project").setIcon("plus").onClick(() => {
-      new ProjectSuggestModal(this.plugin.app, this.plugin.settings.projectsFolder, async (selectedFile) => {
-        await this.addProject(file, selectedFile);
-      }).open();
+    const btn = new import_obsidian23.ButtonComponent(btnContainer).setButtonText("Add Project").setIcon("plus").onClick(() => {
+      new ProjectSuggestModal(
+        this.plugin.app,
+        this.plugin.settings.projectsFolder,
+        async (selectedFile) => {
+          await this.addProject(file, selectedFile);
+        }
+      ).open();
     });
     btn.buttonEl.addClass("zotero-btn-fancy");
   }
@@ -17397,43 +22592,51 @@ var ProjectSelectorView = class extends import_obsidian19.MarkdownRenderChild {
         const propValue = projectCache.frontmatter[targetPropertyKey];
         linkValue = `[[${pathWithoutExt}|${propValue}]]`;
       }
-      await this.plugin.app.fileManager.processFrontMatter(file, (frontmatter) => {
-        const key = this.plugin.settings.projectFrontmatterKey;
-        let current = frontmatter[key];
-        if (!current) current = [];
-        else if (!Array.isArray(current)) current = [current];
-        if (!current.includes(linkValue)) {
-          current.push(linkValue);
-          frontmatter[key] = current;
-          new import_obsidian19.Notice(`Added project: ${projectFile.basename}`);
-        } else {
-          new import_obsidian19.Notice("Project already linked.");
+      await this.plugin.app.fileManager.processFrontMatter(
+        file,
+        (frontmatter) => {
+          const key = this.plugin.settings.projectFrontmatterKey;
+          let current = frontmatter[key];
+          if (!current) current = [];
+          else if (!Array.isArray(current)) current = [current];
+          if (!current.includes(linkValue)) {
+            current.push(linkValue);
+            frontmatter[key] = current;
+            new import_obsidian23.Notice(`Added project: ${projectFile.basename}`);
+          } else {
+            new import_obsidian23.Notice("Project already linked.");
+          }
+          newList = [...current];
         }
-        newList = [...current];
-      });
+      );
       this.render(newList);
     } catch (e) {
-      new import_obsidian19.Notice("Failed to update frontmatter: " + e);
+      new import_obsidian23.Notice("Failed to update frontmatter: " + e);
     }
   }
   async removeProject(file, projectName) {
     let newList = [];
     try {
-      await this.plugin.app.fileManager.processFrontMatter(file, (frontmatter) => {
-        const key = this.plugin.settings.projectFrontmatterKey;
-        if (Array.isArray(frontmatter[key])) {
-          frontmatter[key] = frontmatter[key].filter((p) => p !== projectName);
-          newList = [...frontmatter[key]];
-          new import_obsidian19.Notice(`Removed project: ${projectName}`);
+      await this.plugin.app.fileManager.processFrontMatter(
+        file,
+        (frontmatter) => {
+          const key = this.plugin.settings.projectFrontmatterKey;
+          if (Array.isArray(frontmatter[key])) {
+            frontmatter[key] = frontmatter[key].filter(
+              (p) => p !== projectName
+            );
+            newList = [...frontmatter[key]];
+            new import_obsidian23.Notice(`Removed project: ${projectName}`);
+          }
         }
-      });
+      );
       this.render(newList);
     } catch (e) {
-      new import_obsidian19.Notice("Failed to remove project: " + e);
+      new import_obsidian23.Notice("Failed to remove project: " + e);
     }
   }
 };
-var ProjectSuggestModal = class extends import_obsidian19.SuggestModal {
+var ProjectSuggestModal = class extends import_obsidian23.SuggestModal {
   constructor(app, folderPath, onChoose) {
     super(app);
     this.projectFolder = folderPath;
@@ -17479,8 +22682,8 @@ var ProjectSuggestModal = class extends import_obsidian19.SuggestModal {
 init_cfp_manual_modal();
 
 // src/ui/cfp-list-modal.ts
-var import_obsidian20 = require("obsidian");
-var CFPListModal = class extends import_obsidian20.Modal {
+var import_obsidian24 = require("obsidian");
+var CFPListModal = class extends import_obsidian24.Modal {
   constructor(app, data) {
     super(app);
     this.data = data;
@@ -17502,11 +22705,14 @@ var CFPListModal = class extends import_obsidian20.Modal {
         const row = list.createDiv({ cls: "zotero-cfp-list-row" });
         row.createSpan({ cls: "zotero-cfp-acronym", text: item.acronym });
         row.createSpan({ cls: "zotero-cfp-ddl", text: item.submissionDdl });
-        row.createSpan({ cls: "zotero-cfp-name", text: item.fullName.slice(0, 50) + (item.fullName.length > 50 ? "\u2026" : "") });
+        row.createSpan({
+          cls: "zotero-cfp-name",
+          text: item.fullName.slice(0, 50) + (item.fullName.length > 50 ? "\u2026" : "")
+        });
         row.createSpan({ cls: "zotero-cfp-location", text: item.location });
         row.addEventListener("click", () => {
           const file = this.app.vault.getAbstractFileByPath(path2);
-          if (file instanceof import_obsidian20.TFile) {
+          if (file instanceof import_obsidian24.TFile) {
             this.app.workspace.getLeaf().openFile(file);
           }
           this.close();
@@ -17519,8 +22725,8 @@ var CFPListModal = class extends import_obsidian20.Modal {
 };
 
 // src/ui/cfp-list-view.ts
-var import_obsidian21 = require("obsidian");
-var CFPListView = class extends import_obsidian21.MarkdownRenderChild {
+var import_obsidian25 = require("obsidian");
+var CFPListView = class extends import_obsidian25.MarkdownRenderChild {
   constructor(containerEl, plugin) {
     super(containerEl);
     this.plugin = plugin;
@@ -17542,11 +22748,14 @@ var CFPListView = class extends import_obsidian21.MarkdownRenderChild {
         const row = list.createDiv({ cls: "zotero-cfp-list-row" });
         row.createSpan({ cls: "zotero-cfp-acronym", text: item.acronym });
         row.createSpan({ cls: "zotero-cfp-ddl", text: item.submissionDdl });
-        row.createSpan({ cls: "zotero-cfp-name", text: item.fullName.slice(0, 50) + (item.fullName.length > 50 ? "\u2026" : "") });
+        row.createSpan({
+          cls: "zotero-cfp-name",
+          text: item.fullName.slice(0, 50) + (item.fullName.length > 50 ? "\u2026" : "")
+        });
         row.createSpan({ cls: "zotero-cfp-location", text: item.location });
         row.addEventListener("click", () => {
           const file = this.plugin.app.vault.getAbstractFileByPath(path2);
-          if (file instanceof import_obsidian21.TFile) {
+          if (file instanceof import_obsidian25.TFile) {
             this.plugin.app.workspace.getLeaf().openFile(file);
           }
         });
@@ -17558,27 +22767,38 @@ var CFPListView = class extends import_obsidian21.MarkdownRenderChild {
 };
 
 // src/main.ts
-var ZoteroGKPlugin = class extends import_obsidian22.Plugin {
+init_paths();
+var ZoteroGKPlugin = class extends import_obsidian26.Plugin {
   constructor() {
     super(...arguments);
     this.webhookRibbonEl = null;
   }
   async onload() {
+    var _a, _b;
     await this.loadSettings();
     this.zotero = new ZoteroService(this.settings.zoteroPort);
     this.obsidian = new ObsidianService(this.app, this.settings);
-    this.webhookService = new WebhookService(this.app);
+    this.paperHub = new PaperHubService(this.app, () => this.settings);
+    this.vaultLibrary = new VaultLibraryService(
+      this.app,
+      () => this.settings,
+      this.paperHub
+    );
+    this.webhookService = new WebhookService(this.app, () => this.settings);
     this.dataviewService = new DataviewService(this.app);
     this.cfpService = new CFPService(
       this.app,
       () => this.settings,
       () => this.saveSettings()
     );
-    this.registerMarkdownCodeBlockProcessor("zotero-assistant", (source, el, ctx) => {
-      const view = new AssistantView(el, this);
-      ctx.addChild(view);
-      view.render(source, ctx);
-    });
+    this.registerMarkdownCodeBlockProcessor(
+      "zotero-assistant",
+      (source, el, ctx) => {
+        const view = new AssistantView(el, this);
+        ctx.addChild(view);
+        void view.render(source, ctx);
+      }
+    );
     this.registerMarkdownCodeBlockProcessor("project-picker", (source, el, ctx) => {
       const view = new ProjectSelectorView(el, this);
       ctx.addChild(view);
@@ -17587,7 +22807,7 @@ var ZoteroGKPlugin = class extends import_obsidian22.Plugin {
     this.registerMarkdownCodeBlockProcessor("cfp-list", (source, el, ctx) => {
       const view = new CFPListView(el, this);
       ctx.addChild(view);
-      view.render();
+      void view.render();
     });
     this.addCommand({
       id: "zotero-trigger-webhook",
@@ -17596,9 +22816,18 @@ var ZoteroGKPlugin = class extends import_obsidian22.Plugin {
         const file = this.app.workspace.getActiveFile();
         if (!file) return false;
         if (!checking) {
-          new WebhookSelectionModal(this.app, this.settings.webhooks, (hook, extraVariables) => {
-            this.webhookService.triggerWebhook(hook, file, extraVariables, this.settings.webhookDebugMode);
-          }).open();
+          new WebhookSelectionModal(
+            this.app,
+            this.settings.webhooks,
+            (hook, extraVariables) => {
+              void this.webhookService.triggerWebhook(
+                hook,
+                file,
+                extraVariables,
+                this.settings.webhookDebugMode
+              );
+            }
+          ).open();
         }
         return true;
       }
@@ -17613,9 +22842,13 @@ var ZoteroGKPlugin = class extends import_obsidian22.Plugin {
       id: "cfp-add-manual",
       name: "Add manual CFP",
       callback: () => {
-        new CFPManualModal(this.app, this.settings.cfpDefaultTags || [], (item) => {
-          this.cfpService.saveManualCFP(item).then(() => new import_obsidian22.Notice("CFP note created.")).catch(() => new import_obsidian22.Notice("Failed to create CFP note."));
-        }).open();
+        new CFPManualModal(
+          this.app,
+          this.settings.cfpDefaultTags || [],
+          (item) => {
+            this.cfpService.saveManualCFP(item).then(() => new import_obsidian26.Notice("CFP note created.")).catch(() => new import_obsidian26.Notice("Failed to create CFP note."));
+          }
+        ).open();
       }
     });
     this.addCommand({
@@ -17630,14 +22863,16 @@ var ZoteroGKPlugin = class extends import_obsidian22.Plugin {
       id: "cfp-refresh-wikicfp-series",
       name: "Refresh CFP from WikiCFP Conf Series (A\u2013Z)",
       callback: () => {
-        new import_obsidian22.Notice("WikiCFP series refresh started (5\u201310s between pages). See console for progress.");
+        new import_obsidian26.Notice(
+          "WikiCFP series refresh started (5\u201310s between pages). See console for progress."
+        );
         this.cfpService.refreshWikiCFPSeries((msg) => {
-          new import_obsidian22.Notice(msg);
+          new import_obsidian26.Notice(msg);
         }).then(() => {
-          new import_obsidian22.Notice("WikiCFP series refresh done.");
+          new import_obsidian26.Notice("WikiCFP series refresh done.");
         }).catch((e) => {
           console.error("[CFP] WikiCFP series refresh failed", e);
-          new import_obsidian22.Notice("WikiCFP series refresh failed. See console.");
+          new import_obsidian26.Notice("WikiCFP series refresh failed. See console.");
         });
       }
     });
@@ -17645,46 +22880,50 @@ var ZoteroGKPlugin = class extends import_obsidian22.Plugin {
       id: "cfp-refresh-this-series",
       name: "Refresh CFP for this series",
       checkCallback: (checking) => {
-        var _a, _b, _c, _d;
+        var _a2, _b2, _c, _d;
         const file = this.app.workspace.getActiveFile();
         if (!file) return false;
         const cache2 = this.app.metadataCache.getFileCache(file);
-        const isSeries = (_a = cache2 == null ? void 0 : cache2.frontmatter) == null ? void 0 : _a["cfp-series"];
-        const seriesUrl = (_d = (_c = (_b = cache2 == null ? void 0 : cache2.frontmatter) == null ? void 0 : _b["series-url"]) == null ? void 0 : _c.toString) == null ? void 0 : _d.call(_c);
+        const isSeries = (_a2 = cache2 == null ? void 0 : cache2.frontmatter) == null ? void 0 : _a2["cfp-series"];
+        const seriesUrl = (_d = (_c = (_b2 = cache2 == null ? void 0 : cache2.frontmatter) == null ? void 0 : _b2["series-url"]) == null ? void 0 : _c.toString) == null ? void 0 : _d.call(_c);
         if (!isSeries || !seriesUrl) return false;
-        const baseName = file.basename.replace(/\s+Series$/, "");
+        const baseName = file.basename.replace(/\s+/g, " ").replace(/ Series$/, "");
         if (checking) return true;
-        new import_obsidian22.Notice(`Refreshing events for ${baseName}...`);
-        this.cfpService.refreshSeriesByUrl(seriesUrl, baseName, (msg) => new import_obsidian22.Notice(msg)).then(() => new import_obsidian22.Notice(`${baseName} events refreshed.`)).catch((e) => {
+        new import_obsidian26.Notice(`Refreshing events for ${baseName}...`);
+        this.cfpService.refreshSeriesByUrl(seriesUrl, baseName, (msg) => new import_obsidian26.Notice(msg)).then(() => new import_obsidian26.Notice(`${baseName} events refreshed.`)).catch((e) => {
           console.error("[CFP] refresh this series failed", e);
-          new import_obsidian22.Notice("Refresh failed. See console.");
+          new import_obsidian26.Notice("Refresh failed. See console.");
         });
         return true;
       }
     });
     this.addSettingTab(new ZoteroSettingTab(this.app, this));
     if (this.cfpService.shouldRefresh()) {
-      this.cfpService.refresh().catch(() => {
-      });
+      this.cfpService.refresh().catch((err) => console.warn("[CFP] background refresh failed:", err));
     }
     if (this.cfpService.shouldSeriesRefresh()) {
-      this.cfpService.refreshWikiCFPSeries().catch(() => {
-      });
+      this.cfpService.refreshWikiCFPSeries().catch((err) => console.warn("[CFP] background refresh failed:", err));
     }
-    this.cfpService.runDailySeriesRefresh().catch(() => {
-    });
+    this.cfpService.runDailySeriesRefresh().catch((err) => console.warn("[CFP] background refresh failed:", err));
     const win = window;
     win.__ZoteroAnnotationReviewerCFP = {
       refreshSeries: (programUrl, seriesAcronym) => {
-        new import_obsidian22.Notice(`Refreshing events for ${seriesAcronym}...`);
-        return this.cfpService.refreshSeriesByUrl(programUrl, seriesAcronym, (msg) => new import_obsidian22.Notice(msg)).then(() => {
-          new import_obsidian22.Notice(`${seriesAcronym} events refreshed.`);
+        new import_obsidian26.Notice(`Refreshing events for ${seriesAcronym}...`);
+        return this.cfpService.refreshSeriesByUrl(
+          programUrl,
+          seriesAcronym,
+          (msg) => new import_obsidian26.Notice(msg)
+        ).then(() => {
+          new import_obsidian26.Notice(`${seriesAcronym} events refreshed.`);
         }).catch((e) => {
           console.error("[CFP] refresh series failed", e);
-          new import_obsidian22.Notice("Refresh failed. See console.");
+          new import_obsidian26.Notice("Refresh failed. See console.");
         });
       }
     };
+    (_b = (_a = this.app.workspace).onLayoutReady) == null ? void 0 : _b.call(_a, () => {
+      void this.paperHub.ensureBuiltinTemplatesInVault().catch((e) => console.error("[Paper Hub] template init failed", e));
+    });
     Promise.resolve().then(() => (init_digest_view(), digest_view_exports)).then((digest) => digest.registerDigest(this)).catch((e) => console.error("[Paper Digest] registration failed", e));
   }
   onunload() {
@@ -17698,16 +22937,29 @@ var ZoteroGKPlugin = class extends import_obsidian22.Plugin {
       this.webhookRibbonEl = null;
     }
     if (this.settings.webhookShowInRibbon) {
-      this.webhookRibbonEl = this.addRibbonIcon("webhook", "Trigger Webhook...", () => {
-        const file = this.app.workspace.getActiveFile();
-        if (!file) {
-          new import_obsidian22.Notice("Open a note first.");
-          return;
+      this.webhookRibbonEl = this.addRibbonIcon(
+        "webhook",
+        "Trigger Webhook...",
+        () => {
+          const file = this.app.workspace.getActiveFile();
+          if (!file) {
+            new import_obsidian26.Notice("Open a note first.");
+            return;
+          }
+          new WebhookSelectionModal(
+            this.app,
+            this.settings.webhooks,
+            (hook, extraVariables) => {
+              void this.webhookService.triggerWebhook(
+                hook,
+                file,
+                extraVariables,
+                this.settings.webhookDebugMode
+              );
+            }
+          ).open();
         }
-        new WebhookSelectionModal(this.app, this.settings.webhooks, (hook, extraVariables) => {
-          this.webhookService.triggerWebhook(hook, file, extraVariables, this.settings.webhookDebugMode);
-        }).open();
-      });
+      );
     }
   }
   async triggerReviewForActiveFile(file) {
@@ -17717,103 +22969,122 @@ var ZoteroGKPlugin = class extends import_obsidian22.Plugin {
     if (key) {
       new HighlightModal(this.app, this.settings, key, {}).open();
     } else {
-      new import_obsidian22.Notice("\u274C No citation key found.");
+      new import_obsidian26.Notice("\u274C No citation key found.");
     }
   }
   async loadSettings() {
+    var _a, _b, _c, _d, _e, _f, _g;
     const data = await this.loadData();
     this.settings = Object.assign({}, DEFAULT_SETTINGS, data);
-    if (!Array.isArray(this.settings.cfpDefaultTags)) this.settings.cfpDefaultTags = DEFAULT_SETTINGS.cfpDefaultTags;
-    if (!Array.isArray(this.settings.cfpWikicfpUrls)) this.settings.cfpWikicfpUrls = DEFAULT_SETTINGS.cfpWikicfpUrls;
-    if (!Array.isArray(this.settings.cfpEasychairUrls)) this.settings.cfpEasychairUrls = DEFAULT_SETTINGS.cfpEasychairUrls;
-    if (!Array.isArray(this.settings.cfpCcfddlUrls)) this.settings.cfpCcfddlUrls = DEFAULT_SETTINGS.cfpCcfddlUrls;
-    if (!Array.isArray(this.settings.cfpOpenresearchUrls)) this.settings.cfpOpenresearchUrls = DEFAULT_SETTINGS.cfpOpenresearchUrls;
-    if (typeof this.settings.cfpRefreshDays !== "number") this.settings.cfpRefreshDays = DEFAULT_SETTINGS.cfpRefreshDays;
-    if (typeof this.settings.cfpLastFetchTime !== "number") this.settings.cfpLastFetchTime = DEFAULT_SETTINGS.cfpLastFetchTime;
-    if (typeof this.settings.cfpSeriesRefreshDays !== "number") this.settings.cfpSeriesRefreshDays = DEFAULT_SETTINGS.cfpSeriesRefreshDays;
-    if (typeof this.settings.cfpLastSeriesFetchTime !== "number") this.settings.cfpLastSeriesFetchTime = DEFAULT_SETTINGS.cfpLastSeriesFetchTime;
-    if (typeof this.settings.cfpNoteDir !== "string") this.settings.cfpNoteDir = DEFAULT_SETTINGS.cfpNoteDir;
-    if (typeof this.settings.cfpSeriesMap !== "object" || this.settings.cfpSeriesMap === null) this.settings.cfpSeriesMap = DEFAULT_SETTINGS.cfpSeriesMap;
-    if (typeof this.settings.cfpLastDailyRun !== "number") this.settings.cfpLastDailyRun = DEFAULT_SETTINGS.cfpLastDailyRun;
-    if (!Array.isArray(this.settings.cfpSeriesIndexLetters)) this.settings.cfpSeriesIndexLetters = DEFAULT_SETTINGS.cfpSeriesIndexLetters;
-    if (typeof this.settings.cfpSeriesDataviewJSCode !== "string") this.settings.cfpSeriesDataviewJSCode = DEFAULT_SETTINGS.cfpSeriesDataviewJSCode;
-    if (typeof this.settings.cfpAcronymKey !== "string") this.settings.cfpAcronymKey = DEFAULT_SETTINGS.cfpAcronymKey;
-    if (typeof this.settings.cfpCoreCsvPath !== "string") this.settings.cfpCoreCsvPath = DEFAULT_SETTINGS.cfpCoreCsvPath;
-    if (typeof this.settings.cfpCcfddlLocalPath !== "string") this.settings.cfpCcfddlLocalPath = DEFAULT_SETTINGS.cfpCcfddlLocalPath;
+    this.settings.paperWorkspace = Object.assign(
+      {},
+      DEFAULT_PAPER_WORKSPACE,
+      data == null ? void 0 : data.paperWorkspace
+    );
+    if (data && typeof data.fleetingNoteFolder === "string" && !((_a = data.paperWorkspace) == null ? void 0 : _a.highlightNotesFolder)) {
+      this.settings.paperWorkspace.highlightNotesFolder = data.fleetingNoteFolder;
+    }
+    if (!((_b = this.settings.paperWorkspace.templatesFolder) == null ? void 0 : _b.trim())) {
+      this.settings.paperWorkspace.templatesFolder = DEFAULT_PAPER_WORKSPACE.templatesFolder;
+    }
+    if (!((_c = this.settings.paperWorkspace.report1Label) == null ? void 0 : _c.trim())) {
+      this.settings.paperWorkspace.report1Label = DEFAULT_PAPER_WORKSPACE.report1Label;
+    }
+    if (!((_d = this.settings.paperWorkspace.report2Label) == null ? void 0 : _d.trim())) {
+      this.settings.paperWorkspace.report2Label = DEFAULT_PAPER_WORKSPACE.report2Label;
+    }
+    if (!((_e = this.settings.paperWorkspace.takeawayLabel) == null ? void 0 : _e.trim())) {
+      this.settings.paperWorkspace.takeawayLabel = DEFAULT_PAPER_WORKSPACE.takeawayLabel;
+    }
+    delete this.settings.paperWorkspace["s3Prefix"];
+    const tplFolder = normalizePath(
+      this.settings.paperWorkspace.templatesFolder
+    ).replace(/\/+$/, "");
+    const defaultZotPath = tplFolder ? `${tplFolder}/zotero-note-template.md` : "zotero-note-template.md";
+    this.settings.zoteroTemplate = Object.assign(
+      { vaultPath: defaultZotPath, content: DEFAULT_ZOTERO_TEMPLATE },
+      data == null ? void 0 : data.zoteroTemplate
+    );
+    if (!((_f = this.settings.zoteroTemplate.vaultPath) == null ? void 0 : _f.trim())) {
+      this.settings.zoteroTemplate.vaultPath = defaultZotPath;
+    }
+    if (typeof this.settings.zoteroTemplate.content !== "string" || !this.settings.zoteroTemplate.content) {
+      this.settings.zoteroTemplate.content = DEFAULT_ZOTERO_TEMPLATE;
+    }
+    if (!Array.isArray(data == null ? void 0 : data.prompts)) {
+      this.settings.prompts = DEFAULT_PROMPTS.map((p) => {
+        const relFile = p.vaultPath.replace(/^900-Templates\//, "");
+        return {
+          ...p,
+          vaultPath: tplFolder ? `${tplFolder}/${relFile}` : relFile
+        };
+      });
+    } else {
+      const existingById = /* @__PURE__ */ new Map();
+      for (const p of data.prompts) {
+        existingById.set(p.id, { ...p });
+      }
+      const mergedPrompts = [];
+      for (const bp of DEFAULT_PROMPTS) {
+        const existing = existingById.get(bp.id);
+        if (existing) {
+          if (!existing.kind) existing.kind = (_g = bp.kind) != null ? _g : "prompt";
+          if (existing.builtIn === void 0) existing.builtIn = true;
+          mergedPrompts.push(existing);
+          existingById.delete(bp.id);
+        } else {
+          const relFile = bp.vaultPath.replace(/^900-Templates\//, "");
+          mergedPrompts.push({
+            ...bp,
+            vaultPath: tplFolder ? `${tplFolder}/${relFile}` : relFile
+          });
+        }
+      }
+      for (const custom of existingById.values()) {
+        if (!custom.kind) custom.kind = "prompt";
+        mergedPrompts.push(custom);
+      }
+      this.settings.prompts = mergedPrompts;
+    }
+    if (typeof this.settings.enableLegacyAssistantScript !== "boolean") {
+      this.settings.enableLegacyAssistantScript = false;
+    }
+    if (!Array.isArray(this.settings.cfpDefaultTags))
+      this.settings.cfpDefaultTags = DEFAULT_SETTINGS.cfpDefaultTags;
+    if (!Array.isArray(this.settings.cfpWikicfpUrls))
+      this.settings.cfpWikicfpUrls = DEFAULT_SETTINGS.cfpWikicfpUrls;
+    if (!Array.isArray(this.settings.cfpEasychairUrls))
+      this.settings.cfpEasychairUrls = DEFAULT_SETTINGS.cfpEasychairUrls;
+    if (!Array.isArray(this.settings.cfpCcfddlUrls))
+      this.settings.cfpCcfddlUrls = DEFAULT_SETTINGS.cfpCcfddlUrls;
+    if (!Array.isArray(this.settings.cfpOpenresearchUrls))
+      this.settings.cfpOpenresearchUrls = DEFAULT_SETTINGS.cfpOpenresearchUrls;
+    if (typeof this.settings.cfpRefreshDays !== "number")
+      this.settings.cfpRefreshDays = DEFAULT_SETTINGS.cfpRefreshDays;
+    if (typeof this.settings.cfpLastFetchTime !== "number")
+      this.settings.cfpLastFetchTime = DEFAULT_SETTINGS.cfpLastFetchTime;
+    if (typeof this.settings.cfpSeriesRefreshDays !== "number")
+      this.settings.cfpSeriesRefreshDays = DEFAULT_SETTINGS.cfpSeriesRefreshDays;
+    if (typeof this.settings.cfpLastSeriesFetchTime !== "number")
+      this.settings.cfpLastSeriesFetchTime = DEFAULT_SETTINGS.cfpLastSeriesFetchTime;
+    if (typeof this.settings.cfpNoteDir !== "string")
+      this.settings.cfpNoteDir = DEFAULT_SETTINGS.cfpNoteDir;
+    if (typeof this.settings.cfpSeriesMap !== "object" || this.settings.cfpSeriesMap === null)
+      this.settings.cfpSeriesMap = DEFAULT_SETTINGS.cfpSeriesMap;
+    if (typeof this.settings.cfpLastDailyRun !== "number")
+      this.settings.cfpLastDailyRun = DEFAULT_SETTINGS.cfpLastDailyRun;
+    if (!Array.isArray(this.settings.cfpSeriesIndexLetters))
+      this.settings.cfpSeriesIndexLetters = DEFAULT_SETTINGS.cfpSeriesIndexLetters;
+    if (typeof this.settings.cfpSeriesDataviewJSCode !== "string")
+      this.settings.cfpSeriesDataviewJSCode = DEFAULT_SETTINGS.cfpSeriesDataviewJSCode;
+    if (typeof this.settings.cfpAcronymKey !== "string")
+      this.settings.cfpAcronymKey = DEFAULT_SETTINGS.cfpAcronymKey;
+    if (typeof this.settings.cfpCoreCsvPath !== "string")
+      this.settings.cfpCoreCsvPath = DEFAULT_SETTINGS.cfpCoreCsvPath;
+    if (typeof this.settings.cfpCcfddlLocalPath !== "string")
+      this.settings.cfpCcfddlLocalPath = DEFAULT_SETTINGS.cfpCcfddlLocalPath;
   }
   async saveSettings() {
     await this.saveData(this.settings);
-  }
-};
-var WebhookSelectionModal = class extends import_obsidian22.SuggestModal {
-  constructor(app, webhooks, onChoose) {
-    super(app);
-    this.webhooks = webhooks;
-    this.onChoose = onChoose;
-  }
-  getSuggestions(query) {
-    return this.webhooks.filter((hook) => hook.name.toLowerCase().includes(query.toLowerCase()));
-  }
-  renderSuggestion(hook, el) {
-    el.createDiv({ text: hook.name });
-    el.createDiv({ text: hook.url, cls: "zotero-text-muted-italic" });
-  }
-  onChooseSuggestion(hook, evt) {
-    var _a;
-    this.close();
-    const vars = ((_a = hook.inputVariables) != null ? _a : []).filter((iv) => {
-      var _a2;
-      return (_a2 = iv.name) == null ? void 0 : _a2.trim();
-    });
-    if (vars.length > 0) {
-      new WebhookInputValueModal(this.app, hook.name, vars, (values) => {
-        this.onChoose(hook, values);
-      }).open();
-    } else {
-      this.onChoose(hook);
-    }
-  }
-};
-var WebhookInputValueModal = class extends import_obsidian22.Modal {
-  constructor(app, title, variables, onSubmit) {
-    super(app);
-    this.inputs = /* @__PURE__ */ new Map();
-    this.title = title;
-    this.variables = variables;
-    this.onSubmit = onSubmit;
-  }
-  onOpen() {
-    const { contentEl } = this;
-    contentEl.empty();
-    contentEl.addClass("zotero-webhook-input-modal");
-    contentEl.createEl("h2", { text: this.title, cls: "zotero-webhook-input-title" });
-    const desc = contentEl.createDiv({ cls: "zotero-webhook-input-desc" });
-    desc.setText("Enter values to substitute in the webhook body.");
-    const form = contentEl.createDiv({ cls: "zotero-webhook-input-form" });
-    this.variables.forEach((iv) => {
-      const row = form.createDiv({ cls: "zotero-webhook-input-row" });
-      row.createEl("label", { text: `{{${iv.name}}}`, cls: "zotero-webhook-input-label" });
-      const tc = new import_obsidian22.TextComponent(row);
-      tc.inputEl.addClass("zotero-webhook-input-field");
-      if (iv.type === "number") {
-        tc.inputEl.type = "number";
-        tc.setPlaceholder("0");
-      } else {
-        tc.setPlaceholder("Optional");
-      }
-      this.inputs.set(iv.name, tc);
-    });
-    const footer = contentEl.createDiv({ cls: "zotero-webhook-input-footer" });
-    new import_obsidian22.ButtonComponent(footer).setButtonText("Cancel").onClick(() => this.close());
-    new import_obsidian22.ButtonComponent(footer).setButtonText("Trigger").setCta().onClick(() => {
-      const values = {};
-      this.variables.forEach((iv) => {
-        var _a, _b;
-        const v = (_b = (_a = this.inputs.get(iv.name)) == null ? void 0 : _a.getValue()) != null ? _b : "";
-        values[iv.name] = iv.type === "number" ? String(Number(v)) : v;
-      });
-      this.close();
-      this.onSubmit(values);
-    }).buttonEl.addClass("zotero-btn-fancy");
   }
 };

@@ -9,6 +9,7 @@ import {
 	requestUrl,
 } from 'obsidian';
 import type ZoteroGKPlugin from '../main';
+import { DEFAULT_SETTINGS } from '../types';
 import { bibToInputs } from '../services/digest-bib';
 import { importIncoming, ingest } from '../services/digest-import';
 import { DigestStore } from '../services/digest-store';
@@ -30,8 +31,12 @@ import {
 	acceptRecord,
 	directionTags,
 } from '../services/digest-zotero';
+import { PaperHubService } from '../services/paper-hub';
+import { VaultLibraryService, VaultPaperEntry } from '../services/vault-library';
+import { ZoteroConnectorService } from '../services/zotero-connector';
+import { ConnectorModal, renderMarkdownContent } from './connector-modal';
 
-/** View type id of the Paper Digest window. */
+/** View type id of the Paper Digest & Library window. */
 export const VIEW_TYPE_DIGEST = 'zotero-paper-digest';
 
 const SECRET_ID = 'zotero-digest-local-api-key';
@@ -105,8 +110,10 @@ export function getDigestServices(plugin: ZoteroGKPlugin): DigestServices {
 	return created;
 }
 
+type HubTab = 'library' | 'digest';
 type Mode = 'card' | 'accept' | 'reject' | 'invalid';
 type StatusFilter = 'all' | DigestStatus;
+type LibraryQuickFilter = 'all' | 'core' | 'takeaway';
 
 const STATUS_LABELS: Record<DigestStatus, string> = {
 	unchecked: 'Unchecked',
@@ -115,11 +122,17 @@ const STATUS_LABELS: Record<DigestStatus, string> = {
 };
 
 /**
- * The Paper Digest triage window: a scrollable list of all papers with their
- * status on the left, and the selected paper with its actions on the right.
+ * Unified Paper Hub window supporting:
+ * - `library`: searchable Vault Literature Library with Core Note editing & Connector
+ * - `digest`: incoming paper triage & Zotero import
  */
 export class PaperDigestView extends ItemView {
+	private readonly plugin: ZoteroGKPlugin;
 	private readonly svc: DigestServices;
+	private fallbackPaperHub: PaperHubService | null = null;
+	private fallbackLibrary: VaultLibraryService | null = null;
+
+	private hubTab: HubTab = 'digest';
 	private filter: StatusFilter = 'all';
 	private batch = '';
 	private selectedKey = '';
@@ -136,8 +149,19 @@ export class PaperDigestView extends ItemView {
 	private collectionScroll = 0;
 	private listScroll = 0;
 
+	// --- Library state ---
+	private libraryEntries: VaultPaperEntry[] = [];
+	private libraryQuery = '';
+	private libraryQuickFilter: LibraryQuickFilter = 'all';
+	private libraryVenueFilter = '';
+	private selectedLibraryKey = '';
+	private libraryListScroll = 0;
+	private libraryDetailScroll = 0;
+	private vaultListenersRegistered = false;
+
 	constructor(leaf: WorkspaceLeaf, plugin: ZoteroGKPlugin) {
 		super(leaf);
+		this.plugin = plugin;
 		this.svc = getDigestServices(plugin);
 		this.scope = new Scope(this.app.scope);
 		this.registerKeys();
@@ -148,16 +172,167 @@ export class PaperDigestView extends ItemView {
 	}
 
 	getDisplayText(): string {
-		return 'Paper Digest';
+		return 'Paper House';
 	}
 
 	getIcon(): string {
 		return 'inbox';
 	}
 
+	private getPaperHub(): PaperHubService {
+		if (this.plugin.paperHub) return this.plugin.paperHub;
+		if (!this.fallbackPaperHub) {
+			this.fallbackPaperHub = new PaperHubService(this.app, () =>
+				Object.assign({}, DEFAULT_SETTINGS, this.plugin.settings)
+			);
+		}
+		return this.fallbackPaperHub;
+	}
+
+	private getVaultLibrary(): VaultLibraryService {
+		if (this.plugin.vaultLibrary) return this.plugin.vaultLibrary;
+		if (!this.fallbackLibrary) {
+			this.fallbackLibrary = new VaultLibraryService(
+				this.app,
+				() => Object.assign({}, DEFAULT_SETTINGS, this.plugin.settings),
+				this.getPaperHub()
+			);
+		}
+		return this.fallbackLibrary;
+	}
+
+	private ensureVaultListeners(): void {
+		if (this.vaultListenersRegistered) return;
+		this.vaultListenersRegistered = true;
+
+		const refreshIfLibraryActive = () => {
+			if (this.hubTab !== 'library') return;
+			void this.reloadLibrary().then(() => this.renderLibraryResultsOnly());
+		};
+
+		if (typeof this.app.vault?.on === 'function') {
+			this.registerEvent(
+				this.app.vault.on('create', (file) => {
+					if (file.path.toLowerCase().endsWith('.md')) {
+						refreshIfLibraryActive();
+					}
+				})
+			);
+			this.registerEvent(
+				this.app.vault.on('modify', (file) => {
+					if (file.path.toLowerCase().endsWith('.md')) {
+						refreshIfLibraryActive();
+					}
+				})
+			);
+			this.registerEvent(
+				this.app.vault.on('delete', (file) => {
+					if (file.path.toLowerCase().endsWith('.md')) {
+						refreshIfLibraryActive();
+					}
+				})
+			);
+		}
+		if (typeof this.app.metadataCache?.on === 'function') {
+			this.registerEvent(
+				this.app.metadataCache.on('changed', (file) => {
+					if (file.path.toLowerCase().endsWith('.md')) {
+						refreshIfLibraryActive();
+					}
+				})
+			);
+		}
+	}
+
+	private async importFromZotero(): Promise<void> {
+		const connector = new ZoteroConnectorService(
+			this.app,
+			Object.assign({}, DEFAULT_SETTINGS, this.plugin.settings)
+		);
+		const triggered = await connector.triggerInteractiveImport();
+		if (triggered) {
+			await this.reloadLibrary();
+			this.render();
+		}
+	}
+
 	/** Renders from the store only; importing is left to an explicit open or Refresh. */
 	async onOpen(): Promise<void> {
+		this.ensureVaultListeners();
+		if (this.hubTab === 'library') {
+			await this.reloadLibrary();
+			this.render();
+			return;
+		}
 		await this.reload(false);
+	}
+
+	/** Opens Paper House directly on the Vault Paper Library tab, optionally pre-filtered by venue. */
+	async openLibrary(venueFilter?: string): Promise<void> {
+		this.ensureVaultListeners();
+		this.hubTab = 'library';
+		if (venueFilter !== undefined) {
+			this.libraryVenueFilter = venueFilter.trim();
+		}
+		await this.reloadLibrary();
+		this.render();
+	}
+
+	/** Switches between Digest and Library tabs. */
+	async switchHubTab(tab: HubTab): Promise<void> {
+		this.ensureVaultListeners();
+		if (this.hubTab === tab) return;
+		this.hubTab = tab;
+		if (tab === 'library') {
+			await this.reloadLibrary();
+			this.render();
+		} else {
+			await this.reload(false);
+		}
+	}
+
+	async reloadLibrary(): Promise<void> {
+		try {
+			const lib = this.getVaultLibrary();
+			this.libraryEntries = await lib.searchPapers(this.libraryQuery, {
+				venue: this.libraryVenueFilter || undefined,
+				hasCoreNote: this.libraryQuickFilter === 'core' ? true : undefined,
+				hasTakeaway: this.libraryQuickFilter === 'takeaway' ? true : undefined,
+			});
+		} catch (e) {
+			console.error('[Paper Library] reload failed', e);
+			this.libraryEntries = [];
+		}
+		this.ensureLibrarySelection();
+	}
+
+	private ensureLibrarySelection(): void {
+		if (this.libraryEntries.some((e) => e.citekey === this.selectedLibraryKey))
+			return;
+		this.selectedLibraryKey = this.libraryEntries[0]?.citekey ?? '';
+	}
+
+	private selectedLibraryEntry(): VaultPaperEntry | undefined {
+		return this.libraryEntries.find((e) => e.citekey === this.selectedLibraryKey);
+	}
+
+	private moveLibrary(step: number): void {
+		if (this.libraryEntries.length === 0) return;
+		const idx = this.libraryEntries.findIndex(
+			(e) => e.citekey === this.selectedLibraryKey
+		);
+		const nextIdx = Math.min(
+			this.libraryEntries.length - 1,
+			Math.max(0, idx + step)
+		);
+		this.selectedLibraryKey = this.libraryEntries[nextIdx].citekey;
+		this.renderLibraryResultsOnly();
+	}
+
+	private openSelectedLibraryNote(): void {
+		const selected = this.selectedLibraryEntry();
+		if (!selected) return;
+		void this.app.workspace.getLeaf(false).openFile(selected.file);
 	}
 
 	/**
@@ -197,7 +372,7 @@ export class PaperDigestView extends ItemView {
 		this.translateOnline = translateOnline;
 	}
 
-	// --- Selection -----------------------------------------------------------
+	// --- Digest Selection ----------------------------------------------------
 
 	/** Papers shown in the list: unchecked first, then the most recent decisions. */
 	private visible(): DigestRecord[] {
@@ -278,7 +453,7 @@ export class PaperDigestView extends ItemView {
 		return this.zotero.state === 'online' ? this.zotero.collections : [];
 	}
 
-	// --- Actions -------------------------------------------------------------
+	// --- Digest Actions ------------------------------------------------------
 
 	private setMode(mode: Mode): void {
 		this.mode = mode;
@@ -460,14 +635,40 @@ export class PaperDigestView extends ItemView {
 				return false;
 			});
 		};
-		bind('ArrowLeft', () => this.mode === 'card' && this.startReject());
-		bind('ArrowRight', () => this.mode === 'card' && this.startAccept());
-		bind('ArrowDown', () => this.mode !== 'invalid' && this.move(1));
-		bind('ArrowUp', () => this.mode !== 'invalid' && this.move(-1));
-		bind('Enter', () => this.mode === 'accept' && void this.confirmAccept());
-		bind('Escape', () => this.mode !== 'card' && this.setMode('card'));
+		bind('ArrowLeft', () => {
+			if (this.hubTab === 'digest' && this.mode === 'card') this.startReject();
+		});
+		bind('ArrowRight', () => {
+			if (this.hubTab === 'digest' && this.mode === 'card') this.startAccept();
+		});
+		bind('ArrowDown', () => {
+			if (this.hubTab === 'library') this.moveLibrary(1);
+			else if (this.mode !== 'invalid') this.move(1);
+		});
+		bind('ArrowUp', () => {
+			if (this.hubTab === 'library') this.moveLibrary(-1);
+			else if (this.mode !== 'invalid') this.move(-1);
+		});
+		bind('Enter', () => {
+			if (this.hubTab === 'digest' && this.mode === 'accept') {
+				void this.confirmAccept();
+			}
+		});
+		bind('Escape', () => {
+			if (this.hubTab === 'library') {
+				if (this.libraryVenueFilter || this.libraryQuery) {
+					this.libraryVenueFilter = '';
+					this.libraryQuery = '';
+					void this.reloadLibrary().then(() => this.render());
+				}
+			} else if (this.mode !== 'card') {
+				this.setMode('card');
+			}
+		});
 		for (let digit = 1; digit <= 9; digit++) {
-			bind(String(digit), () => this.pickByDigit(digit - 1));
+			bind(String(digit), () => {
+				if (this.hubTab === 'digest') this.pickByDigit(digit - 1);
+			});
 		}
 	}
 
@@ -500,9 +701,24 @@ export class PaperDigestView extends ItemView {
 			'.zotero-digest-collections',
 			this.collectionScroll
 		);
+		this.libraryListScroll = scrollOf(
+			'.zotero-library-list',
+			this.libraryListScroll
+		);
+		this.libraryDetailScroll = scrollOf(
+			'.zotero-library-detail',
+			this.libraryDetailScroll
+		);
+
 		root.empty();
 		root.addClass('zotero-digest');
 		this.renderHeader(root);
+
+		if (this.hubTab === 'library') {
+			this.renderLibraryView(root);
+			return;
+		}
+
 		if (this.storeError) {
 			root.createDiv({
 				cls: 'zotero-digest-alert',
@@ -524,6 +740,47 @@ export class PaperDigestView extends ItemView {
 
 	private renderHeader(root: HTMLElement): void {
 		const header = root.createDiv({ cls: 'zotero-digest-header' });
+
+		// Segmented Hub Switcher [ Digest | Library ]
+		const switcher = header.createDiv({ cls: 'zotero-hub-segmented' });
+		const digestBtn = switcher.createEl('button', {
+			cls: 'zotero-hub-seg-btn',
+			text: 'Digest',
+		});
+		digestBtn.toggleClass('is-active', this.hubTab === 'digest');
+		digestBtn.onclick = () => void this.switchHubTab('digest');
+
+		const libBtn = switcher.createEl('button', {
+			cls: 'zotero-hub-seg-btn',
+			text: 'Library',
+		});
+		libBtn.toggleClass('is-active', this.hubTab === 'library');
+		libBtn.onclick = () => void this.switchHubTab('library');
+
+		if (this.hubTab === 'library') {
+			const right = header.createDiv({ cls: 'zotero-digest-header-right' });
+			right.createSpan({
+				cls: 'zotero-digest-meta',
+				text: `${this.libraryEntries.length} paper${this.libraryEntries.length === 1 ? '' : 's'}`,
+			});
+			const importBtn = right.createEl('button', {
+				cls: 'mod-cta zotero-library-import-btn',
+				text: '+ Import from Zotero',
+				attr: { type: 'button' },
+			});
+			importBtn.onclick = () => void this.importFromZotero();
+			const refreshBtn = right.createEl('button', {
+				cls: 'zotero-library-refresh-btn',
+				text: '↻ Refresh',
+				attr: { type: 'button' },
+			});
+			refreshBtn.onclick = async () => {
+				await this.reloadLibrary();
+				this.render();
+			};
+			return;
+		}
+
 		const dot = (label: string, online: boolean) => {
 			const el = header.createSpan({ cls: 'zotero-digest-status', text: label });
 			el.toggleClass('is-online', online);
@@ -570,6 +827,443 @@ export class PaperDigestView extends ItemView {
 		menuButton.setAttr('aria-label', 'More');
 		menuButton.onclick = (evt) => this.openMenu(evt);
 	}
+
+	// --- Library Rendering ---------------------------------------------------
+
+	private renderLibraryView(root: HTMLElement): void {
+		const toolbar = root.createDiv({ cls: 'zotero-library-toolbar' });
+		const searchWrap = toolbar.createDiv({ cls: 'zotero-library-search-wrap' });
+		const searchInput = searchWrap.createEl('input', {
+			cls: 'zotero-library-search-input',
+			attr: {
+				type: 'search',
+				placeholder:
+					'Search title, citekey, venue, authors, Core Note, TL;DR...',
+			},
+		}) as HTMLInputElement;
+		searchInput.value = this.libraryQuery;
+
+		const clearBtn = searchWrap.createEl('button', {
+			cls: 'zotero-library-search-clear',
+			text: '×',
+			attr: { type: 'button', title: 'Clear search' },
+		});
+		clearBtn.toggleClass('zotero-digest-hidden', !this.libraryQuery);
+
+		searchInput.oninput = async () => {
+			this.libraryQuery = searchInput.value;
+			clearBtn.toggleClass('zotero-digest-hidden', !this.libraryQuery);
+			await this.reloadLibrary();
+			this.renderLibraryResultsOnly();
+		};
+
+		clearBtn.onclick = async () => {
+			this.libraryQuery = '';
+			searchInput.value = '';
+			clearBtn.addClass('zotero-digest-hidden');
+			await this.reloadLibrary();
+			this.renderLibraryResultsOnly();
+			searchInput.focus();
+		};
+
+		const filterBar = toolbar.createDiv({ cls: 'zotero-library-filters' });
+		const addChip = (id: LibraryQuickFilter, label: string) => {
+			const chip = filterBar.createEl('button', {
+				cls: 'zotero-library-filter-chip',
+				text: label,
+				attr: { type: 'button' },
+			});
+			chip.toggleClass('is-active', this.libraryQuickFilter === id);
+			chip.onclick = async () => {
+				this.libraryQuickFilter = id;
+				await this.reloadLibrary();
+				this.render();
+			};
+		};
+		addChip('all', 'All');
+		addChip('core', 'Core Note');
+		addChip('takeaway', 'Takeaway');
+
+		if (this.libraryVenueFilter) {
+			const venueChip = filterBar.createEl('button', {
+				cls: 'zotero-library-filter-chip is-venue is-active',
+				text: `Venue: ${this.libraryVenueFilter} ×`,
+				attr: { type: 'button', title: 'Clear venue filter' },
+			});
+			venueChip.onclick = async () => {
+				this.libraryVenueFilter = '';
+				await this.reloadLibrary();
+				this.render();
+			};
+		}
+
+		const resultsRoot = root.createDiv({
+			cls: 'zotero-digest-body zotero-library-results',
+		});
+		this.populateLibraryResults(resultsRoot);
+	}
+
+	private renderLibraryResultsOnly(): void {
+		const resultsRoot = this.contentEl.querySelector(
+			'.zotero-library-results'
+		) as HTMLElement | null;
+		if (!resultsRoot) {
+			this.render();
+			return;
+		}
+		this.libraryListScroll =
+			resultsRoot.querySelector('.zotero-library-list')?.scrollTop ??
+			this.libraryListScroll;
+		this.libraryDetailScroll =
+			resultsRoot.querySelector('.zotero-library-detail')?.scrollTop ??
+			this.libraryDetailScroll;
+
+		resultsRoot.empty();
+		this.populateLibraryResults(resultsRoot);
+
+		const countEl = this.contentEl.querySelector(
+			'.zotero-digest-header-right .zotero-digest-meta'
+		);
+		if (countEl) {
+			countEl.textContent = `${this.libraryEntries.length} paper${
+				this.libraryEntries.length === 1 ? '' : 's'
+			}`;
+		}
+	}
+
+	private populateLibraryResults(resultsRoot: HTMLElement): void {
+		const list = resultsRoot.createDiv({
+			cls: 'zotero-digest-list zotero-library-list',
+		});
+
+		if (this.libraryEntries.length === 0) {
+			const hasActiveFilter = Boolean(
+				this.libraryQuery.trim() ||
+				this.libraryVenueFilter ||
+				this.libraryQuickFilter !== 'all'
+			);
+			const emptyEl = list.createDiv({
+				cls: 'zotero-digest-empty zotero-library-empty',
+			});
+			emptyEl.createDiv({
+				text: hasActiveFilter
+					? 'No matching papers in Vault.'
+					: 'No papers in Vault yet.',
+			});
+			if (!hasActiveFilter) {
+				const emptyImportBtn = emptyEl.createEl('button', {
+					cls: 'mod-cta zotero-library-import-btn',
+					text: '+ Import from Zotero',
+					attr: { type: 'button' },
+				});
+				emptyImportBtn.onclick = () => void this.importFromZotero();
+			}
+		} else {
+			let selectedRow: HTMLElement | null = null;
+			for (const entry of this.libraryEntries) {
+				const row = list.createDiv({
+					cls: 'zotero-digest-list-row zotero-library-row',
+				});
+				if (entry.citekey === this.selectedLibraryKey) {
+					row.addClass('is-selected');
+					selectedRow = row;
+				}
+				row.onclick = () => {
+					this.selectedLibraryKey = entry.citekey;
+					this.libraryDetailScroll = 0;
+					this.renderLibraryResultsOnly();
+				};
+
+				const textCol = row.createDiv({ cls: 'zotero-digest-list-text' });
+				textCol.createDiv({
+					cls: 'zotero-digest-list-title',
+					text: entry.title,
+				});
+
+				const firstAuthor = entry.authors[0]?.replace(/-/g, ' ') ?? '';
+				const metaParts = [
+					entry.venueSeries || entry.venue,
+					entry.year,
+					firstAuthor,
+				].filter(Boolean);
+				if (metaParts.length > 0) {
+					textCol.createDiv({
+						cls: 'zotero-digest-meta',
+						text: metaParts.join(' · '),
+					});
+				}
+
+				const badgeRow = textCol.createDiv({
+					cls: 'zotero-library-row-badges',
+				});
+				badgeRow.createSpan({
+					cls: 'zotero-library-citekey-pill',
+					text: entry.citekey,
+				});
+				if (entry.hasCoreNote) {
+					badgeRow.createSpan({
+						cls: 'zotero-library-mini-badge is-core',
+						text: 'Core',
+					});
+				}
+				if (entry.hasTakeaway) {
+					badgeRow.createSpan({
+						cls: 'zotero-library-mini-badge is-takeaway',
+						text: 'Takeaway',
+					});
+				}
+				if (entry.hasReport1) {
+					badgeRow.createSpan({
+						cls: 'zotero-library-mini-badge',
+						text: 'R1',
+					});
+				}
+				if (entry.hasReport2) {
+					badgeRow.createSpan({
+						cls: 'zotero-library-mini-badge',
+						text: 'R2',
+					});
+				}
+			}
+			list.scrollTop = this.libraryListScroll;
+			selectedRow?.scrollIntoView({ block: 'nearest' });
+		}
+
+		const detail = resultsRoot.createDiv({
+			cls: 'zotero-digest-detail zotero-library-detail',
+		});
+		this.renderLibraryDetail(detail);
+		detail.scrollTop = this.libraryDetailScroll;
+	}
+
+	private renderLibraryDetail(detail: HTMLElement): void {
+		const entry = this.selectedLibraryEntry();
+		if (!entry) {
+			detail.createDiv({
+				cls: 'zotero-digest-empty',
+				text: 'Select a paper on the left to inspect its notes and synthesis.',
+			});
+			return;
+		}
+
+		const headerCard = detail.createDiv({
+			cls: 'zotero-digest-card zotero-library-card',
+		});
+		headerCard.createEl('h3', { cls: 'zotero-digest-title', text: entry.title });
+
+		if (entry.authors.length > 0) {
+			headerCard.createDiv({
+				cls: 'zotero-library-authors',
+				text: entry.authors.map((a) => a.replace(/-/g, ' ')).join(', '),
+			});
+		}
+
+		const metaRow = headerCard.createDiv({
+			cls: 'zotero-digest-meta zotero-library-meta-row',
+		});
+		if (entry.venueSeries || entry.venue) {
+			const venueBtn = metaRow.createEl('button', {
+				cls: 'zotero-library-venue-pill',
+				text: entry.venueSeries || entry.venue,
+				attr: { type: 'button', title: 'Filter library by this venue' },
+			});
+			venueBtn.onclick = async () => {
+				this.libraryVenueFilter = entry.venueSeries || entry.venue;
+				await this.reloadLibrary();
+				this.render();
+			};
+		}
+		if (entry.year) metaRow.createSpan({ text: entry.year });
+
+		const doiHref = entry.doi
+			? /^https?:\/\//i.test(entry.doi)
+				? entry.doi
+				: `https://doi.org/${entry.doi}`
+			: entry.url;
+		if (doiHref) {
+			metaRow.createEl('a', {
+				text: entry.doi ? `DOI: ${entry.doi}` : 'External URL',
+				href: doiHref,
+				attr: { target: '_blank', rel: 'noopener noreferrer' },
+			});
+		}
+		if (entry.codeUrl && /^https?:\/\//i.test(entry.codeUrl)) {
+			metaRow.createEl('a', {
+				text: 'Code Repo',
+				href: entry.codeUrl,
+				attr: { target: '_blank', rel: 'noopener noreferrer' },
+			});
+		}
+
+		const actionsBar = headerCard.createDiv({ cls: 'zotero-library-actions' });
+		const openBtn = actionsBar.createEl('button', {
+			cls: 'mod-cta',
+			text: 'Open Note',
+			attr: { type: 'button' },
+		});
+		openBtn.onclick = () => this.openSelectedLibraryNote();
+
+		const baseName =
+			entry.file.basename ||
+			(entry.file.name || entry.file.path.split('/').pop() || '').replace(
+				/\.md$/i,
+				''
+			);
+		const copyWikiBtn = actionsBar.createEl('button', {
+			text: 'Copy [[Wikilink]]',
+			attr: { type: 'button' },
+		});
+		copyWikiBtn.onclick = async () => {
+			const link = `[[${baseName}]]`;
+			if (navigator.clipboard?.writeText) {
+				await navigator.clipboard.writeText(link);
+				new Notice(`Copied ${link}`);
+			}
+		};
+
+		const copyKeyBtn = actionsBar.createEl('button', {
+			text: 'Copy citekey',
+			attr: { type: 'button' },
+		});
+		copyKeyBtn.onclick = async () => {
+			if (navigator.clipboard?.writeText) {
+				await navigator.clipboard.writeText(entry.citekey);
+				new Notice(`Copied ${entry.citekey}`);
+			}
+		};
+
+		const connectBtn = actionsBar.createEl('button', {
+			text: 'Connect Notes',
+			attr: { type: 'button' },
+		});
+		connectBtn.onclick = () => {
+			new ConnectorModal(this.app, this.plugin, entry.file, async () => {
+				await this.reloadLibrary();
+				this.renderLibraryResultsOnly();
+			}).open();
+		};
+
+		// Core Note Section (Mutually Exclusive Action Button, No Inline Textarea)
+		const coreCard = detail.createDiv({
+			cls: 'zotero-digest-card zotero-library-core-card',
+		});
+		const coreHead = coreCard.createDiv({ cls: 'zotero-library-section-head' });
+		coreHead.createSpan({ cls: 'zotero-digest-panel-title', text: 'Core Note' });
+		const coreHeadActions = coreHead.createDiv({
+			cls: 'zotero-library-section-actions',
+		});
+
+		if (entry.hasCoreNote) {
+			const openCoreBtn = coreHeadActions.createEl('button', {
+				cls: 'zotero-library-inline-btn',
+				text: 'Open',
+				attr: { type: 'button', title: 'Open Core Note in Obsidian editor' },
+			});
+			openCoreBtn.onclick = async () => {
+				const coreFile = await this.getPaperHub().createOrOpenReportFile(
+					entry.citekey,
+					'coreNote',
+					entry.file
+				);
+				await this.app.workspace.getLeaf(false).openFile(coreFile);
+			};
+
+			const bodyBox = coreCard.createDiv({ cls: 'zotero-library-core-text' });
+			void renderMarkdownContent(
+				this.app,
+				entry.coreNoteBody,
+				bodyBox,
+				entry.file.path,
+				this
+			);
+		} else {
+			const writeCoreBtn = coreHeadActions.createEl('button', {
+				cls: 'mod-cta zotero-library-inline-btn',
+				text: 'Write Core Note',
+				attr: {
+					type: 'button',
+					title: 'Create and open Core Note in Obsidian editor',
+				},
+			});
+			writeCoreBtn.onclick = async () => {
+				const coreFile = await this.getPaperHub().createOrOpenReportFile(
+					entry.citekey,
+					'coreNote',
+					entry.file
+				);
+				await this.app.workspace.getLeaf(false).openFile(coreFile);
+				await this.reloadLibrary();
+				this.renderLibraryResultsOnly();
+			};
+
+			coreCard.createDiv({
+				cls: 'zotero-digest-meta zotero-library-core-empty',
+				text: 'No Core Note yet.',
+			});
+		}
+
+		// Takeaway Research Profile
+		if (entry.tldr || entry.contributions || entry.novelty || entry.limitation) {
+			const profileCard = detail.createDiv({
+				cls: 'zotero-digest-card zotero-library-profile-card',
+			});
+			profileCard.createDiv({
+				cls: 'zotero-digest-panel-title',
+				text: 'Takeaway Research Profile',
+			});
+			const addProfileField = (label: string, val: string | undefined) => {
+				if (!val) return;
+				const row = profileCard.createDiv({
+					cls: 'zotero-library-profile-row',
+				});
+				row.createSpan({ cls: 'zotero-library-profile-key', text: label });
+				const valEl = row.createDiv({ cls: 'zotero-library-profile-val' });
+				void renderMarkdownContent(this.app, val, valEl, entry.file.path, this);
+			};
+			addProfileField('TL;DR', entry.tldr);
+			addProfileField('Contributions', entry.contributions);
+			addProfileField('Novelty', entry.novelty);
+			addProfileField('Limitation', entry.limitation);
+		}
+
+		// Projects & Linked Chips
+		if (entry.projects.length > 0 || entry.linkedNotes.length > 0) {
+			const relCard = detail.createDiv({
+				cls: 'zotero-digest-card zotero-library-links-card',
+			});
+			const renderChipRow = (
+				title: string,
+				links: string[],
+				isProject: boolean
+			) => {
+				if (links.length === 0) return;
+				const group = relCard.createDiv({ cls: 'zotero-links-group' });
+				group.createSpan({ cls: 'zotero-links-label', text: title });
+				const chips = group.createDiv({ cls: 'zotero-links-chips' });
+				for (const raw of links) {
+					const inner = raw.replace(/^\[\[|\]\]$/g, '').trim();
+					const [target, alias] = inner.split('|');
+					const label = (alias || target.split('/').pop() || target).trim();
+					const chip = chips.createEl('a', {
+						cls: `zotero-link-chip${isProject ? ' is-project' : ''}`,
+						text: label,
+						href: '#',
+					});
+					chip.onclick = (ev) => {
+						ev.preventDefault();
+						void this.app.workspace.openLinkText(
+							target.trim(),
+							entry.file.path
+						);
+					};
+				}
+			};
+			renderChipRow('Projects', entry.projects, true);
+			renderChipRow('Linked', entry.linkedNotes, false);
+		}
+	}
+
+	// --- Digest Menu & Panels ------------------------------------------------
 
 	private openMenu(evt: MouseEvent): void {
 		const invalid = this.svc.store.invalidLines().length;
@@ -871,8 +1565,7 @@ export class PaperDigestView extends ItemView {
 	}
 }
 
-/** Opens the Paper Digest window (or reveals the open one) and runs an import. */
-export async function openDigest(plugin: ZoteroGKPlugin): Promise<void> {
+async function getOrCreateHubLeaf(plugin: ZoteroGKPlugin): Promise<WorkspaceLeaf> {
 	const { workspace } = plugin.app;
 	let leaf = workspace.getLeavesOfType(VIEW_TYPE_DIGEST)[0];
 	if (!leaf) {
@@ -880,32 +1573,57 @@ export async function openDigest(plugin: ZoteroGKPlugin): Promise<void> {
 		await leaf.setViewState({ type: VIEW_TYPE_DIGEST, active: true });
 	}
 	await workspace.revealLeaf(leaf);
-	if (leaf.view instanceof PaperDigestView) await leaf.view.reload(true);
+	return leaf;
 }
 
-/** Adds or removes the Paper Digest ribbon icon to match the setting. */
+/** Opens the Paper Digest window (or reveals the open one) on Digest tab and runs an import. */
+export async function openDigest(plugin: ZoteroGKPlugin): Promise<void> {
+	const leaf = await getOrCreateHubLeaf(plugin);
+	if (leaf.view instanceof PaperDigestView) {
+		await leaf.view.switchHubTab('digest');
+		await leaf.view.reload(true);
+	}
+}
+
+/** Opens the Paper Hub directly on the searchable Vault Paper Library tab. */
+export async function openPaperLibrary(
+	plugin: ZoteroGKPlugin,
+	venueFilter?: string
+): Promise<void> {
+	const leaf = await getOrCreateHubLeaf(plugin);
+	if (leaf.view instanceof PaperDigestView) {
+		await leaf.view.openLibrary(venueFilter);
+	}
+}
+
+/** Adds or removes the Paper House ribbon icon to match the setting. */
 export function updateDigestRibbon(plugin: ZoteroGKPlugin): void {
 	ribbonByPlugin.get(plugin)?.remove();
 	ribbonByPlugin.delete(plugin);
 	if (!Platform.isDesktopApp || !getDigestServices(plugin).settings().showInRibbon)
 		return;
-	const el = plugin.addRibbonIcon('inbox', 'Open Paper Digest', () => {
+	const el = plugin.addRibbonIcon('inbox', 'Open Paper House', () => {
 		void openDigest(plugin);
 	});
 	ribbonByPlugin.set(plugin, el);
 }
 
 /**
- * Registers the Paper Digest view, command and ribbon icon. Desktop only: the
- * window is a popout and talks to the local Zotero.
+ * Registers the Paper House (Digest & Library) view, commands and ribbon icon. Desktop only:
+ * the window is a popout and talks to the local Zotero.
  */
 export function registerDigest(plugin: ZoteroGKPlugin): void {
 	if (!Platform.isDesktopApp) return;
 	plugin.registerView(VIEW_TYPE_DIGEST, (leaf) => new PaperDigestView(leaf, plugin));
 	plugin.addCommand({
 		id: 'open-paper-digest',
-		name: 'Open Paper Digest',
+		name: 'Open Paper House',
 		callback: () => void openDigest(plugin),
+	});
+	plugin.addCommand({
+		id: 'open-paper-library',
+		name: 'Open Paper House (Library)',
+		callback: () => void openPaperLibrary(plugin),
 	});
 	updateDigestRibbon(plugin);
 }

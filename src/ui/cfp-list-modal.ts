@@ -4,7 +4,10 @@ import { CFPItem } from '../types';
 export class CFPListModal extends Modal {
 	constructor(
 		app: App,
-		private data: { upcoming: { item: CFPItem; path: string }[]; past: { item: CFPItem; path: string }[] }
+		private data: {
+			upcoming: { item: CFPItem; path: string }[];
+			past: { item: CFPItem; path: string }[];
+		}
 	) {
 		super(app);
 	}
@@ -28,7 +31,12 @@ export class CFPListModal extends Modal {
 				const row = list.createDiv({ cls: 'zotero-cfp-list-row' });
 				row.createSpan({ cls: 'zotero-cfp-acronym', text: item.acronym });
 				row.createSpan({ cls: 'zotero-cfp-ddl', text: item.submissionDdl });
-				row.createSpan({ cls: 'zotero-cfp-name', text: item.fullName.slice(0, 50) + (item.fullName.length > 50 ? '…' : '') });
+				row.createSpan({
+					cls: 'zotero-cfp-name',
+					text:
+						item.fullName.slice(0, 50) +
+						(item.fullName.length > 50 ? '…' : ''),
+				});
 				row.createSpan({ cls: 'zotero-cfp-location', text: item.location });
 				row.addEventListener('click', () => {
 					const file = this.app.vault.getAbstractFileByPath(path);

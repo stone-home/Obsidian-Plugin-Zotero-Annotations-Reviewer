@@ -1,6 +1,6 @@
 # Debugging Guide
 
-This guide helps developers troubleshoot issues in the Zotero Annotation Reviewer plugin.
+This guide helps developers troubleshoot, test, and verify changes in the Zotero Annotation Reviewer plugin.
 
 ---
 
@@ -9,7 +9,7 @@ This guide helps developers troubleshoot issues in the Zotero Annotation Reviewe
 ### 1. Plugin Not Loading
 
 **Symptoms:**
-- Plugin doesn't appear in Community Plugins list
+- Plugin does not appear in Community Plugins list
 - Error in console: "Failed to load plugin"
 
 **Debugging Steps:**
@@ -21,275 +21,136 @@ This guide helps developers troubleshoot issues in the Zotero Annotation Reviewe
    Verify `main.js` and `styles.css` are generated in the plugin root.
 
 2. **Check Manifest:**
-   - Verify `manifest.json` has correct `id`, `version`, and `minAppVersion`
-   - Ensure `main` field points to `main.js`
+   - Verify `manifest.json` has valid `id`, `version`, and `minAppVersion`.
+   - Ensure `package.json` `main` points to `main.js`.
 
 3. **Check Console:**
-   - Open Obsidian Developer Console (`Ctrl/Cmd + Shift + I`)
-   - Look for errors during plugin load
-   - Check for missing dependencies
+   - Open Obsidian Developer Console (`Ctrl/Cmd + Shift + I`) and inspect errors during plugin load.
 
 4. **Verify Plugin Folder:**
-   - Ensure plugin is in correct location:
-     - macOS: `~/Library/Application Support/obsidian/plugins/zotero-annotation-reviewer/`
-     - Windows: `%APPDATA%\Obsidian\plugins\zotero-annotation-reviewer\`
-     - Linux: `~/.config/obsidian/plugins/zotero-annotation-reviewer/`
+   - macOS: `~/Library/Application Support/obsidian/plugins/zotero-annotation-reviewer/`
+   - Windows: `%APPDATA%\Obsidian\plugins\zotero-annotation-reviewer\`
+   - Linux: `~/.config/obsidian/plugins/zotero-annotation-reviewer/`
 
 ---
 
-### 2. Zotero Connection Issues
+### 2. Zotero Connection & Paper House Digest Issues
 
 **Symptoms:**
-- "Failed to fetch annotations"
-- "No citation key found"
-- Timeout errors
+- "Failed to fetch annotations" or `Citation Key '...' not found`
+- Paper House Digest shows Zotero or Translation Server offline
 
 **Debugging Steps:**
 
-1. **Verify Zotero is Running:**
-   - Check Zotero desktop app is open
-   - Verify Better BibTeX extension is installed and enabled
-
-2. **Check Port Configuration:**
-   - Default port is `23119`
-   - Verify in plugin settings: `Settings → Zotero Annotation Reviewer → General → Zotero Port`
-   - Test connection:
+1. **Verify Zotero & Better BibTeX:**
+   - Confirm Zotero desktop is open with the Better BibTeX extension enabled on port `23119` (configurable under `Settings → Zotero Annotation Reviewer`).
+   - Test local connectivity:
      ```bash
-     curl http://localhost:23119
+     curl http://127.0.0.1:23119/better-bibtex/json-rpc
      ```
 
+2. **Verify Translation Server (for Paper House Digest):**
+   - If accepting incoming papers via DOI/URL in **Paper House → Digest**, verify Zotero Translation Server is reachable on `http://127.0.0.1:1969` (or your configured URL).
+
 3. **Check Citation Key:**
-   - Open note with `zotero-assistant` block
-   - Verify frontmatter contains `citation-key` (or configured key name)
-   - Check console for: `[Zotero] Citation key: <key>`
+   - Open the Literature note and confirm frontmatter contains `citation-key` (or your configured `citationKeyName`).
 
-4. **Inspect JSON-RPC Calls:**
-   - Open Developer Console
-   - Look for `[Zotero]` prefixed logs
-   - Check network tab for requests to `localhost:23119`
-
-**Common Fixes:**
-- Restart Zotero
-- Reinstall Better BibTeX extension
-- Check firewall blocking port 23119
+4. **Inspect Console Logs:**
+   - Filter Obsidian Developer Console by `[ZoteroService]` or `[Paper Digest]`.
 
 ---
 
 ### 3. Image Display Issues
 
 **Symptoms:**
-- Images appear broken in Assistant view
-- Image paths are incorrect
-- Images not found
+- Annotation images appear broken or missing in `zotero-assistant` or `HighlightModal`
 
 **Debugging Steps:**
 
 1. **Verify Image Map JSON:**
-   - Open note with `zotero-assistant` block
-   - Check code block contains valid JSON: `{ "annotation-id": "relative/path.png" }`
-   - Validate JSON syntax (no trailing commas, proper quotes)
+   - Check that the `zotero-assistant` block contains valid JSON `{ "annotation-id": "relative/path.png" }`.
 
 2. **Check Image Paths:**
-   - Verify `zotero-image-path` in frontmatter matches Zotero Integration setting
-   - Ensure paths are relative to vault root
-   - Check paths use forward slashes (`/`)
+   - Verify `zotero-image-path` in frontmatter matches Zotero Integration's Image Output Path (e.g. `Attachments/{{citekey}}`) and uses forward slashes (`/`).
 
 3. **Verify Files Exist:**
    ```bash
-   # In vault root, check if image exists
    ls -la "Attachments/CiteKey/image.png"
    ```
 
-4. **Check Console:**
-   - Look for `[Parser]` logs showing parsed image map
-   - Check for file not found errors
-
-**Common Fixes:**
-- Re-import note from Zotero Integration
-- Update Zotero Integration template to include image map
-- Verify Image Output Path setting matches template
-
 ---
 
-### 4. Webhook Failures
+### 4. Paper Workspace, Templates & Connector Issues
 
 **Symptoms:**
-- Webhook button does nothing
-- HTTP errors (400, 401, 500)
-- Template variables not substituted
+- Report 1 / Report 2 / Takeaway / Core Note tabs do not locate existing files
+- Candidate atomic Zettels do not appear in `ConnectorModal`
 
 **Debugging Steps:**
 
-1. **Check Webhook Configuration:**
-   - Verify URL is correct and accessible
-   - Check HTTP method matches endpoint expectations
-   - Validate headers (especially Authorization)
+1. **Check Paper Workspace Path Patterns:**
+   - Open `Settings → Zotero Annotation Reviewer → Paper Workspace` and verify `{{citekey}}` path templates match your Vault folders (`002-Literature/`, `003-Permanent/`, `900-Templates/`).
 
-2. **Inspect Request:**
-   - Open Developer Console → Network tab
-   - Trigger webhook
-   - Check request URL, method, headers, body
-   - Verify body template was filled correctly
+2. **Check Candidate Heading Syntax in Takeaway:**
+   - `parseTakeawayCandidates()` expects headings matching `### Candidate <N>` followed by bullet fields such as `- **Link**: [[A - ...]]`, `- **Brief**: ...`, and `- **Evidence**: ...`.
 
-3. **Check Template Variables:**
-   - Verify placeholders match available variables
-   - Check `{{frontmatter.KEY}}` keys exist in note frontmatter
-   - Ensure input variables are provided if required
-
-4. **Test Template:**
-   ```javascript
-   // In console, test template filling
-   const template = '{"filename": "{{filename}}"}';
-   const variables = {'{{filename}}': 'test.md'};
-   // Should result in: {"filename": "test.md"}
-   ```
-
-5. **Check Secret Headers:**
-   - Verify secrets exist in Obsidian `secretStorage`
-   - Check secret key matches webhook header configuration
-
-**Common Fixes:**
-- Fix JSON syntax in body template
-- Ensure Content-Type header matches body format
-- Verify external API endpoint is accessible
-- Check CORS settings if calling from browser context
+3. **Check Vault Templates:**
+   - Verify built-in templates and prompts exist in `900-Templates/` (created automatically on layout ready via `ensureBuiltinTemplatesInVault()`).
 
 ---
 
-### 5. CFP Refresh Issues
+### 5. Webhook Failures
 
 **Symptoms:**
-- CFP notes not updating
-- Refresh commands do nothing
-- Parsing errors
+- Webhook trigger fails with HTTP 4xx/5xx or unsubstituted placeholders
 
 **Debugging Steps:**
 
-1. **Check Source URLs:**
-   - Verify URLs in settings are valid and accessible
-   - Test URLs in browser:
-     ```bash
-     curl "http://www.wikicfp.com/cfp/call?conference=machine%20learning"
-     ```
+1. **Enable Webhook Debug Mode:**
+   - Turn on `webhookDebugMode` in plugin settings and inspect the `[Webhook Debug]` console group for the resolved URL, method, headers, and body.
 
-2. **Check Console Logs:**
-   - Look for `[CFP]` prefixed logs
-   - Check for network errors or parsing failures
-   - Verify refresh intervals are respected
-
-3. **Verify Folder Permissions:**
-   - Ensure CFP folder exists and is writable
-   - Check folder path in settings (relative to vault root)
-
-4. **Test Individual Parsers:**
-   - Each source has its own parser service
-   - Check specific parser logs:
-     - `[CFP] WikiCFP: ...`
-     - `[CFP] CCFDDL: ...`
-     - `[CFP] EasyChair: ...`
-     - `[CFP] OpenResearch: ...`
-
-5. **Check Rate Limiting:**
-   - WikiCFP has delays (5-10s between pages, 800ms between events)
-   - Series refresh has 30-minute gap between series
-   - Check if delays are causing timeouts
-
-**Common Fixes:**
-- Update URLs if sources changed structure
-- Check if sources require authentication
-- Verify network connectivity
-- Increase refresh intervals if hitting rate limits
+2. **Check Placeholders & Secrets:**
+   - Verify `{{frontmatter.KEY}}`, `{{citekey}}`, `{{path.*}}`, `{{prompt.*}}`, and custom input variables match your configuration, and confirm secret header keys exist in Obsidian `secretStorage`.
 
 ---
 
-### 6. Dataview Integration Issues
+### 6. CFP Refresh & Ranking Issues
 
 **Symptoms:**
-- Assistant script not executing
-- Dataview queries fail
-- Related notes section empty
+- CFP notes do not update or CCF/CORE rank badges are missing
+
+**Debugging Steps:**
+
+1. **Check Source URLs & Local Rank Files:**
+   - Verify WikiCFP, CCFDDL, EasyChair, and OpenResearch URLs, plus Vault-relative `cfpCoreCsvPath` (`CORE.csv`) and `cfpCcfddlLocalPath` (`allconf.yml`) if configured.
+
+2. **Check Console Logs & Intervals:**
+   - Filter console by `[CFP]` to inspect network/parser warnings and rate-limiting delays (5–10s between WikiCFP pages; >= 30-minute gap for daily staggered Series refreshes).
+
+---
+
+### 7. Dataview Integration Issues
+
+**Symptoms:**
+- Custom Assistant script or CFP Series DataviewJS table fails to render
 
 **Debugging Steps:**
 
 1. **Verify Dataview Plugin:**
-   - Check Dataview is installed and enabled
-   - Test Dataview queries in a note
-
-2. **Check Assistant Script:**
-   - Settings → Zotero Annotation Reviewer → Zotero & Highlights → Assistant Custom JS
-   - Verify script syntax is valid JavaScript
-   - Test script in DataviewJS block directly
-
-3. **Check Console:**
-   - Look for Dataview execution errors
-   - Check for `[Dataview]` logs
-
-4. **Verify Script Context:**
-   - Script has access to: `container`, `file`, `app`
-   - Ensure script uses `dv` (Dataview API) correctly
-
-**Common Fixes:**
-- Fix JavaScript syntax errors
-- Ensure Dataview queries match your vault structure
-- Check file paths in queries are correct
+   - Ensure the Obsidian Dataview plugin is installed and enabled, and check `[Dataview]` / `Dataview Script Execution Error` messages in the Developer Console.
 
 ---
 
 ## Debugging Workflow
 
-### 1. Enable Debug Mode
+### Recommended Breakpoints
 
-Currently, the plugin uses console logging. To see more detailed logs:
-
-1. Open Developer Console (`Ctrl/Cmd + Shift + I`)
-2. Filter console by `[Zotero]`, `[CFP]`, `[Webhook]`, `[Parser]`
-3. Check both Console and Network tabs
-
-### 2. Check Logs
-
-**Obsidian Logs:**
-- macOS: `~/Library/Application Support/obsidian/obsidian.log`
-- Windows: `%APPDATA%\Obsidian\obsidian.log`
-- Linux: `~/.config/obsidian/obsidian.log`
-
-**Plugin-Specific Logs:**
-- Check console for prefixed logs: `[Zotero]`, `[CFP]`, `[Webhook]`
-- Network tab for HTTP requests
-
-### 3. Recommended Breakpoints
-
-When debugging in VS Code or similar IDE, set breakpoints in:
-
-**For Zotero Issues:**
-- `src/services/zotero.ts:getAnnotations()` - Annotation fetching
-- `src/services/zotero.ts:sendRpc()` - JSON-RPC communication
-
-**For Webhook Issues:**
-- `src/services/webhook.ts:triggerWebhook()` - Webhook execution
-- `src/services/webhook.ts:fillTemplateRecursive()` - Template filling
-
-**For CFP Issues:**
-- `src/services/cfp.ts:refresh()` - CFP refresh orchestration
-- `src/services/cfp-wikicfp.ts:fetchWikiCFP()` - WikiCFP parsing
-
-**For UI Issues:**
-- `src/ui/assistant.ts:render()` - Assistant view rendering
-- `src/ui/highlights.ts:onOpen()` - Highlight modal display
-
-### 4. File to Check First
-
-When errors occur, check these files in order:
-
-1. **Console Output** - Immediate error messages
-2. **`src/main.ts`** - Plugin initialization
-3. **`src/types.ts`** - Type definitions (if TypeScript errors)
-4. **Service files** - Based on error context:
-   - Zotero → `src/services/zotero.ts`
-   - Webhook → `src/services/webhook.ts`
-   - CFP → `src/services/cfp.ts`
-5. **UI files** - If UI-related:
-   - Assistant → `src/ui/assistant.ts`
-   - Highlights → `src/ui/highlights.ts`
+- **Zotero JSON-RPC:** `src/services/zotero.ts` (`getAnnotations`, `getItemMetadata`, `sendRpc`)
+- **Paper Workspace & Templates:** `src/services/paper-hub.ts` (`getPaperState`, `saveReportMarkdown`, `parseTakeawayCandidates`)
+- **Vault Library & Connector:** `src/services/vault-library.ts` (`listLiteraturePapers`, `matchCandidatesAgainstVault`, `connectCandidateToVault`) and `src/ui/connector-modal.ts`
+- **Paper House Digest:** `src/ui/digest-view.ts` and `src/services/digest-store.ts`
+- **Webhooks:** `src/services/webhook.ts` (`triggerWebhook`, `fillTemplateRecursive`) and `src/ui/webhook-modals.ts`
+- **CFP:** `src/services/cfp.ts` (`refresh`, `refreshWikiCFPSeries`, `findBestMatchingCFPForConference`)
 
 ---
 
@@ -298,7 +159,7 @@ When errors occur, check these files in order:
 ### Running Tests
 
 ```bash
-# Run all tests
+# Run all test suites
 npm test
 
 # Run tests in watch mode
@@ -307,119 +168,52 @@ npm test -- --watch
 # Run tests with coverage
 npm test -- --coverage
 
-# Run specific test file
-npm test -- src/services/zotero.test.ts
+# Run a specific test suite in tests/
+npm test -- tests/services/zotero.test.ts
 ```
 
 ### Test Structure
 
-Tests are located alongside source files with `.test.ts` extension:
+Automated tests live in the top-level `tests/` directory (strictly separated from production `src/`) and run under Jest + `ts-jest` in the `jsdom` environment:
 
-- `src/services/zotero.test.ts` - Zotero service tests
-- `src/services/webhook.test.ts` - Webhook service tests
-- `src/services/cfp.test.ts` - CFP service tests
-- `src/utils/parser.test.ts` - Parser utility tests
+- `tests/services/zotero.test.ts` - Zotero JSON-RPC service tests
+- `tests/services/paper-hub.test.ts` - Paper Workspace and template/takeaway parsing tests
+- `tests/services/vault-library.test.ts` - Vault Literature search and atomic-note connector tests
+- `tests/services/digest-store.test.ts` - Paper Digest store lifecycle tests
+- `tests/services/webhook.test.ts` - Modular webhook substitution and request tests
+- `tests/services/cfp.test.ts` - CFP parsing, ranking, and conference matching tests
+- `tests/utils/parser.test.ts` - Image map JSON parser tests
 
-### Mocking
-
-Obsidian API is mocked in `__mocks__/obsidian.ts`. To add new mocks:
-
-1. Check existing mocks in `__mocks__/obsidian.ts`
-2. Add missing Obsidian API methods as needed
-3. Ensure mocks return appropriate types
-
-### Writing Tests
-
-Example test structure:
-
-```typescript
-import { ZoteroService } from './zotero';
-
-describe('ZoteroService', () => {
-  let service: ZoteroService;
-
-  beforeEach(() => {
-    service = new ZoteroService(23119);
-  });
-
-  it('should fetch annotations', async () => {
-    const annotations = await service.getAnnotations('Test2020');
-    expect(annotations).toBeDefined();
-  });
-});
-```
+Both `src/**/*.ts` and `tests/**/*.ts` are checked under TypeScript `strict: true` and ESLint `@typescript-eslint/no-explicit-any: "error"`.
 
 ---
 
 ## Development Mode
 
-### Running in Development
+### Quality & Build Commands
 
 ```bash
-# Watch mode (rebuilds on file changes)
+# Watch mode (rebuilds main.js & styles.css on file changes)
 npm run dev
 
-# Production build
-npm run build
+# TypeScript strict typecheck (no emit)
+npm run typecheck
 
-# Type checking only
+# ESLint check across src/ and tests/
 npm run lint
+
+# Prettier formatting check across src/ and tests/
+npm run format:check
+
+# Full production build (typecheck + esbuild production bundle)
+npm run build
 ```
 
-### Hot Reload
+### Hot Reload in Obsidian
 
-1. Run `npm run dev` in terminal
-2. Make changes to TypeScript files
-3. Files auto-rebuild
-4. Reload plugin in Obsidian: `Settings → Community Plugins → Zotero Annotation Reviewer → Reload`
-
-### Debugging in VS Code
-
-Create `.vscode/launch.json`:
-
-```json
-{
-  "version": "0.2.0",
-  "configurations": [
-    {
-      "type": "node",
-      "request": "launch",
-      "name": "Jest Debug",
-      "program": "${workspaceFolder}/node_modules/.bin/jest",
-      "args": ["--runInBand"],
-      "console": "integratedTerminal",
-      "internalConsoleOptions": "neverOpen"
-    }
-  ]
-}
-```
-
----
-
-## Performance Debugging
-
-### Slow Operations
-
-1. **CFP Refresh:**
-   - Check network delays (WikiCFP has 5-10s delays)
-   - Verify refresh intervals aren't too frequent
-   - Check if multiple refreshes are running simultaneously
-
-2. **Zotero Queries:**
-   - Large libraries may take time
-   - Check if Better BibTeX is indexing
-   - Verify Zotero isn't busy with other operations
-
-3. **Dataview Queries:**
-   - Complex queries on large vaults can be slow
-   - Check Dataview query performance
-   - Consider optimizing queries
-
-### Memory Issues
-
-- Check for memory leaks in long-running operations
-- Verify services are properly cleaned up
-- Check for circular references in data structures
+1. Run `npm run dev` in a terminal.
+2. Edit TypeScript files under `src/`.
+3. Reload the plugin in Obsidian (`Settings → Community Plugins → Zotero Annotation Reviewer` toggle or Hot Reload plugin).
 
 ---
 
@@ -429,15 +223,12 @@ Create `.vscode/launch.json`:
    - GitHub Issues: https://github.com/stone-home/Obsidian-Plugin-Zotero-Annotations-Reviewer/issues
 
 2. **Create Debug Report:**
-   - Include Obsidian version
-   - Include plugin version
-   - Include console logs
-   - Include steps to reproduce
+   - Include Obsidian version, plugin version, console logs, and minimal steps to reproduce.
 
 3. **Check Documentation:**
-   - `README.md` - User documentation
-   - `ARCHITECTURE.md` - Architecture details
-   - `docs/requirements-*.md` - Feature requirements
+   - [README.md](../README.md) - User documentation and setup guide
+   - [ARCHITECTURE.md](ARCHITECTURE.md) - System architecture and module map
+   - [pkm/project-brief.md](../pkm/project-brief.md) - Project brief, layout adaptations, and index of `../pkm/requirements-*.md` specifications
 
 ---
 
@@ -448,26 +239,21 @@ Create `.vscode/launch.json`:
 ```javascript
 // In Obsidian Developer Console
 
-// Check plugin instance
+// Inspect plugin instance and settings
 app.plugins.plugins['zotero-annotation-reviewer']
-
-// Check settings
 app.plugins.plugins['zotero-annotation-reviewer'].settings
 
 // Trigger CFP refresh manually
 app.plugins.plugins['zotero-annotation-reviewer'].cfpService.refresh()
 
-// Check active file
-app.workspace.getActiveFile()
-
-// Check file cache
+// Inspect active file and frontmatter cache
+const file = app.workspace.getActiveFile()
 app.metadataCache.getFileCache(file)
 ```
 
 ### Common Error Messages
 
-- `"No citation key found"` → Check note frontmatter for `citation-key`
-- `"Failed to fetch annotations"` → Check Zotero connection and port
-- `"Webhook has no URL"` → Configure webhook URL in settings
-- `"CFP folder does not exist"` → Create folder or check path setting
-- `"Dataview is not available"` → Install and enable Dataview plugin
+- `"No citation key found"` → Verify `citation-key` (or configured `citationKeyName`) in note frontmatter.
+- `"Citation Key '...' not found."` → Verify Zotero is running with Better BibTeX on port `23119` and the item citekey matches.
+- `"Webhook ... has no URL"` → Configure the webhook URL in `Settings → Modular Webhooks`.
+- `"Dataview API not available."` → Install and enable the Obsidian Dataview plugin.

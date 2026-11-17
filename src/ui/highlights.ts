@@ -1,16 +1,30 @@
-import { App, Modal, Notice, TFile} from 'obsidian';
+import { App, Modal, Notice, TFile } from 'obsidian';
 import { ZoteroAnnotation, ZoteroItemMetadata, MyPluginSettings } from '../types';
 import { ZoteroService } from '../services/zotero';
 import { ObsidianService } from '../services/obsidian';
-import { ZoteroConnectorService } from "../services/zotero-connector";
+import { ZoteroConnectorService } from '../services/zotero-connector';
 import { ObsidianNoteFactory, NoteModel } from 'markdown-note-orm';
+
+function getAnnotationSortValue(ann: ZoteroAnnotation, prop: string): string {
+	const record = ann as unknown as Record<string, unknown>;
+	const raw = record[prop];
+	return (raw || '').toString().toLowerCase();
+}
+
+function formatMetadataField(meta: ZoteroItemMetadata, prop: string): string {
+	const record = meta as unknown as Record<string, unknown>;
+	const raw = record[prop];
+	const normalized = Array.isArray(raw) ? raw.join(', ') : raw;
+	if (!normalized) return '-';
+	return String(normalized);
+}
 
 export class HighlightModal extends Modal {
 	private citationKey: string;
 	private settings: MyPluginSettings;
 	private zotero: ZoteroService;
 	private obsidian: ObsidianService;
-	private zoteroConnector: ZoteroConnectorService
+	private zoteroConnector: ZoteroConnectorService;
 	private annotations: ZoteroAnnotation[] = [];
 	private itemMetadata: ZoteroItemMetadata | null = null;
 	private imageMap: Record<string, string>;
@@ -29,38 +43,40 @@ export class HighlightModal extends Modal {
 		this.imageMap = imageMap;
 		this.zotero = new ZoteroService(settings.zoteroPort);
 		this.obsidian = new ObsidianService(app, settings);
-		this.zoteroConnector = new ZoteroConnectorService(app, settings)
+		this.zoteroConnector = new ZoteroConnectorService(app, settings);
 		this.onUpdate = onUpdate;
 	}
 
 	async onOpen() {
-		this.modalEl.addClass("zotero-reviewer-modal");
+		this.modalEl.addClass('zotero-reviewer-modal');
 		const { contentEl } = this;
 		contentEl.empty();
 
 		// Initial Header
-		contentEl.createEl("h2", { text: `Review: ${this.citationKey}` });
+		contentEl.createEl('h2', { text: `Review: ${this.citationKey}` });
 
 		const statusEl = contentEl.createDiv({ cls: 'zotero-status' });
-		statusEl.setText("Fetching data from Zotero...");
+		statusEl.setText('Fetching data from Zotero...');
 
 		try {
 			try {
 				this.annotations = await this.zotero.getAnnotations(this.citationKey);
 			} catch (e) {
-				statusEl.setText(`❌ Error fetching annotations: ${(e as Error).message}`);
+				statusEl.setText(
+					`❌ Error fetching annotations: ${(e as Error).message}`
+				);
 				return;
 			}
 			try {
 				this.itemMetadata = await this.zotero.getItemMetadata(this.citationKey);
 			} catch (e) {
-				new Notice("Metadata fetch failed, but continuing.");
+				new Notice('Metadata fetch failed, but continuing.');
 			}
 			statusEl.remove();
 			await this.render();
 		} catch (e) {
 			statusEl.setText(`Critical Error: ${String(e)}`);
-			statusEl.addClass("zotero-text-error");
+			statusEl.addClass('zotero-text-error');
 		}
 	}
 
@@ -68,32 +84,34 @@ export class HighlightModal extends Modal {
 		const { contentEl } = this;
 		contentEl.empty();
 
-		const header = contentEl.createDiv({ cls: "zotero-modal-header-actions" });
-		header.createEl("h2", { text: `Review: ${this.citationKey}`, cls: "zotero-no-margin" });
+		const header = contentEl.createDiv({ cls: 'zotero-modal-header-actions' });
+		header.createEl('h2', {
+			text: `Review: ${this.citationKey}`,
+			cls: 'zotero-no-margin',
+		});
 
-		const btnFetch = header.createEl("button", { text: "📥 Update Paper" });
-		btnFetch.addClass("zotero-btn-fancy");
-		btnFetch.onclick = () => this.zoteroConnector.triggerZoteroIntegrationImport(this.citationKey);
+		const btnFetch = header.createEl('button', { text: '📥 Update Paper' });
+		btnFetch.addClass('zotero-btn-fancy');
+		btnFetch.onclick = () =>
+			this.zoteroConnector.triggerZoteroIntegrationImport(this.citationKey);
 
 		const metaContainer = contentEl.createDiv({ cls: 'zotero-metadata-container' });
 		if (this.itemMetadata) {
 			await this.renderMetadataSection(metaContainer, this.itemMetadata);
 		}
 
-		contentEl.createEl("hr");
+		contentEl.createEl('hr');
 
 		const container = contentEl.createDiv({ cls: 'zotero-list' });
 		if (this.annotations.length === 0) {
-			container.createDiv({ text: "No annotations found." });
+			container.createDiv({ text: 'No annotations found.' });
 		} else {
 			// --- SORTING LOGIC ---
 			const sortProp = this.settings.sortProperty || 'color';
 
 			this.annotations.sort((a, b) => {
-				// @ts-ignore: Dynamic property access
-				const valA = (a[sortProp] || "").toString().toLowerCase();
-				// @ts-ignore
-				const valB = (b[sortProp] || "").toString().toLowerCase();
+				const valA = getAnnotationSortValue(a, sortProp);
+				const valB = getAnnotationSortValue(b, sortProp);
 
 				// Special handling for Page Label (try numeric sort if possible)
 				if (sortProp === 'pageLabel') {
@@ -119,100 +137,105 @@ export class HighlightModal extends Modal {
 		const section = container.createDiv({ cls: 'zotero-metadata-section' });
 
 		const headerDiv = section.createDiv({ cls: 'zotero-metadata-header' });
-		headerDiv.createEl("h4", { text: "Metadata Verification", cls: "zotero-no-margin" });
+		headerDiv.createEl('h4', {
+			text: 'Metadata Verification',
+			cls: 'zotero-no-margin',
+		});
 
-		const debugBtn = headerDiv.createEl("button", { text: "🔍 Log Raw Data" });
-		debugBtn.addClass("zotero-btn-subtle");
-		debugBtn.setAttribute('title', "Print raw JSON to Developer Console");
+		const debugBtn = headerDiv.createEl('button', { text: '🔍 Log Raw Data' });
+		debugBtn.addClass('zotero-btn-subtle');
+		debugBtn.setAttribute('title', 'Print raw JSON to Developer Console');
 		debugBtn.onclick = async () => {
 			const raw = await this.zotero.getRawMetadata(this.citationKey);
 			console.log(raw);
-			new Notice("Logged to Console");
+			new Notice('Logged to Console');
 		};
 
 		const activeFile = this.app.workspace.getActiveFile();
-		let activeNoteModel: NoteModel<any> | null = null;
+		let activeNoteModel: NoteModel | null = null;
 		let noteLoaded = false;
 
 		if (activeFile) {
 			try {
 				// Using ObsidianNoteFactory from markdown-note-orm
-				activeNoteModel = await ObsidianNoteFactory.loadAndPatch(this.app, activeFile.path);
+				activeNoteModel = await ObsidianNoteFactory.loadAndPatch(
+					this.app,
+					activeFile.path
+				);
 				noteLoaded = true;
-				section.createDiv({ text: `Target: ${activeFile.basename}`, cls: "zotero-verify-target" });
-			} catch (e) { console.error(e); }
+				section.createDiv({
+					text: `Target: ${activeFile.basename}`,
+					cls: 'zotero-verify-target',
+				});
+			} catch (e) {
+				console.error(e);
+			}
 		} else {
-			section.createDiv({ text: "⚠️ No active note found.", cls: "zotero-verify-warning" });
+			section.createDiv({
+				text: '⚠️ No active note found.',
+				cls: 'zotero-verify-warning',
+			});
 		}
 
-		const table = section.createEl("table", { cls: 'zotero-metadata-table' });
-		const headerRow = table.createEl("tr");
-		headerRow.createEl("th", { text: "Field" });
-		headerRow.createEl("th", { text: "Zotero Value" });
-		headerRow.createEl("th", { text: "Status", cls: "zotero-col-status" });
+		const table = section.createEl('table', { cls: 'zotero-metadata-table' });
+		const headerRow = table.createEl('tr');
+		headerRow.createEl('th', { text: 'Field' });
+		headerRow.createEl('th', { text: 'Zotero Value' });
+		headerRow.createEl('th', { text: 'Status', cls: 'zotero-col-status' });
 
 		const mapping = this.settings.metadataMapping || [];
 
 		for (const mapItem of mapping) {
 			if (!mapItem.enabled) continue;
 
-			// @ts-ignore
-			let zValue = meta[mapItem.zoteroProp];
-			if (Array.isArray(zValue)) zValue = zValue.join(", ");
-			if (!zValue) zValue = "-";
-			zValue = String(zValue);
+			const zValue = formatMetadataField(meta, mapItem.zoteroProp);
 
-			const row = table.createEl("tr");
-			row.createEl("td", { text: mapItem.label, cls: "zotero-cell-label" });
+			const row = table.createEl('tr');
+			row.createEl('td', { text: mapItem.label, cls: 'zotero-cell-label' });
 
-			const displayVal = zValue.length > 50 ? zValue.substring(0, 48) + "..." : zValue;
-			row.createEl("td", { text: displayVal, cls: 'zotero-metadata-value' });
+			const displayVal =
+				zValue.length > 50 ? zValue.substring(0, 48) + '...' : zValue;
+			row.createEl('td', { text: displayVal, cls: 'zotero-metadata-value' });
 
-			const statusCell = row.createEl("td", { cls: "zotero-cell-center" });
+			const statusCell = row.createEl('td', { cls: 'zotero-cell-center' });
 
 			if (noteLoaded && activeNoteModel) {
-				this.renderVerifyButton(statusCell, activeNoteModel, mapItem.noteProp, zValue, mapItem.label);
+				this.renderVerifyButton(
+					statusCell,
+					activeNoteModel,
+					mapItem.noteProp,
+					zValue,
+					mapItem.label
+				);
 			} else {
-				statusCell.createSpan({ text: "-" });
+				statusCell.createSpan({ text: '-' });
 			}
 		}
 	}
 
-	private renderVerifyButton(container: HTMLElement, model: NoteModel<any>, propKey: string, zVal: string, label: string) {
-
-		const btn = container.createEl("button", { text: "Verify" });
-		const nVal = String(model.properties.get(propKey) || "").trim().toLowerCase();
+	private renderVerifyButton(
+		container: HTMLElement,
+		model: NoteModel,
+		propKey: string,
+		zVal: string,
+		label: string
+	) {
+		const btn = container.createEl('button', { text: 'Verify' });
+		const nVal = String(model.properties.get(propKey) || '')
+			.trim()
+			.toLowerCase();
 		const zNorm = zVal.trim().toLowerCase();
 		const isMatch = nVal === zNorm || (nVal.length > 5 && zNorm.includes(nVal));
 
 		if (isMatch) {
-			btn.setText("✅");
-			btn.addClass("zotero-text-success");
-			btn.setAttr("disabled", "true");
+			btn.setText('✅');
+			btn.addClass('zotero-text-success');
+			btn.setAttr('disabled', 'true');
 		} else {
-			btn.setText("❌");
-			btn.addClass("zotero-text-error");
+			btn.setText('❌');
+			btn.addClass('zotero-text-error');
 			new Notice(`Mismatch for ${label}`);
 		}
-
-		// ==================== deprecated as auto checking is better ============================
-		// const btn = container.createEl("button", { text: "Verify" });
-		// btn.addClass("zotero-btn-small");
-		// btn.onclick = () => {
-		// 	const nVal = String(model.properties.get(propKey) || "").trim().toLowerCase();
-		// 	const zNorm = zVal.trim().toLowerCase();
-		// 	const isMatch = nVal === zNorm || (nVal.length > 5 && zNorm.includes(nVal));
-		//
-		// 	if (isMatch) {
-		// 		btn.setText("✅");
-		// 		btn.addClass("zotero-text-success");
-		// 		btn.setAttr("disabled", "true");
-		// 	} else {
-		// 		btn.setText("❌");
-		// 		btn.addClass("zotero-text-error");
-		// 		new Notice(`Mismatch for ${label}`);
-		// 	}
-		// };
 	}
 
 	async renderAnnotationCard(container: HTMLElement, ann: ZoteroAnnotation) {
@@ -231,66 +254,89 @@ export class HighlightModal extends Modal {
 		}
 
 		if (localImageFile) {
-			const imgContainer = card.createDiv({ cls: "zotero-img-container" });
-			const imgEl = imgContainer.createEl("img");
+			const imgContainer = card.createDiv({ cls: 'zotero-img-container' });
+			const imgEl = imgContainer.createEl('img');
 			imgEl.src = this.app.vault.getResourcePath(localImageFile);
-			imgEl.addClass("zotero-card-img");
-			imgContainer.createDiv({ text: `📷 ${localImageFile.name}`, cls: "zotero-img-caption" });
+			imgEl.addClass('zotero-card-img');
+			imgContainer.createDiv({
+				text: `📷 ${localImageFile.name}`,
+				cls: 'zotero-img-caption',
+			});
 		} else if (ann.type === 'image' || ann.type === 'ink') {
-			const p = card.createDiv({ cls: "zotero-img-placeholder" });
-			p.createDiv({ text: "📷 Image Not Found" });
-			const btn = p.createEl("button", { text: "📥 Fetch" });
-			btn.addClass("zotero-btn-fancy", "zotero-btn-small");
-			btn.onclick = () => this.zoteroConnector.triggerZoteroIntegrationImport(this.citationKey);
+			const p = card.createDiv({ cls: 'zotero-img-placeholder' });
+			p.createDiv({ text: '📷 Image Not Found' });
+			const btn = p.createEl('button', { text: '📥 Fetch' });
+			btn.addClass('zotero-btn-fancy', 'zotero-btn-small');
+			btn.onclick = () =>
+				this.zoteroConnector.triggerZoteroIntegrationImport(this.citationKey);
 		}
 
-		if (ann.text) card.createEl("blockquote", { text: ann.text, cls: "zotero-blockquote-no-margin" });
-		if (ann.comment) card.createDiv({ text: `📝 ${ann.comment}`, cls: "zotero-comment-italic" });
+		if (ann.text)
+			card.createEl('blockquote', {
+				text: ann.text,
+				cls: 'zotero-blockquote-no-margin',
+			});
+		if (ann.comment)
+			card.createDiv({ text: `📝 ${ann.comment}`, cls: 'zotero-comment-italic' });
 
-		const footer = card.createDiv({ cls: "zotero-card-footer" });
-		const left = footer.createDiv({ cls: "zotero-footer-left" });
+		const footer = card.createDiv({ cls: 'zotero-card-footer' });
+		const left = footer.createDiv({ cls: 'zotero-footer-left' });
 		left.createSpan({ text: `Page ${ann.pageLabel}` });
-		left.createEl("a", { text: "Open PDF", href: ann.link, attr: { target: "_blank" } });
+		left.createEl('a', {
+			text: 'Open PDF',
+			href: ann.link,
+			attr: { target: '_blank' },
+		});
 
-		const right = footer.createDiv({ cls: "zotero-footer-right" });
+		const right = footer.createDiv({ cls: 'zotero-footer-right' });
 
 		const existingNote = await this.obsidian.isAnnotationExported(ann.key);
 
 		if (existingNote) {
-			const btnOpen = right.createEl("button", { text: "Open Note" });
-			btnOpen.addClass("zotero-btn-fancy", "zotero-btn-secondary");
+			const btnOpen = right.createEl('button', { text: 'Open Note' });
+			btnOpen.addClass('zotero-btn-fancy', 'zotero-btn-secondary');
 			btnOpen.onclick = async () => {
 				await this.app.workspace.getLeaf(true).openFile(existingNote);
 				this.close();
 			};
 
-			const replaceBtnOpen = right.createEl("button", { text: "Replace Note" });
-			replaceBtnOpen.addClass("zotero-btn-fancy", "zotero-btn-secondary");
+			const replaceBtnOpen = right.createEl('button', { text: 'Replace Note' });
+			replaceBtnOpen.addClass('zotero-btn-fancy', 'zotero-btn-secondary');
 			replaceBtnOpen.onclick = async () => {
-				await this.obsidian.saveNote(ann, 'overwrite', existingNote, localImageFile);
+				await this.obsidian.saveNote(
+					ann,
+					'overwrite',
+					existingNote,
+					localImageFile
+				);
 				this.close();
 			};
 
-			const appendBtnOpen = right.createEl("button", { text: "Append Note" });
-			appendBtnOpen.addClass("zotero-btn-fancy", "zotero-btn-secondary");
+			const appendBtnOpen = right.createEl('button', { text: 'Append Note' });
+			appendBtnOpen.addClass('zotero-btn-fancy', 'zotero-btn-secondary');
 			appendBtnOpen.onclick = async () => {
-				await this.obsidian.saveNote(ann, 'append', existingNote, localImageFile);
+				await this.obsidian.saveNote(
+					ann,
+					'append',
+					existingNote,
+					localImageFile
+				);
 				this.close();
 			};
-
 		} else {
-			const btnCreate = right.createEl("button", { text: "Create Note", cls: "mod-cta" });
-			btnCreate.addClass("zotero-btn-fancy");
+			const btnCreate = right.createEl('button', {
+				text: 'Create Note',
+				cls: 'mod-cta',
+			});
+			btnCreate.addClass('zotero-btn-fancy');
 			btnCreate.onclick = async () => {
 				const scrollPos = this.contentEl.scrollTop;
 				await this.obsidian.saveNote(ann, 'create', undefined, localImageFile);
-				new Notice("Note Created");
+				new Notice('Note Created');
 				await sleep(200);
 				await this.render();
 				this.contentEl.scrollTop = scrollPos;
 			};
 		}
 	}
-
-
 }

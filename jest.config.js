@@ -2,28 +2,40 @@
 module.exports = {
 	preset: 'ts-jest',
 	testEnvironment: 'jsdom',
+	roots: ['<rootDir>/src', '<rootDir>/tests'],
+	testMatch: ['<rootDir>/tests/**/*.test.ts'],
 	moduleNameMapper: {
-		'^obsidian$': '<rootDir>/__mocks__/obsidian.ts',
+		'^obsidian$': '<rootDir>/tests/__mocks__/obsidian.ts',
 	},
 	transform: {
-		// Cleaned up transform: removing the deprecated 'isolatedModules' option
 		'^.+\\.tsx?$': ['ts-jest', {}],
 	},
 	collectCoverage: true,
 	collectCoverageFrom: [
 		'src/**/*.ts',
+		'!src/**/*.test.ts',
 		'!src/types.ts',
+		'!src/services/digest-types.ts',
 		'!src/**/*.d.ts',
-		'!src/settings.ts',
-		'!src/ui/**/*.ts',
-		'!src/main.ts'
 	],
 	coverageThreshold: {
 		global: {
 			statements: 85,
+			branches: 75,
+			functions: 85,
+			lines: 85,
+		},
+		'./src/services/': {
+			statements: 85,
 			branches: 85,
 			functions: 85,
-			lines: 85
-		}
+			lines: 85,
+		},
+		'./src/utils/': {
+			statements: 85,
+			branches: 85,
+			functions: 85,
+			lines: 85,
+		},
 	},
 };
