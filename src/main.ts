@@ -34,8 +34,11 @@ export default class ZoteroGKPlugin extends Plugin {
 	paperHub!: PaperHubService;
 	vaultLibrary!: VaultLibraryService;
 	private webhookRibbonEl: HTMLElement | null = null;
+	/** True once this instance is unloaded; a reloaded plugin is a new instance. */
+	private unloaded = false;
 
 	async onload() {
+		this.unloaded = false;
 		await this.loadSettings();
 
 		this.zotero = new ZoteroService(this.settings.zoteroPort);
@@ -235,6 +238,8 @@ export default class ZoteroGKPlugin extends Plugin {
 	}
 
 	onunload() {
+		this.unloaded = true;
+		this.cfpService?.cancelScheduledRefreshes();
 		const win = window as unknown as { __ZoteroAnnotationReviewerCFP?: unknown };
 		delete win.__ZoteroAnnotationReviewerCFP;
 	}
@@ -430,6 +435,9 @@ export default class ZoteroGKPlugin extends Plugin {
 	}
 
 	async saveSettings() {
+		// Background work can outlive a reload. Its settings are this instance's old
+		// copy, and writing them would undo what the new instance saved.
+		if (this.unloaded) return;
 		await this.saveData(this.settings);
 	}
 }

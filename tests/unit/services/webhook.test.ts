@@ -231,6 +231,15 @@ describe('WebhookService', () => {
 		await service.triggerWebhook(makeProfile({ name: 'Fail500' }), noteFile);
 		expect(getNoticeMessages()).toContain('⚠️ Fail500 Failed: 500');
 
+		requestUrl.mockResolvedValueOnce({
+			...makeResponse(302),
+			headers: { Location: 'https://login.example.com/start' },
+		});
+		await service.triggerWebhook(makeProfile({ name: 'Redirected' }), noteFile);
+		expect(getNoticeMessages()).toContain(
+			'⚠️ Redirected Failed: 302 (redirected to https://login.example.com/start)'
+		);
+
 		requestUrl.mockRejectedValueOnce(new Error('Network down'));
 		await service.triggerWebhook(makeProfile({ name: 'ErrHook' }), noteFile);
 		expect(getNoticeMessages()).toContain('❌ Webhook Error: Network down');

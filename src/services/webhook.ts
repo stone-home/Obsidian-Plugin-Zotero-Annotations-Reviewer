@@ -215,7 +215,13 @@ export class WebhookService {
 			if (response.status >= 200 && response.status < 300) {
 				new Notice(`✅ ${profile.name} Sent!`);
 			} else {
-				new Notice(`⚠️ ${profile.name} Failed: ${response.status}`);
+				// A 3xx here means the server redirected instead of accepting the request.
+				const location = Object.entries(response.headers ?? {}).find(
+					([name]) => name.toLowerCase() === 'location'
+				)?.[1];
+				const redirect = location ? ` (redirected to ${location})` : '';
+				new Notice(`⚠️ ${profile.name} Failed: ${response.status}${redirect}`);
+				console.error('Webhook Failed Status:', response.status, redirect);
 				console.error('Webhook Failed Body:', body || '');
 			}
 		} catch (e) {

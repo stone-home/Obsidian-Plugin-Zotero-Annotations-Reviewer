@@ -19858,9 +19858,11 @@ var AssistantView = class extends import_obsidian14.MarkdownRenderChild {
       (0, import_obsidian14.setIcon)(iconSpan, "external-link");
     }
   }
-  triggerWebhookFromToolbar(hook, file) {
-    var _a;
-    const vars = ((_a = hook.inputVariables) != null ? _a : []).filter((iv) => {
+  triggerWebhookFromToolbar(rendered, file) {
+    var _a, _b;
+    const current = this.plugin.settings.webhooks || [];
+    const hook = (_a = current.includes(rendered) || !rendered.id ? void 0 : current.find((h) => h.id === rendered.id)) != null ? _a : rendered;
+    const vars = ((_b = hook.inputVariables) != null ? _b : []).filter((iv) => {
       var _a2;
       return (_a2 = iv.name) == null ? void 0 : _a2.trim();
     });
@@ -20434,7 +20436,7 @@ var WebhookService = class {
     this.getSettings = getSettings;
   }
   async triggerWebhook(profile, file, extraVariables, debugMode) {
-    var _a, _b, _c, _d, _e;
+    var _a, _b, _c, _d, _e, _f, _g;
     if (!profile.url) {
       new import_obsidian16.Notice(`\u274C Webhook "${profile.name}" has no URL.`);
       return;
@@ -20580,7 +20582,12 @@ var WebhookService = class {
       if (response.status >= 200 && response.status < 300) {
         new import_obsidian16.Notice(`\u2705 ${profile.name} Sent!`);
       } else {
-        new import_obsidian16.Notice(`\u26A0\uFE0F ${profile.name} Failed: ${response.status}`);
+        const location = (_g = Object.entries((_f = response.headers) != null ? _f : {}).find(
+          ([name]) => name.toLowerCase() === "location"
+        )) == null ? void 0 : _g[1];
+        const redirect = location ? ` (redirected to ${location})` : "";
+        new import_obsidian16.Notice(`\u26A0\uFE0F ${profile.name} Failed: ${response.status}${redirect}`);
+        console.error("Webhook Failed Status:", response.status, redirect);
         console.error("Webhook Failed Body:", body || "");
       }
     } catch (e) {
@@ -21483,6 +21490,8 @@ var CFPService = class {
     this.getSettings = getSettings;
     this.saveSettings = saveSettings;
     this.coreIndex = null;
+    /** Timers of the daily series refreshes that have not run yet. */
+    this.scheduledRefreshes = [];
     this.coreIndexPath = null;
   }
   getLastFetchTime() {
@@ -21963,14 +21972,20 @@ ${body}`;
     for (let i = 0; i < toRefresh.length; i++) {
       const { key } = toRefresh[i];
       const programUrl = map2[key].programUrl;
-      setTimeout(() => {
+      const timer = setTimeout(() => {
         this.refreshSeriesByUrl(
           programUrl,
           key,
           (msg) => console.log("[CFP]", key, msg)
         ).then(() => new import_obsidian22.Notice(`CFP: ${key} refreshed.`)).catch((e) => console.warn("[CFP] daily refresh failed", key, e));
       }, i * MIN_GAP_MS);
+      this.scheduledRefreshes.push(timer);
     }
+  }
+  /** Cancels the series refreshes still waiting to run. Call when the plugin unloads. */
+  cancelScheduledRefreshes() {
+    for (const timer of this.scheduledRefreshes) clearTimeout(timer);
+    this.scheduledRefreshes = [];
   }
   /** Create or overwrite a single CFP note (manual entry). If item has series, place under series folder and link to Series note. */
   async saveManualCFP(item) {
@@ -22815,9 +22830,12 @@ var ZoteroGKPlugin = class extends import_obsidian26.Plugin {
   constructor() {
     super(...arguments);
     this.webhookRibbonEl = null;
+    /** True once this instance is unloaded; a reloaded plugin is a new instance. */
+    this.unloaded = false;
   }
   async onload() {
     var _a, _b;
+    this.unloaded = false;
     await this.loadSettings();
     this.zotero = new ZoteroService(this.settings.zoteroPort);
     this.obsidian = new ObsidianService(this.app, this.settings);
@@ -22970,6 +22988,9 @@ var ZoteroGKPlugin = class extends import_obsidian26.Plugin {
     Promise.resolve().then(() => (init_digest_view(), digest_view_exports)).then((digest) => digest.registerDigest(this)).catch((e) => console.error("[Paper Digest] registration failed", e));
   }
   onunload() {
+    var _a;
+    this.unloaded = true;
+    (_a = this.cfpService) == null ? void 0 : _a.cancelScheduledRefreshes();
     const win = window;
     delete win.__ZoteroAnnotationReviewerCFP;
   }
@@ -23128,6 +23149,7 @@ var ZoteroGKPlugin = class extends import_obsidian26.Plugin {
       this.settings.cfpCcfddlLocalPath = DEFAULT_SETTINGS.cfpCcfddlLocalPath;
   }
   async saveSettings() {
+    if (this.unloaded) return;
     await this.saveData(this.settings);
   }
 };

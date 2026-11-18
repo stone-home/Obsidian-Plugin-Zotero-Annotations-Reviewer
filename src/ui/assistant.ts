@@ -615,7 +615,14 @@ export class AssistantView extends MarkdownRenderChild {
 		}
 	}
 
-	private triggerWebhookFromToolbar(hook: WebhookProfile, file: TFile): void {
+	private triggerWebhookFromToolbar(rendered: WebhookProfile, file: TFile): void {
+		// Saving a webhook in settings replaces its profile object, so the one this
+		// button was rendered with can be out of date. Send the current one.
+		const current = this.plugin.settings.webhooks || [];
+		const hook =
+			(current.includes(rendered) || !rendered.id
+				? undefined
+				: current.find((h) => h.id === rendered.id)) ?? rendered;
 		const vars = (hook.inputVariables ?? []).filter((iv) => iv.name?.trim());
 		if (vars.length > 0) {
 			new AssistantWebhookInputModal(

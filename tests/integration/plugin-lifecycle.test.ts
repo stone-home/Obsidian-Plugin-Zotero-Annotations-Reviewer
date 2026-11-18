@@ -415,5 +415,37 @@ describe('ZoteroGKPlugin integration lifecycle', () => {
 
 			plugin.onunload();
 		});
+
+		it('writes no settings and runs no scheduled series refresh after unload, so a reloaded plugin keeps its newer settings', async () => {
+			const plugin = new ZoteroGKPlugin(harness.app, harness.manifest);
+			plugin.loadData = jest.fn(async () => ({
+				cfpRefreshDays: 0,
+				cfpSeriesRefreshDays: 0,
+				cfpLastDailyRun: 0,
+				cfpSeriesMap: {
+					AAA: { programUrl: 'https://cfp.example.com/a', lastUpdate: 0 },
+					BBB: { programUrl: 'https://cfp.example.com/b', lastUpdate: 0 },
+				},
+			}));
+
+			jest.useFakeTimers();
+			await plugin.onload();
+			// Let the daily job schedule its series refreshes without running them.
+			for (let i = 0; i < 10; i++) await Promise.resolve();
+			expect(jest.getTimerCount()).toBeGreaterThanOrEqual(2);
+
+			// Reloading the plugin unloads this instance; a new one now owns data.json.
+			plugin.onunload();
+			const savesAtUnload = (plugin.saveData as jest.Mock).mock.calls.length;
+			const fetchesAtUnload = requestUrl.mock.calls.length;
+
+			await jest.runAllTimersAsync();
+			jest.useRealTimers();
+			await flushAsync();
+			await plugin.saveSettings();
+
+			expect(requestUrl).toHaveBeenCalledTimes(fetchesAtUnload);
+			expect(plugin.saveData).toHaveBeenCalledTimes(savesAtUnload);
+		});
 	});
 });

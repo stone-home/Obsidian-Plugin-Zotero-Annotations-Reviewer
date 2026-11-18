@@ -143,6 +143,8 @@ export class CFPService {
 	) {}
 
 	private coreIndex: CoreRankIndex | null = null;
+	/** Timers of the daily series refreshes that have not run yet. */
+	private scheduledRefreshes: ReturnType<typeof setTimeout>[] = [];
 	private coreIndexPath: string | null = null;
 
 	getLastFetchTime(): number {
@@ -710,14 +712,21 @@ export class CFPService {
 		for (let i = 0; i < toRefresh.length; i++) {
 			const { key } = toRefresh[i];
 			const programUrl = map[key].programUrl;
-			setTimeout(() => {
+			const timer = setTimeout(() => {
 				this.refreshSeriesByUrl(programUrl, key, (msg) =>
 					console.log('[CFP]', key, msg)
 				)
 					.then(() => new Notice(`CFP: ${key} refreshed.`))
 					.catch((e) => console.warn('[CFP] daily refresh failed', key, e));
 			}, i * MIN_GAP_MS);
+			this.scheduledRefreshes.push(timer);
 		}
+	}
+
+	/** Cancels the series refreshes still waiting to run. Call when the plugin unloads. */
+	cancelScheduledRefreshes(): void {
+		for (const timer of this.scheduledRefreshes) clearTimeout(timer);
+		this.scheduledRefreshes = [];
 	}
 
 	/** Create or overwrite a single CFP note (manual entry). If item has series, place under series folder and link to Series note. */

@@ -252,6 +252,20 @@ describe('AssistantView', () => {
 			typeof secondCallArg === 'string' ? '' : String(secondCallArg.body ?? '');
 		expect(secondBody).toContain('"topic":"consensus"');
 		expect(secondBody).toContain('"depth":3');
+
+		// 5. A webhook edited in settings is sent as edited, without re-rendering the note.
+		// The settings tab replaces the profile object on save, as done here.
+		plugin.settings.webhooks[0] = {
+			...plugin.settings.webhooks[0],
+			headers: [{ key: 'x-test-mode', value: 'true', type: 'text' }],
+		};
+		hookPills[0].click();
+		await flushUi();
+		expect(requestUrl).toHaveBeenCalledTimes(3);
+		const thirdCallArg = requestUrl.mock.calls[2][0];
+		expect(
+			typeof thirdCallArg === 'string' ? {} : thirdCallArg.headers
+		).toMatchObject({ 'x-test-mode': 'true' });
 	});
 
 	it('renders Report 1/2/Takeaway pills, DOI/URL pill, and Code repository pill (including CodeUrlModal validation, auto-https, Clear, and Save)', async () => {
