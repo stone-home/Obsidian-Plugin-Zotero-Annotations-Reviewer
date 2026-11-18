@@ -1,5 +1,8 @@
 import { TFile } from 'obsidian';
-import { WebhookService } from '../../../src/services/webhook';
+import {
+	PROMPT_BASE64_MAX_LENGTH,
+	WebhookService,
+} from '../../../src/services/webhook';
 import { DEFAULT_SETTINGS, MyPluginSettings, WebhookProfile } from '../../../src/types';
 import {
 	requestUrl,
@@ -36,6 +39,10 @@ function makeProfile(overrides: Partial<WebhookProfile> = {}): WebhookProfile {
 		hidden: false,
 		...overrides,
 	};
+}
+
+function base64(text: string): string {
+	return Buffer.from(text, 'utf8').toString('base64');
 }
 
 function sentRequest(callIndex = 0): RequestUrlParam {
@@ -106,6 +113,59 @@ describe('WebhookService', () => {
 			extra: 'hello',
 		});
 		expect(getNoticeMessages()).toContain('✅ Hook Sent!');
+	});
+
+	it('fills absent or empty frontmatter placeholders with null', async () => {
+		const file = harness.addFile('folder/sparse.md', 'body', {
+			status: 'wip',
+			empty: null,
+		});
+
+		await service.triggerWebhook(
+			makeProfile({
+				headers: [
+					{
+						key: 'X-Missing',
+						value: '{{frontmatter.missing}}',
+						type: 'text',
+					},
+				],
+				bodyTemplate: JSON.stringify({
+					present: '{{frontmatter.status}}',
+					missing: '{{frontmatter.missing}}',
+					empty: '{{frontmatter.empty}}',
+					embedded: 'code: {{frontmatter.missing}}',
+					list: ['{{frontmatter.missing}}'],
+					other: '{{unknown}}',
+				}),
+			}),
+			file
+		);
+		expect(JSON.parse(String(sentRequest(0).body))).toEqual({
+			present: 'wip',
+			missing: null,
+			empty: null,
+			embedded: 'code: null',
+			list: [null],
+			other: '{{unknown}}',
+		});
+		expect(sentRequest(0).headers?.['X-Missing']).toBe('null');
+
+		// Text bodies and the invalid-JSON fallback get the literal text null
+		await service.triggerWebhook(
+			makeProfile({
+				contentType: 'text',
+				bodyTemplate: 'code={{frontmatter.missing}}',
+			}),
+			file
+		);
+		expect(sentRequest(1).body).toBe('code=null');
+
+		await service.triggerWebhook(
+			makeProfile({ bodyTemplate: '{"year": {{frontmatter.year}}}' }),
+			file
+		);
+		expect(sentRequest(2).body).toBe('{"year": null}');
 	});
 
 	it('supports GET (no body), text/plain, form-urlencoded, invalid JSON fallback escaping, and debug logging', async () => {
@@ -259,13 +319,81 @@ describe('WebhookService', () => {
 				coreNote: '002-Literature/104-Paper Notes/vaswani2017.md',
 			});
 			expect(parsed.prompts).toEqual({
-				fromVault: vaultPromptText,
-				fromInline: 'Inline custom prompt',
+				fromVault: base64(vaultPromptText),
+				fromInline: base64('Inline custom prompt'),
 				synthPath: '900-Templates/prompt-synthesize.md',
 				emptyPath: '',
 				skippedTpl: '{{prompt.tpl-report1}}',
 				skippedTplPath: '{{path.prompt.tpl-report1}}',
 			});
+		});
+
+		it('sends prompt content as UTF-8 Base64 and refuses a referenced prompt over the length limit', async () => {
+			const litFile = harness.addFile('002-Literature/he2016.md', 'Body', {
+				'citation-key': 'he2016',
+			});
+			const unicodePrompt = '总结这篇论文 — "résumé" 🚀\nline two';
+			settings.prompts.push(
+				{
+					id: 'unicode',
+					name: 'Unicode',
+					vaultPath: '',
+					content: unicodePrompt,
+					builtIn: false,
+				},
+				{
+					id: 'huge',
+					name: 'Huge',
+					vaultPath: '900-Templates/prompt-huge.md',
+					content: 'x'.repeat(PROMPT_BASE64_MAX_LENGTH),
+					builtIn: false,
+				}
+			);
+
+			// An oversized prompt the template does not reference never blocks sending
+			await settingsService.triggerWebhook(
+				makeProfile({
+					bodyTemplate: JSON.stringify({
+						prompt: '{{prompt.unicode}}',
+						hugePath: '{{path.prompt.huge}}',
+					}),
+				}),
+				litFile
+			);
+			expect(JSON.parse(String(sentRequest(0).body))).toEqual({
+				prompt: base64(unicodePrompt),
+				hugePath: '900-Templates/prompt-huge.md',
+			});
+
+			await settingsService.triggerWebhook(
+				makeProfile({ bodyTemplate: '{"prompt": "{{prompt.huge}}"}' }),
+				litFile
+			);
+			expect(requestUrl).toHaveBeenCalledTimes(1);
+			const encodedKb = (
+				base64('x'.repeat(PROMPT_BASE64_MAX_LENGTH)).length / 1024
+			).toFixed(1);
+			expect(getNoticeMessages()).toContain(
+				`❌ {{prompt.huge}} is too long to send: ${encodedKb} KB as Base64, limit 20 KB. Use {{path.prompt.huge}} instead.`
+			);
+
+			// A prompt whose Base64 is exactly at the limit is still sent
+			const atLimit = 'x'.repeat((PROMPT_BASE64_MAX_LENGTH / 4) * 3);
+			settings.prompts.push({
+				id: 'edge',
+				name: 'Edge',
+				vaultPath: '',
+				content: atLimit,
+				builtIn: false,
+			});
+			await settingsService.triggerWebhook(
+				makeProfile({ bodyTemplate: '{"prompt": "{{prompt.edge}}"}' }),
+				litFile
+			);
+			expect(JSON.parse(String(sentRequest(1).body))).toEqual({
+				prompt: base64(atLimit),
+			});
+			expect(base64(atLimit)).toHaveLength(PROMPT_BASE64_MAX_LENGTH);
 		});
 
 		it('falls back to filename basename when frontmatter has no citation key', async () => {

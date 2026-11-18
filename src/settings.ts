@@ -1104,7 +1104,7 @@ export class ZoteroSettingTab extends PluginSettingTab {
 		);
 
 		promptsCard.createDiv({
-			text: 'LLM synthesis and research prompts. Click a {{prompt.<id>}} chip to copy its webhook placeholder.',
+			text: 'LLM synthesis and research prompts. Click a {{prompt.<id>}} chip to copy its webhook placeholder; webhooks send the content as Base64.',
 			cls: 'setting-item-description zotero-desc-tight',
 		});
 

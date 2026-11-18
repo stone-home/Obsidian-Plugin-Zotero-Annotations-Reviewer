@@ -9996,7 +9996,7 @@ Write your prompt instructions here.
       true
     );
     promptsCard.createDiv({
-      text: "LLM synthesis and research prompts. Click a {{prompt.<id>}} chip to copy its webhook placeholder.",
+      text: "LLM synthesis and research prompts. Click a {{prompt.<id>}} chip to copy its webhook placeholder; webhooks send the content as Base64.",
       cls: "setting-item-description zotero-desc-tight"
     });
     const promptList = promptsCard.createDiv({ cls: "zotero-template-file-list" });
@@ -20419,6 +20419,15 @@ var WebhookInputValueModal = class extends import_obsidian15.Modal {
 var import_obsidian16 = require("obsidian");
 init_paths();
 init_paper_hub();
+var FRONTMATTER_PLACEHOLDER = /\{\{frontmatter\.[^{}]+\}\}/g;
+var PROMPT_BASE64_MAX_LENGTH = 20 * 1024;
+function toBase64Utf8(text) {
+  const utf8Bytes = encodeURIComponent(text).replace(
+    /%([0-9A-F]{2})/g,
+    (_match, hex) => String.fromCharCode(parseInt(hex, 16))
+  );
+  return btoa(utf8Bytes);
+}
 var WebhookService = class {
   constructor(app, getSettings) {
     this.app = app;
@@ -20443,9 +20452,27 @@ var WebhookService = class {
         "{{content}}": String(content != null ? content : ""),
         "{{timestamp}}": (/* @__PURE__ */ new Date()).toISOString()
       };
+      const nullPlaceholders = /* @__PURE__ */ new Set();
       Object.keys(frontmatter).forEach((key) => {
-        variables[`{{frontmatter.${key}}}`] = String(frontmatter[key]);
+        const placeholder = `{{frontmatter.${key}}}`;
+        variables[placeholder] = String(frontmatter[key]);
+        if (frontmatter[key] == null) nullPlaceholders.add(placeholder);
       });
+      const templates = [
+        profile.method !== "GET" ? profile.bodyTemplate || "" : "",
+        ...profile.headers.map((h) => {
+          var _a2;
+          return String((_a2 = h.value) != null ? _a2 : "");
+        })
+      ];
+      for (const template of templates) {
+        for (const match of template.matchAll(FRONTMATTER_PLACEHOLDER)) {
+          const placeholder = match[0];
+          if (variables[placeholder] !== void 0) continue;
+          variables[placeholder] = "null";
+          nullPlaceholders.add(placeholder);
+        }
+      }
       if (this.getSettings) {
         const settings = this.getSettings();
         const fallbackName = (file.basename || safeFilename).replace(
@@ -20477,7 +20504,15 @@ var WebhookService = class {
           })
         );
         for (const item of resolvedPrompts) {
-          variables[`{{prompt.${item.id}}}`] = String((_c = item.content) != null ? _c : "");
+          const placeholder = `{{prompt.${item.id}}}`;
+          const encoded = toBase64Utf8(String((_c = item.content) != null ? _c : ""));
+          if (encoded.length > PROMPT_BASE64_MAX_LENGTH && templates.some((template) => template.includes(placeholder))) {
+            new import_obsidian16.Notice(
+              `\u274C ${placeholder} is too long to send: ${(encoded.length / 1024).toFixed(1)} KB as Base64, limit ${PROMPT_BASE64_MAX_LENGTH / 1024} KB. Use {{path.prompt.${item.id}}} instead.`
+            );
+            return;
+          }
+          variables[placeholder] = encoded;
           variables[`{{path.prompt.${item.id}}}`] = String((_d = item.path) != null ? _d : "");
         }
       }
@@ -20494,7 +20529,8 @@ var WebhookService = class {
             const templateObj = JSON.parse(rawTemplate);
             const filledObj = this.fillTemplateRecursive(
               templateObj,
-              variables
+              variables,
+              nullPlaceholders
             );
             body = JSON.stringify(filledObj);
           } catch (e) {
@@ -20552,21 +20588,28 @@ var WebhookService = class {
       new import_obsidian16.Notice(`\u274C Webhook Error: ${e.message}`);
     }
   }
-  fillTemplateRecursive(item, variables) {
+  fillTemplateRecursive(item, variables, nullPlaceholders) {
     if (typeof item === "string") {
+      if (nullPlaceholders.has(item)) return null;
       let result = item;
       for (const [key, val] of Object.entries(variables)) {
         result = result.split(key).join(String(val != null ? val : ""));
       }
       return result;
     } else if (Array.isArray(item)) {
-      return item.map((child) => this.fillTemplateRecursive(child, variables));
+      return item.map(
+        (child) => this.fillTemplateRecursive(child, variables, nullPlaceholders)
+      );
     } else if (typeof item === "object" && item !== null) {
       const newObj = {};
       for (const [key, value] of Object.entries(
         item
       )) {
-        newObj[key] = this.fillTemplateRecursive(value, variables);
+        newObj[key] = this.fillTemplateRecursive(
+          value,
+          variables,
+          nullPlaceholders
+        );
       }
       return newObj;
     }

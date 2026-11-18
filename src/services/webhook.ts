@@ -3,6 +3,23 @@ import { MyPluginSettings, WebhookProfile } from '../types';
 import { normalizePath } from '../utils/paths';
 import { resolvePaperPaths } from './paper-hub';
 
+const FRONTMATTER_PLACEHOLDER = /\{\{frontmatter\.[^{}]+\}\}/g;
+
+/**
+ * Longest Base64 prompt, in characters, that a `{{prompt.ID}}` placeholder may send.
+ * 20 KB is the payload size the Standard Webhooks spec recommends staying under;
+ * it advises sending a reference for anything larger.
+ */
+export const PROMPT_BASE64_MAX_LENGTH = 20 * 1024;
+
+function toBase64Utf8(text: string): string {
+	const utf8Bytes = encodeURIComponent(text).replace(
+		/%([0-9A-F]{2})/g,
+		(_match, hex: string) => String.fromCharCode(parseInt(hex, 16))
+	);
+	return btoa(utf8Bytes);
+}
+
 export class WebhookService {
 	private app: App;
 	private getSettings?: () => MyPluginSettings;
@@ -41,9 +58,25 @@ export class WebhookService {
 				'{{timestamp}}': new Date().toISOString(),
 			};
 
+			// Frontmatter placeholders whose key is empty or absent resolve to null.
+			const nullPlaceholders = new Set<string>();
 			Object.keys(frontmatter).forEach((key) => {
-				variables[`{{frontmatter.${key}}}`] = String(frontmatter[key]);
+				const placeholder = `{{frontmatter.${key}}}`;
+				variables[placeholder] = String(frontmatter[key]);
+				if (frontmatter[key] == null) nullPlaceholders.add(placeholder);
 			});
+			const templates = [
+				profile.method !== 'GET' ? profile.bodyTemplate || '' : '',
+				...profile.headers.map((h) => String(h.value ?? '')),
+			];
+			for (const template of templates) {
+				for (const match of template.matchAll(FRONTMATTER_PLACEHOLDER)) {
+					const placeholder = match[0];
+					if (variables[placeholder] !== undefined) continue;
+					variables[placeholder] = 'null';
+					nullPlaceholders.add(placeholder);
+				}
+			}
 
 			// 2b. Paper Workspace & Prompt Placeholders
 			if (this.getSettings) {
@@ -86,8 +119,20 @@ export class WebhookService {
 					})
 				);
 
+				// Prompt content is sent as Base64 (UTF-8); long prompts must go by path.
 				for (const item of resolvedPrompts) {
-					variables[`{{prompt.${item.id}}}`] = String(item.content ?? '');
+					const placeholder = `{{prompt.${item.id}}}`;
+					const encoded = toBase64Utf8(String(item.content ?? ''));
+					if (
+						encoded.length > PROMPT_BASE64_MAX_LENGTH &&
+						templates.some((template) => template.includes(placeholder))
+					) {
+						new Notice(
+							`❌ ${placeholder} is too long to send: ${(encoded.length / 1024).toFixed(1)} KB as Base64, limit ${PROMPT_BASE64_MAX_LENGTH / 1024} KB. Use {{path.prompt.${item.id}}} instead.`
+						);
+						return;
+					}
+					variables[placeholder] = encoded;
 					variables[`{{path.prompt.${item.id}}}`] = String(item.path ?? '');
 				}
 			}
@@ -109,7 +154,8 @@ export class WebhookService {
 						const templateObj = JSON.parse(rawTemplate);
 						const filledObj = this.fillTemplateRecursive(
 							templateObj,
-							variables
+							variables,
+							nullPlaceholders
 						);
 						body = JSON.stringify(filledObj);
 					} catch (e) {
@@ -180,22 +226,31 @@ export class WebhookService {
 
 	private fillTemplateRecursive(
 		item: unknown,
-		variables: Record<string, string>
+		variables: Record<string, string>,
+		nullPlaceholders: Set<string>
 	): unknown {
 		if (typeof item === 'string') {
+			// A value that is only a null placeholder becomes JSON null, not "null".
+			if (nullPlaceholders.has(item)) return null;
 			let result = item;
 			for (const [key, val] of Object.entries(variables)) {
 				result = result.split(key).join(String(val ?? ''));
 			}
 			return result;
 		} else if (Array.isArray(item)) {
-			return item.map((child) => this.fillTemplateRecursive(child, variables));
+			return item.map((child) =>
+				this.fillTemplateRecursive(child, variables, nullPlaceholders)
+			);
 		} else if (typeof item === 'object' && item !== null) {
 			const newObj: Record<string, unknown> = {};
 			for (const [key, value] of Object.entries(
 				item as Record<string, unknown>
 			)) {
-				newObj[key] = this.fillTemplateRecursive(value, variables);
+				newObj[key] = this.fillTemplateRecursive(
+					value,
+					variables,
+					nullPlaceholders
+				);
 			}
 			return newObj;
 		}

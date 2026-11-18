@@ -38,7 +38,7 @@ A companion plugin for Zotero, Better BibTeX, and the [Zotero Integration](https
 
 - **Modular webhook system**
   - Configure multiple HTTP webhooks (`GET`, `POST`, `PUT`, `DELETE`) with JSON, form-encoded, or plain-text body templates, custom headers backed by plain text or Obsidian `secretStorage`, and optional runtime **input variables** (`{{name}}`).
-  - Supports rich placeholders including `{{filename}}`, `{{path}}`, `{{content}}`, `{{timestamp}}`, `{{frontmatter.KEY}}`, Paper Workspace paths (`{{citekey}}`, `{{path.zotero_note}}`, `{{path.report1}}`, `{{path.report2}}`, `{{path.takeaway}}`, `{{path.core_note}}`), and Vault prompt contents (`{{prompt.ID}}`, `{{path.prompt.ID}}`).
+  - Supports rich placeholders including `{{filename}}`, `{{path}}`, `{{content}}`, `{{timestamp}}`, `{{frontmatter.KEY}}`, Paper Workspace paths (`{{citekey}}`, `{{path.zotero_note}}`, `{{path.report1}}`, `{{path.report2}}`, `{{path.takeaway}}`, `{{path.core_note}}`), and Vault prompts (`{{prompt.ID}}` for the Base64-encoded content, `{{path.prompt.ID}}` for the Vault path).
   - Trigger webhooks from the `zotero-assistant` view, `ConnectorModal`, command palette (`Trigger Webhook...`), or an optional sidebar ribbon icon.
 
 - **CFP (Call For Papers) management & CCF/CORE rankings**
@@ -236,8 +236,9 @@ The citekey is read from the configured citation key (`citation-key` by default)
    - Add headers as needed (supports plain text and Obsidian `secretStorage` secrets).
    - Define input variables if you want to be prompted at trigger time (e.g. `custom`, `id`).
 3. Use placeholders in the body template:
-   - `{{filename}}`, `{{path}}`, `{{content}}`, `{{timestamp}}`, and `{{frontmatter.KEY}}`.
+   - `{{filename}}`, `{{path}}`, `{{content}}`, `{{timestamp}}`, and `{{frontmatter.KEY}}`. A frontmatter key that is empty or absent is sent as `null`.
    - `{{citekey}}`, `{{path.zotero_note}}`, `{{path.report1}}`, `{{path.report2}}`, `{{path.takeaway}}`, `{{path.core_note}}`, `{{prompt.ID}}`, and `{{path.prompt.ID}}`.
+   - `{{prompt.ID}}` sends the prompt content as UTF-8 Base64, so the receiver must decode it. A prompt over 20 KB as Base64 (about 15 KB of text) is not sent; use `{{path.prompt.ID}}` for it instead.
    - `{{custom}}`, `{{id}}` for your defined runtime input variables.
 4. Trigger the webhook from the Assistant dashboard, `ConnectorModal`, the `Trigger Webhook...` command, or the optional sidebar ribbon icon.
 
